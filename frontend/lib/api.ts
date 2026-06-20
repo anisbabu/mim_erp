@@ -175,6 +175,14 @@ export const endpoints = {
   availability: (productId: string) =>
     api.get<WarehouseStock[]>(`/api/inventory/availability?productId=${productId}`),
   stockOverview: () => api.get<StockRow[]>("/api/inventory/overview"),
+  stockReportPdf: async (): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/inventory/stock-report`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Failed to generate stock report");
+    return res.blob();
+  },
   priceVariance: (scope: "warehouse" | "company") =>
     api.get<VarianceRow[]>(`/api/inventory/price-variance?scope=${scope}`),
   adjust: (b: unknown) => api.post("/api/inventory/adjustments", b),
