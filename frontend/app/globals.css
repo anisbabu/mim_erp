@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme variables — flipped by the dark/light toggle in Shell.tsx.            */
+:root {
+  --bg:           #ffffff;
+  --surface:      #ffffff;
+  --text:         #0f172a;     /* ink */
+  --muted:        #64748b;     /* slate-500 */
+  --border:       #e2e8f0;     /* slate-200 */
+  --border-soft:  #f1f5f9;     /* slate-100 */
+  --input-border: #cbd5e1;     /* slate-300 */
+  --input-bg:     #ffffff;
+  --input-disabled-bg: #f8fafc;
+  --placeholder:  #94a3b8;     /* slate-400 */
+  --header-bg:    #ffffff;
+  --aside-bg:     #f1f5f9;     /* ash */
+  --aside-border: #e2e8f0;     /* ashdark */
+  --aside-text:   #39404a;
+  --tbl-th-bg:    transparent;
+  --tbl-tr-hover: #f8fafc;
+  --tbl-tfoot-bg: #f8fafc;
+  --note-ok-bg:   #ecfdf5;
+  --note-ok-fg:   #047857;
+  --note-err-bg:  #fff1f2;
+  --note-err-fg:  #be123c;
+  --chip-open-bg: #e6efe9;
+  --chip-open-fg: #1d5e4f;
+  --chip-other-bg:#f0eee8;
+  --chip-other-fg:#6b6960;
+}
+html.dark {
+  --bg:           #0b1220;     /* page background */
+  --surface:      #111a2c;     /* cards / table panel */
+  --text:         #e2e8f0;
+  --muted:        #94a3b8;
+  --border:       #1f2a3d;
+  --border-soft:  #1a2438;
+  --input-border: #2c3a55;
+  --input-bg:     #0f1a30;
+  --input-disabled-bg: #15203b;
+  --placeholder:  #64748b;
+  --header-bg:    #0b1220;
+  --aside-bg:     #0f1a30;
+  --aside-border: #1f2a3d;
+  --aside-text:   #cbd5e1;
+  --tbl-th-bg:    transparent;
+  --tbl-tr-hover: #15203b;
+  --tbl-tfoot-bg: #15203b;
+  --note-ok-bg:   #064e3b;
+  --note-ok-fg:   #a7f3d0;
+  --note-err-bg:  #4c0519;
+  --note-err-fg:  #fecdd3;
+  --chip-open-bg: #064e3b;
+  --chip-open-fg: #a7f3d0;
+  --chip-other-bg:#2c3a55;
+  --chip-other-fg:#cbd5e1;
+}
+
+@layer base {
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  * { -webkit-tap-highlight-color: transparent; }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------
+     FORM FIELD
+     Label has a fixed one-line height and inputs align to the TOP of
+     each grid cell, so nothing shifts up/down when a hint appears or a
+     value is selected. This is what fixes the "field jumps" oddness.
+  ----------------------------------------------------------------*/
+  .field { @apply flex flex-col gap-1.5 min-w-0; }
+  .field > label, .lbl { @apply block text-xs font-medium leading-4 h-4 truncate; color: var(--muted); }
+
+  .inp {
+    @apply w-full h-10 box-border rounded-lg border px-3 text-sm transition-colors;
+    background: var(--input-bg);
+    color: var(--text);
+    border-color: var(--input-border);
+  }
+  .inp::placeholder { color: var(--placeholder); }
+  .inp:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgb(15 118 110 / 0.25);
+    border-color: #0f766e;
+  }
+  textarea.inp { @apply h-auto min-h-[80px] py-2 leading-relaxed; }
+  .inp:disabled, .inp[readonly] {
+    background: var(--input-disabled-bg);
+    color: var(--muted);
+    cursor: default;
+  }
+  select.inp {
+    @apply appearance-none pr-9 bg-no-repeat;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2364748b' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-position: right 0.7rem center;
+  }
+  html.dark select.inp {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  }
+  .inp.num, .num { @apply text-right tabular-nums; }
+
+  /* form grid: align inputs to the top of every cell */
+  .form-grid { @apply grid gap-x-4 gap-y-4 items-start; }
+  .form-grid.cols-2 { @apply grid-cols-1 sm:grid-cols-2; }
+  .form-grid.cols-3 { @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3; }
+  .form-grid.cols-4 { @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-4; }
+
+  /* buttons */
+  .btn { @apply inline-flex items-center justify-center h-10 rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-50; }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center h-10 rounded-lg border px-4 text-sm font-medium transition-colors;
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--input-border);
+  }
+  .btn-ghost:hover { background: var(--tbl-tr-hover); }
+  .btn-sm { @apply h-8 px-3 text-[13px]; }
+  .btn-danger-ghost { color: #e11d48; border-color: #fecdd3; }
+  .btn-danger-ghost:hover { background: #fff1f2; }
+  html.dark .btn-danger-ghost { color: #fda4af; border-color: #4c0519; }
+  html.dark .btn-danger-ghost:hover { background: #4c0519; }
+
+  /* cards / panels */
+  .card {
+    @apply rounded-xl border shadow-card;
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+  }
+  .muted { color: var(--muted); }
+  .page-title { @apply text-xl font-semibold tracking-tight; color: var(--text); }
+  .section-label { @apply text-[11px] uppercase tracking-wider font-semibold; color: var(--muted); }
+
+  /* tables */
+  .tbl { @apply w-full border-collapse text-sm; }
+  .tbl th {
+    @apply text-left font-semibold px-3 py-2.5 border-b whitespace-nowrap;
+    color: var(--muted);
+    border-color: var(--border);
+    background: var(--tbl-th-bg);
+  }
+  .tbl td {
+    @apply px-3 py-2.5 border-b align-middle;
+    border-color: var(--border-soft);
+    color: var(--text);
+  }
+  .tbl tbody tr { transition: background-color 120ms ease; }
+  .tbl tbody tr:hover { background: var(--tbl-tr-hover); }
+  .tbl tfoot td {
+    border-top: 1px solid var(--border);
+    background: var(--tbl-tfoot-bg);
+    color: var(--text);
+  }
+  .table-wrap { @apply overflow-x-auto; }
+
+  /* feedback */
+  .note { @apply text-sm rounded-lg px-3.5 py-2.5; }
+  .note-ok { background: var(--note-ok-bg); color: var(--note-ok-fg); }
+  .note-err { background: var(--note-err-bg); color: var(--note-err-fg); }
+
+  /* status chip */
+  .chip { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium; }
+}
+
+/* keep span-2/3 fields from forcing extra columns on phones */
+@media (max-width: 640px) {
+  .form-grid > [style*="grid-column"] { grid-column: auto !important; }
+}
+
+/* Inline Tailwind utility replacements that pre-date the theme tokens.        */
+.bg-body   { background: var(--bg); }
+.bg-surface{ background: var(--surface); }
+.bg-ash    { background: var(--aside-bg); }
+.bg-white  { background: var(--surface); }
+.text-ink  { color: var(--text); }
+.text-brand{ color: #0f766e; }
+.border-line      { border-color: var(--border); }
+.border-ashdark   { border-color: var(--aside-border); }
+.border-slate-200 { border-color: var(--border); }
+.border-slate-300 { border-color: var(--input-border); }
