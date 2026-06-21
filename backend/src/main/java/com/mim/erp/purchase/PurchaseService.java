@@ -171,7 +171,7 @@ public class PurchaseService {
         for (GoodsReceipt grn : grns.findByPoIdOrderByReceiptDateAsc(poId)) {
             for (GrnLine gl : grn.getLines()) {
                 String name = products.findById(gl.getReceivedProductId())
-                    .map(p -> p.getName()).orElse("—");
+                    .map(p -> p.getFullName() != null ? p.getFullName() : p.getName()).orElse("—");
                 result.add(new PurchaseDtos.ReceiptView(
                     grn.getGrnNo(), grn.getReceiptDate(), name, gl.getQtyReceived()));
             }
@@ -185,7 +185,7 @@ public class PurchaseService {
             .orElseThrow(() -> new ApiException("Purchase order not found"));
         var lines = po.getLines().stream().map(l -> {
             String name = products.findById(l.getProductId())
-                .map(p -> p.getName()).orElse("?");
+                .map(p -> p.getFullName() != null ? p.getFullName() : p.getName()).orElse("?");
             return new PurchaseDtos.PoLineView(l.getId(), l.getProductId(), name,
                 l.getQtyOrdered(), l.getQtyBalance(), l.getUnitPrice(), l.isFreeProduct());
         }).toList();
@@ -209,7 +209,7 @@ public class PurchaseService {
         java.math.BigDecimal[] totalValue = { java.math.BigDecimal.ZERO };
         var lines = po.getLines().stream().map(l -> {
             String name = products.findById(l.getProductId())
-                .map(p -> p.getName()).orElse("?");
+                .map(p -> p.getFullName() != null ? p.getFullName() : p.getName()).orElse("?");
             totalQty[0] = totalQty[0].add(l.getQtyOrdered());
             // free lines carry zero price; including them leaves totalValue unchanged
             if (l.getUnitPrice() != null) {

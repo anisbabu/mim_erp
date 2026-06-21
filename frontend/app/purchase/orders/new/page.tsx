@@ -25,7 +25,7 @@ export default function NewPoPage() {
   const supplierOpts: Option[] = useMemo(
     () => suppliers.map((s) => ({ value: s.id, label: dn(s), sublabel: s.code })), [suppliers, dn]);
   const productOpts: Option[] = useMemo(
-    () => products.map((p) => ({ value: p.id, label: dn(p) + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""), sublabel: p.sku })), [products, dn]);
+    () => products.map((p) => ({ value: p.id, label: p.fullName || (dn(p) + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: p.sku })), [products, dn]);
 
   const update = (i: number, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));

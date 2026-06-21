@@ -4,6 +4,14 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
+/** Format ISO date string "yyyy-mm-dd" → "dd/mm/yyyy" for display. */
+export function fmtDate(d: string | null | undefined): string {
+  if (!d) return "—";
+  const parts = d.split("-");
+  if (parts.length !== 3) return d;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
 let authToken: string | null = null;
 export function setToken(t: string | null) {
   authToken = t;
@@ -57,9 +65,10 @@ export const api = {
 // ---- shared types (mirror backend DTOs) ----
 export type Product = {
   id: string; sku: string; name: string; nameBn?: string; type: "BOARD" | "HARDWARE";
-  thicknessMm?: number; unit?: string; priceLower?: number; priceUpper?: number; active?: boolean;
+  thicknessMm?: number; unit?: string; priceLower?: number; priceUpper?: number;
+  supplierId?: string; category?: string; color?: string; fullName?: string; active?: boolean;
 };
-export type Warehouse = { id: string; code: string; name: string; nameBn?: string; address?: string };
+export type Warehouse = { id: string; code: string; name: string; nameBn?: string; branch?: string; address?: string };
 export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string };
 export type Shop      = {
   id: string; code: string; name: string; nameBn?: string; primaryLine: string;
@@ -85,7 +94,7 @@ export type LedgerRow = {
   period_debit: number; period_credit: number; closing: number;
 };
 export type FinancialYear = {
-  id: string; name: string; startDate: string; endDate: string;
+  id: string; name: string; startDate: string; middleDate?: string; endDate: string;
   status: "OPEN" | "CLOSED"; current?: boolean;
 };
 export type OpeningBalance = { id?: string; financialYearId?: string; accountId: string; debit: number; credit: number; };
@@ -118,6 +127,7 @@ export type DeliveryChallan = { id: string; dcNo: string; customerId: string; wa
 
 export type WarehouseStock = { warehouseId: string; qty: number };
 export type StockRow = { productId: string; warehouseId: string; qty: number; value: number };
+export type SupplierStockRow = { supplierId: string; productId: string; qty: number; value: number };
 export type VarianceRow = {
   productId: string; warehouseId: string | null;
   minCost: number; maxCost: number; avgCost: number; qtyOnHand: number;
@@ -174,7 +184,8 @@ export const endpoints = {
   // inventory
   availability: (productId: string) =>
     api.get<WarehouseStock[]>(`/api/inventory/availability?productId=${productId}`),
-  stockOverview: () => api.get<StockRow[]>("/api/inventory/overview"),
+  stockOverview:    () => api.get<StockRow[]>("/api/inventory/overview"),
+  stockBySupplier:  () => api.get<SupplierStockRow[]>("/api/inventory/overview/by-supplier"),
   stockReportPdf: async (): Promise<Blob> => {
     const token = loadToken();
     const res = await fetch(`${BASE}/api/inventory/stock-report`, {

@@ -196,7 +196,7 @@ export default function NewSalePage() {
                       <option value="">Select…</option>
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name}{p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""}
+                          {p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""))}
                         </option>
                       ))}
                     </select>

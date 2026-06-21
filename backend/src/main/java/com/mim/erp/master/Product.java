@@ -20,5 +20,9 @@ public class Product {
     private BigDecimal priceLower;  // selling price band (fixed, management-set)
     private BigDecimal priceUpper;
     private BigDecimal taxRate;     // nullable: tax-aware, inactive
+    @Column(name = "supplier_id") private UUID supplierId;
+    private String category;
+    private String color;
+    private String fullName;
     private boolean active = true;
 }

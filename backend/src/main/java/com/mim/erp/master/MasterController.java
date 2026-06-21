@@ -73,6 +73,8 @@ public class MasterController {
         p.setSku(in.getSku()); p.setName(in.getName()); p.setNameBn(in.getNameBn()); p.setType(in.getType());
         p.setThicknessMm(in.getThicknessMm()); p.setUnit(in.getUnit());
         p.setPriceLower(in.getPriceLower()); p.setPriceUpper(in.getPriceUpper());
+        p.setSupplierId(in.getSupplierId()); p.setCategory(in.getCategory()); p.setColor(in.getColor());
+        p.setFullName(in.getFullName());
         p.setActive(in.isActive());
         return products.save(p);
     }

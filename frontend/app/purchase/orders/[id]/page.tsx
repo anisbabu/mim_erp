@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { endpoints, type PoDetails, type Product } from "@/lib/api";
+import { endpoints, fmtDate, type PoDetails, type Product } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
 export default function PoDetailsPage() {
@@ -50,7 +50,7 @@ export default function PoDetailsPage() {
       <div className="card p-5 mb-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
           <div><span className="muted">Supplier:</span> <span className="font-medium">{data.supplierName}</span></div>
-          <div><span className="muted">Date:</span> <span>{data.orderDate}</span></div>
+          <div><span className="muted">Date:</span> <span>{fmtDate(data.orderDate)}</span></div>
           <div><span className="muted">Status:</span>{" "}
             <span className="text-xs px-2 py-0.5 rounded-full"
               style={{ background: data.status === "OPEN" ? "var(--chip-open-bg)" : "var(--chip-other-bg)",
@@ -73,7 +73,7 @@ export default function PoDetailsPage() {
             {data.lines.length === 0 && <tr><td colSpan={5} className="muted">No lines.</td></tr>}
             {data.lines.map((l) => {
               const p = products[l.productId];
-              const name = l.productName || p?.name || "—";
+              const name = l.productName || p?.fullName || p?.name || "—";
               const sku  = p?.sku;
               const lineTotal = (l.qtyOrdered || 0) * (l.unitPrice || 0);
               return (

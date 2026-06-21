@@ -291,7 +291,7 @@ public class SalesService {
 
         Set<UUID> pids = so.getLines().stream().map(SoLine::getProductId).collect(Collectors.toSet());
         Map<UUID, String> productNames = new HashMap<>();
-        products.findAllById(pids).forEach(p -> productNames.put(p.getId(), p.getName()));
+        products.findAllById(pids).forEach(p -> productNames.put(p.getId(), p.getFullName() != null ? p.getFullName() : p.getName()));
 
         try {
             Document doc = new Document(PageSize.A4, 40, 40, 60, 40);

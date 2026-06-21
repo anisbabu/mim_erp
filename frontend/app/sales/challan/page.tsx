@@ -158,7 +158,7 @@ export default function ChallanPage() {
                     <select className="inp" value={l.productId}
                       onChange={(e) => { update(i, { productId: e.target.value }); loadStock(e.target.value); }}>
                       <option value="">Select…</option>
-                      {products.map((p) => <option key={p.id} value={p.id}>{p.name}{p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""}</option>)}
+                      {products.map((p) => <option key={p.id} value={p.id}>{p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""))}</option>)}
                     </select>
                   </td>
                   <td className="text-right tabular-nums" style={{ color: a === 0 ? "#b4690e" : undefined }}>

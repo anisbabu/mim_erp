@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { endpoints, type PoView, type Warehouse, type Product, type ReceiptView } from "@/lib/api";
+import { endpoints, fmtDate, type PoView, type Warehouse, type Product, type ReceiptView } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 
@@ -29,7 +29,7 @@ export default function ReceivePage() {
   }, []);
 
   const productOpts: Option[] = useMemo(
-    () => products.map((p) => ({ value: p.id, label: dn(p) + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""), sublabel: p.sku })),
+    () => products.map((p) => ({ value: p.id, label: p.fullName || (dn(p) + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: p.sku })),
     [products, dn]);
 
   function seed(v: PoView) {
@@ -150,7 +150,7 @@ export default function ReceivePage() {
               <tbody>
                 {history.map((h, i) => (
                   <tr key={i}>
-                    <td>{h.receiptDate}</td>
+                    <td>{fmtDate(h.receiptDate)}</td>
                     <td className="font-mono text-[13px]">{h.grnNo}</td>
                     <td>{h.productName}</td>
                     <td className="num">{h.qtyReceived}</td>
