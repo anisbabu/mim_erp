@@ -37,6 +37,12 @@ public class SalesController {
     @GetMapping("/challans/open")
     public java.util.List<DeliveryChallan> openChallans() { return service.openChallans(); }
 
+    /** All lines from open challans for one customer — for the consolidation review form. */
+    @GetMapping("/challans/open/lines")
+    public java.util.List<SalesDtos.ChallanLineView> openChallanLines(@RequestParam UUID customerId) {
+        return service.openChallanLines(customerId);
+    }
+
     /** All challans — for the list/search page. */
     @GetMapping("/challans")
     public java.util.List<DeliveryChallan> allChallans() { return service.allChallans(); }

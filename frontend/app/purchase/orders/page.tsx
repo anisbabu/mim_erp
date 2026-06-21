@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { endpoints, type PurchaseOrder, type Supplier } from "@/lib/api";
+import { endpoints, fmtDate, type PurchaseOrder, type Supplier } from "@/lib/api";
 
 const PAGE_SIZE = 20;
 
@@ -74,7 +74,7 @@ export default function PoListPage() {
                       <div className="text-[12px] text-[var(--muted)]">{sup.mobile}</div>
                     )}
                   </td>
-                  <td>{p.orderDate}</td>
+                  <td>{fmtDate(p.orderDate)}</td>
                   <td>
                     <span className="text-xs px-2 py-0.5 rounded-full"
                       style={{ background: p.status === "OPEN" ? "var(--chip-open-bg)" : "var(--chip-other-bg)",

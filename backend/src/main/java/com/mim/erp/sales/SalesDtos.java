@@ -26,8 +26,17 @@ public class SalesDtos {
         String discountBy
     ) {}
 
+    /** One editable line sent back from the consolidation form. */
+    public record LineOverride(UUID dcLineId, BigDecimal unitPrice, BigDecimal discountAmt) {}
+
     /** DC_FIRST consolidation at day end: roll a customer's challans into one SO. */
-    public record ConsolidateRequest(UUID customerId, String paymentMode, String creditOverrideBy) {}
+    public record ConsolidateRequest(UUID customerId, String paymentMode, String creditOverrideBy,
+        String priceOverrideBy, String discountBy, List<LineOverride> lineOverrides) {}
+
+    /** One challan line surfaced for the consolidation review form. */
+    public record ChallanLineView(UUID dcLineId, String dcNo, UUID productId, String productName,
+        BigDecimal qty, BigDecimal unitPrice, BigDecimal unitCost, BigDecimal discountAmt,
+        BigDecimal priceLower, BigDecimal priceUpper) {}
 
     public record OrderResult(UUID soId, String soNo, List<UUID> challanIds, BigDecimal totalValue, BigDecimal totalCost) {}
 }

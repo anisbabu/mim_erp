@@ -13,5 +13,6 @@ public class Warehouse {
     private String code;
     private String name;
     private String nameBn;
+    private String branch;
     private String address;
 }

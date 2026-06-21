@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { endpoints, type LedgerRow, type JournalEntryView } from "@/lib/api";
+import { endpoints, fmtDate, type LedgerRow, type JournalEntryView } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 
@@ -117,7 +117,7 @@ export default function JournalPage() {
           <div key={idx} className="card table-wrap">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-slate-50/60">
               <div className="text-sm"><span className="font-mono text-xs muted mr-2">{e.entryNo}</span>{e.narration}</div>
-              <div className="text-xs muted">{e.entryDate} · {e.sourceType}</div>
+              <div className="text-xs muted">{fmtDate(e.entryDate)} · {e.sourceType}</div>
             </div>
             <table className="tbl">
               <tbody>

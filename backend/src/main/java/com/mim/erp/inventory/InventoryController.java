@@ -62,6 +62,12 @@ public class InventoryController {
             : layers.varianceByWarehouse();
     }
 
+    /** Stock on hand grouped by supplier + product. */
+    @GetMapping("/overview/by-supplier")
+    public List<StockLayerRepository.SupplierStockRow> bySupplier() {
+        return layers.stockBySupplier();
+    }
+
     /** Stock-on-hand report as PDF. */
     @GetMapping(value = "/stock-report", produces = "application/pdf")
     public ResponseEntity<byte[]> stockReport() {

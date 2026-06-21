@@ -13,6 +13,7 @@ public class FinancialYear {
     private UUID id;
     private String name;
     private LocalDate startDate;
+    private LocalDate middleDate;
     private LocalDate endDate;
     private String status = "OPEN";   // OPEN | CLOSED
     private boolean isCurrent = false;

@@ -13,7 +13,9 @@ export default function ShopsPage() {
 
   const load = () => endpoints.shops().then(setRows).catch(() => {});
   useEffect(() => { load(); }, []);
-  const filtered = rows.filter((r) => { const v=q.trim().toLowerCase(); return !v || [r.code,r.name,r.nameBn].filter(Boolean).some((x)=>x!.toLowerCase().includes(v)); });
+  const filtered = rows
+    .filter((r) => { const v=q.trim().toLowerCase(); return !v || [r.code,r.name,r.nameBn].filter(Boolean).some((x)=>x!.toLowerCase().includes(v)); })
+    .sort((a, b) => (a.code ?? "").localeCompare(b.code ?? ""));
 
   function reset() { setF({ primaryLine: "BOARD" }); setEditId(null); }
 
@@ -73,13 +75,14 @@ export default function ShopsPage() {
       </div>
       <div className="card table-wrap">
         <table className="tbl">
-          <thead><tr><th>{t("Code")}</th><th>{t("Name")}</th><th>{t("Primary line")}</th>
+          <thead><tr><th>{t("Code")}</th><th>{t("Name")}</th><th>{t("Name (Bangla)")}</th><th>{t("Primary line")}</th>
             <th className="text-right">{t("Monthly target")}</th><th className="text-right">{t("Actions")}</th></tr></thead>
           <tbody>
             {filtered.map((s) => (
               <tr key={s.id}>
                 <td className="font-mono text-[13px]">{s.code}</td>
                 <td>{dn(s)}</td>
+                <td className="muted">{s.nameBn ?? "—"}</td>
                 <td className="text-xs">{s.primaryLine === "BOARD" ? t("Board") : t("Hardware")}</td>
                 <td className="num">{s.monthlyTarget ?? 0}</td>
                 <td className="text-right whitespace-nowrap">

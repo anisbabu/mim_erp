@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
-import { endpoints, type SalesOrder, type Customer } from "@/lib/api";
+import { endpoints, fmtDate, type SalesOrder, type Customer } from "@/lib/api";
 
 const PAGE_SIZE = 20;
 
@@ -88,7 +88,7 @@ export default function SalesOrdersPage() {
                     )}
                   </td>
                   <td className="text-xs">{o.workflow}</td>
-                  <td>{o.orderDate}</td>
+                  <td>{fmtDate(o.orderDate)}</td>
                   <td>{o.status}</td>
                   <td className="text-right">
                     <button

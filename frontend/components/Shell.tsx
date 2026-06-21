@@ -52,7 +52,8 @@ const groups: { label: string; items: Item[] }[] = [
 ];
 
 type Theme = "light" | "dark";
-const THEME_KEY = "mim_theme";
+const THEME_KEY   = "mim_theme";
+const SIDEBAR_KEY = "mim_sidebar";
 
 function applyTheme(t: Theme) {
   if (typeof document === "undefined") return;
@@ -63,22 +64,31 @@ export default function Shell({ children }: { children: ReactNode }) {
   const { user, ready, logout } = useAuth();
   const { t, lang, setLang } = useI18n();
   const pathname = usePathname();
-  const [openNav, setOpenNav] = useState(false);
-  const [theme, setTheme] = useState<Theme>("light");
+  const [openNav,   setOpenNav]   = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [theme,     setTheme]     = useState<Theme>("light");
 
-  // Apply the theme on mount + whenever the user toggles it. Runs whether or
-  // not the user is signed in, so the login screen honours the saved choice.
   useEffect(() => {
-    const saved = (typeof window !== "undefined" && localStorage.getItem(THEME_KEY)) as Theme | null;
-    const initial: Theme = saved === "dark" ? "dark" : "light";
+    const savedTheme = (typeof window !== "undefined" && localStorage.getItem(THEME_KEY)) as Theme | null;
+    const initial: Theme = savedTheme === "dark" ? "dark" : "light";
     setTheme(initial);
     applyTheme(initial);
+
+    const savedSidebar = typeof window !== "undefined" && localStorage.getItem(SIDEBAR_KEY);
+    if (savedSidebar === "collapsed") setCollapsed(true);
   }, []);
+
   function toggleTheme() {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
     applyTheme(next);
     if (typeof window !== "undefined") localStorage.setItem(THEME_KEY, next);
+  }
+
+  function toggleSidebar() {
+    const next = !collapsed;
+    setCollapsed(next);
+    if (typeof window !== "undefined") localStorage.setItem(SIDEBAR_KEY, next ? "collapsed" : "expanded");
   }
 
   if (!ready) return <div className="min-h-screen flex items-center justify-center muted">{t("Loading…")}</div>;
@@ -88,49 +98,84 @@ export default function Shell({ children }: { children: ReactNode }) {
     .map((g) => ({ ...g, items: g.items.filter((it) => it.roles.includes(user.role)) }))
     .filter((g) => g.items.length > 0);
 
-  const sidebar = (
-    <aside className="w-60 shrink-0 bg-ash border-r border-ashdark px-3 py-5 overflow-y-auto flex flex-col h-full">
-      <div className="px-2 mb-5">
-        <div className="font-mono text-sm tracking-tight text-brand">MIM</div>
-        <div className="text-[11px] muted">{t("Plywood & Hardware")}</div>
+  const sidebar = (isMobile = false) => (
+    <aside
+      className="bg-ash border-r border-ashdark flex flex-col h-full overflow-hidden transition-all duration-200"
+      style={{ width: isMobile || !collapsed ? 240 : 48 }}>
+
+      {/* header row: logo + collapse toggle */}
+      <div className="flex items-center justify-between px-3 py-4 shrink-0">
+        {(!collapsed || isMobile) && (
+          <div className="min-w-0">
+            <div className="font-mono text-sm tracking-tight text-brand">MIM</div>
+            <div className="text-[11px] muted truncate">{t("Plywood & Hardware")}</div>
+          </div>
+        )}
+        {!isMobile && (
+          <button
+            onClick={toggleSidebar}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="shrink-0 h-7 w-7 rounded-full flex items-center justify-center transition-colors shadow-sm"
+            style={{ background: "#0f766e", color: "#ffffff" }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {collapsed
+                ? <><polyline points="5,3 9,7 5,11" /></>
+                : <><polyline points="9,3 5,7 9,11" /></>}
+            </svg>
+          </button>
+        )}
       </div>
-      <nav className="flex flex-col gap-4 flex-1">
+
+      {/* nav */}
+      <nav className="flex flex-col gap-3 flex-1 overflow-y-auto px-2 pb-2">
         {visible.map((g, i) => (
           <div key={i}>
-            {g.label && <div className="section-label px-2 mb-1">{t(g.label)}</div>}
-            <div className="flex flex-col gap-0.5">
-              {g.items.map((n) => {
-                const active = pathname === n.href;
-                return (
-                  <Link key={n.href} href={n.href} onClick={() => setOpenNav(false)}
-                    className="px-2.5 py-1.5 rounded-lg text-sm"
-                    style={active ? { background: "#2f6f5e", color: "#fff" } : { color: "var(--aside-text)" }}>
-                    {t(n.label)}
-                  </Link>
-                );
-              })}
-            </div>
+            {g.label && !collapsed && (
+              <div className="section-label px-2 mb-1">{t(g.label)}</div>
+            )}
+            {(!collapsed || isMobile) && (
+              <div className="flex flex-col gap-0.5">
+                {g.items.map((n) => {
+                  const active = pathname === n.href;
+                  return (
+                    <Link key={n.href} href={n.href} onClick={() => setOpenNav(false)}
+                      className="px-2.5 py-1.5 rounded-lg text-sm transition-colors"
+                      style={{
+                        background: active ? "#2f6f5e" : "transparent",
+                        color: active ? "#fff" : "var(--aside-text)",
+                        whiteSpace: "nowrap", overflow: "hidden",
+                      }}>
+                      {t(n.label)}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ))}
       </nav>
-      <div className="border-t border-ashdark pt-3 mt-3 px-2">
-        <div className="text-sm font-medium">{user.fullName || user.username}</div>
-        <div className="text-[11px] muted mb-2 capitalize">{user.role.toLowerCase()}</div>
-        <button className="btn-ghost btn-sm w-full" onClick={logout}>{t("Sign out")}</button>
-      </div>
+
+      {/* user footer */}
+      {(!collapsed || isMobile) && (
+        <div className="border-t border-ashdark pt-3 pb-4 px-4 shrink-0">
+          <div className="text-sm font-medium truncate">{user.fullName || user.username}</div>
+          <div className="text-[11px] muted mb-2 capitalize">{user.role.toLowerCase()}</div>
+          <button className="btn-ghost btn-sm w-full" onClick={logout}>{t("Sign out")}</button>
+        </div>
+      )}
     </aside>
   );
 
   return (
     <div className="min-h-screen flex bg-body">
       {/* desktop sidebar */}
-      <div className="hidden md:flex h-screen sticky top-0">{sidebar}</div>
+      <div className="hidden md:flex h-screen sticky top-0">{sidebar(false)}</div>
 
       {/* mobile drawer */}
       {openNav && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpenNav(false)} />
-          <div className="absolute left-0 top-0 h-full">{sidebar}</div>
+          <div className="absolute left-0 top-0 h-full">{sidebar(true)}</div>
         </div>
       )}
 
@@ -140,7 +185,6 @@ export default function Shell({ children }: { children: ReactNode }) {
           <button className="md:hidden btn-ghost btn-sm" onClick={() => setOpenNav(true)} aria-label="Menu">☰</button>
           <div className="flex-1" />
 
-          {/* Theme toggle — top-right corner */}
           <button
             onClick={toggleTheme}
             aria-label="Toggle dark mode"
@@ -150,7 +194,6 @@ export default function Shell({ children }: { children: ReactNode }) {
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
 
-          {/* Language toggle */}
           <div className="flex items-center rounded-lg border border-line overflow-hidden text-sm">
             {(["en", "bn"] as const).map((l) => (
               <button key={l} onClick={() => setLang(l)}

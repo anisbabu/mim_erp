@@ -44,11 +44,13 @@ export default function WarehousesPage() {
         <div className="form-grid cols-4">
           <div className="field"><label>{t("Code")}</label>
             <input className="inp" value={f.code ?? ""} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>
-          <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Name")}</label>
+          <div className="field"><label>{t("Name")}</label>
             <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
-          <div className="field"><label>{t("Name (Bangla)")}</label>
+          <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Name (Bangla)")}</label>
             <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
-          <div className="field" style={{ gridColumn: "span 4" }}><label>{t("Address")}</label>
+          <div className="field" style={{ gridColumn: "span 2" }}><label>Branch</label>
+            <input className="inp" value={f.branch ?? ""} onChange={(e) => setF({ ...f, branch: e.target.value })} /></div>
+          <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Address")}</label>
             <input className="inp" value={f.address ?? ""} onChange={(e) => setF({ ...f, address: e.target.value })} /></div>
         </div>
         <div className="mt-4 flex items-center gap-2">
@@ -63,12 +65,14 @@ export default function WarehousesPage() {
       </div>
       <div className="card table-wrap">
         <table className="tbl">
-          <thead><tr><th>{t("Code")}</th><th>{t("Name")}</th><th>{t("Address")}</th><th className="text-right">{t("Actions")}</th></tr></thead>
+          <thead><tr><th>{t("Code")}</th><th>{t("Name")}</th><th>{t("Name (Bangla)")}</th><th>Branch</th><th>{t("Address")}</th><th className="text-right">{t("Actions")}</th></tr></thead>
           <tbody>
             {filtered.map((w) => (
               <tr key={w.id}>
                 <td className="font-mono text-[13px]">{w.code}</td>
                 <td>{dn(w)}</td>
+                <td className="muted">{w.nameBn ?? "—"}</td>
+                <td className="muted">{w.branch ?? "—"}</td>
                 <td className="muted">{w.address ?? "—"}</td>
                 <td className="text-right whitespace-nowrap">
                   <button className="btn-ghost btn-sm mr-2" onClick={() => edit(w)}>{t("Edit")}</button>

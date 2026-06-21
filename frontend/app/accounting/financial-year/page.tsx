@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { endpoints, type FinancialYear, type LedgerRow, type OpeningBalance } from "@/lib/api";
+import { endpoints, fmtDate, type FinancialYear, type LedgerRow, type OpeningBalance } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
 export default function FinancialYearPage() {
@@ -10,7 +10,7 @@ export default function FinancialYearPage() {
   const [ledgers, setLedgers] = useState<LedgerRow[]>([]);
   const [activeYear, setActiveYear] = useState<string>("");
   const [openings, setOpenings] = useState<Record<string, { debit: string; credit: string }>>({});
-  const [nf, setNf] = useState<{ name: string; startDate: string; endDate: string; current: boolean }>(
+  const [nf, setNf] = useState<{ name: string; startDate: string; middleDate?: string; endDate: string; current: boolean }>(
     { name: "", startDate: "", endDate: "", current: true });
   const [q, setQ] = useState("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -76,12 +76,12 @@ export default function FinancialYearPage() {
       {/* years */}
       <div className="card table-wrap mb-6">
         <table className="tbl">
-          <thead><tr><th>{t("Name")}</th><th>{t("Start date")}</th><th>{t("End date")}</th><th>{t("Status")}</th><th className="text-right">{t("Actions")}</th></tr></thead>
+          <thead><tr><th>{t("Name")}</th><th>{t("Start date")}</th><th>{t("Middle date")}</th><th>{t("End date")}</th><th>{t("Status")}</th><th className="text-right">{t("Actions")}</th></tr></thead>
           <tbody>
             {years.map((y) => (
               <tr key={y.id}>
                 <td className="font-medium">{y.name}{y.current && <span className="chip ml-2 bg-brand-soft text-brand">{t("Current")}</span>}</td>
-                <td>{y.startDate}</td><td>{y.endDate}</td>
+                <td>{fmtDate(y.startDate)}</td><td>{fmtDate(y.middleDate)}</td><td>{fmtDate(y.endDate)}</td>
                 <td><span className={`chip ${y.status === "OPEN" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{y.status}</span></td>
                 <td className="text-right">
                   {!y.current && <button className="btn-ghost btn-sm" onClick={() => makeCurrent(y.id)}>{t("Set current")}</button>}
@@ -92,15 +92,17 @@ export default function FinancialYearPage() {
         </table>
         <div className="border-t border-slate-200 p-4">
           <div className="section-label mb-3">{t("Financial year")} — {t("Add")}</div>
-          <div className="form-grid cols-4">
+          <div className="form-grid items-start gap-x-4 gap-y-4" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)" }}>
             <div className="field"><label>{t("Name")}</label>
               <input className="inp" placeholder="2026-2027" value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} /></div>
             <div className="field"><label>{t("Start date")}</label>
               <input className="inp" type="date" value={nf.startDate} onChange={(e) => setNf({ ...nf, startDate: e.target.value })} /></div>
+            <div className="field"><label>{t("Middle date")}</label>
+              <input className="inp" type="date" value={nf.middleDate ?? ""} onChange={(e) => setNf({ ...nf, middleDate: e.target.value || undefined })} /></div>
             <div className="field"><label>{t("End date")}</label>
               <input className="inp" type="date" value={nf.endDate} onChange={(e) => setNf({ ...nf, endDate: e.target.value })} /></div>
             <div className="field"><label>{t("Set current")}</label>
-              <label className="inp flex items-center gap-2 cursor-pointer">
+              <label className="h-10 flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={nf.current} onChange={(e) => setNf({ ...nf, current: e.target.checked })} />
                 <span className="text-sm muted">{t("Current")}</span>
               </label></div>

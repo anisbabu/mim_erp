@@ -28,7 +28,12 @@ export default function UsersPage() {
   const [editBusy, setEditBusy] = useState(false);
 
   const load = () => endpoints.users().then(setUsers).catch(() => {});
-  useEffect(() => { load(); endpoints.shops().then(setShops).catch(() => {}); }, []);
+  useEffect(() => {
+    load();
+    endpoints.shops()
+      .then((s) => setShops([...s].sort((a, b) => (a.code ?? "").localeCompare(b.code ?? ""))))
+      .catch(() => {});
+  }, []);
 
   const bindsShops = role === "SALESPERSON" || role === "MANAGER";
   const single = role === "SALESPERSON";

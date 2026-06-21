@@ -196,21 +196,48 @@ public class SalesService {
         BigDecimal cost = dc.getLines().stream()
             .map(l -> l.getQty().multiply(l.getUnitCost()))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-        accounting.post(dc.getChallanDate(), "Delivery " + dc.getDcNo(),
-            "SALES_DELIVERY", dc.getId(),
-            List.of(Leg.debit("5000", cost), Leg.credit("1200", cost)));
+        if (cost.signum() > 0) {
+            accounting.post(dc.getChallanDate(), "Delivery " + dc.getDcNo(),
+                "SALES_DELIVERY", dc.getId(),
+                List.of(Leg.debit("5000", cost), Leg.credit("1200", cost)));
+        }
 
         return dc;
     }
 
-    /** Day-end: consolidate a customer's ISSUED challans (today) into one SO + post revenue. */
+    /** All ISSUED challan lines for a customer — shown in the consolidation review form. */
+    @Transactional(readOnly = true)
+    public List<SalesDtos.ChallanLineView> openChallanLines(UUID customerId) {
+        List<DeliveryChallan> open = challans.findByCustomerIdAndStatus(customerId, "ISSUED");
+        List<SalesDtos.ChallanLineView> result = new java.util.ArrayList<>();
+        for (DeliveryChallan dc : open) {
+            for (DcLine dl : dc.getLines()) {
+                Product p = products.findById(dl.getProductId()).orElse(null);
+                String name = p != null && p.getFullName() != null ? p.getFullName()
+                    : (p != null ? p.getName() : "?");
+                result.add(new SalesDtos.ChallanLineView(
+                    dl.getId(), dc.getDcNo(), dl.getProductId(), name,
+                    dl.getQty(), dl.getUnitPrice(), dl.getUnitCost(),
+                    dl.getDiscountAmt() != null ? dl.getDiscountAmt() : BigDecimal.ZERO,
+                    p != null ? p.getPriceLower() : null,
+                    p != null ? p.getPriceUpper() : null));
+            }
+        }
+        return result;
+    }
+
+    /** Day-end: consolidate a customer's ISSUED challans into one SO + post revenue. */
     @Transactional
     public SalesDtos.OrderResult consolidate(SalesDtos.ConsolidateRequest req) {
         LocalDate today = LocalDate.now();
-        List<DeliveryChallan> open = challans
-            .findByCustomerIdAndChallanDateAndStatus(req.customerId(), today, "ISSUED");
+        List<DeliveryChallan> open = challans.findByCustomerIdAndStatus(req.customerId(), "ISSUED");
         if (open.isEmpty())
-            throw new ApiException("No open challans to consolidate for this customer today");
+            throw new ApiException("No open challans to consolidate for this customer");
+
+        // build override map keyed by dcLineId
+        Map<UUID, SalesDtos.LineOverride> overrides = req.lineOverrides() != null
+            ? req.lineOverrides().stream().collect(Collectors.toMap(SalesDtos.LineOverride::dcLineId, x -> x))
+            : Map.of();
 
         BigDecimal totalValue = BigDecimal.ZERO, totalCost = BigDecimal.ZERO;
         SalesOrder so = new SalesOrder();
@@ -226,15 +253,19 @@ public class SalesService {
         int ln = 1;
         for (DeliveryChallan dc : open) {
             for (DcLine dl : dc.getLines()) {
+                SalesDtos.LineOverride ov = overrides.get(dl.getId());
+                BigDecimal unitPrice = ov != null ? ov.unitPrice() : dl.getUnitPrice();
+                BigDecimal discountAmt = ov != null ? ov.discountAmt()
+                    : (dl.getDiscountAmt() != null ? dl.getDiscountAmt() : BigDecimal.ZERO);
                 SoLine sl = new SoLine();
                 sl.setSo(so);
                 sl.setProductId(dl.getProductId());
                 sl.setQty(dl.getQty());
-                sl.setUnitPrice(dl.getUnitPrice());
-                sl.setDiscountAmt(dl.getDiscountAmt() != null ? dl.getDiscountAmt() : BigDecimal.ZERO);
+                sl.setUnitPrice(unitPrice);
+                sl.setDiscountAmt(discountAmt);
                 sl.setLineNo(ln++);
                 so.getLines().add(sl);
-                totalValue = totalValue.add(lineNet(dl.getQty(), dl.getUnitPrice(), dl.getDiscountAmt()));
+                totalValue = totalValue.add(lineNet(dl.getQty(), unitPrice, discountAmt));
                 totalCost  = totalCost.add(dl.getQty().multiply(dl.getUnitCost()));
             }
         }
@@ -444,13 +475,15 @@ public class SalesService {
     /** Revenue + COGS in one delivery (SO_FIRST). */
     private void postSale(SalesOrder so, BigDecimal value, BigDecimal cost) {
         String ar = receivableAccount(so.getPaymentMode(), so.getCustomerId());
-        accounting.post(so.getOrderDate(), "Sale " + so.getSoNo(), "SALES_DELIVERY", so.getId(),
-            List.of(
-                Leg.debit(ar, value),
-                Leg.credit("4000", value),
-                Leg.debit("5000", cost),
-                Leg.credit("1200", cost)
-            ));
+        List<Leg> legs = new java.util.ArrayList<>(List.of(
+            Leg.debit(ar, value),
+            Leg.credit("4000", value)
+        ));
+        if (cost.signum() > 0) {
+            legs.add(Leg.debit("5000", cost));
+            legs.add(Leg.credit("1200", cost));
+        }
+        accounting.post(so.getOrderDate(), "Sale " + so.getSoNo(), "SALES_DELIVERY", so.getId(), legs);
     }
 
     /** Price band + below-cost guard. Requires override authoriser if breached. */

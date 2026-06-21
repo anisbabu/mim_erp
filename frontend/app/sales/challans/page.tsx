@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
-import { endpoints, type DeliveryChallan, type Customer } from "@/lib/api";
+import { endpoints, fmtDate, type DeliveryChallan, type Customer } from "@/lib/api";
 
 const PAGE_SIZE = 20;
 
@@ -67,7 +67,7 @@ export default function ChallanListPage() {
                       <div className="text-[12px] text-[var(--muted)]">{cust.mobile}</div>
                     )}
                   </td>
-                  <td>{dc.challanDate}</td>
+                  <td>{fmtDate(dc.challanDate)}</td>
                   <td>
                     <span className="text-xs px-2 py-0.5 rounded-full"
                       style={{

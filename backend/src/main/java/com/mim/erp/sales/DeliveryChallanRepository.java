@@ -10,5 +10,6 @@ public interface DeliveryChallanRepository extends JpaRepository<DeliveryChallan
         UUID customerId, LocalDate challanDate, String status);
 
     List<DeliveryChallan> findByStatus(String status);
+    List<DeliveryChallan> findByCustomerIdAndStatus(UUID customerId, String status);
     List<DeliveryChallan> findAllByOrderByChallanDateDescDcNoDesc();
 }

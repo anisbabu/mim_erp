@@ -90,6 +90,27 @@ public interface StockLayerRepository extends JpaRepository<StockLayer, UUID> {
     """)
     List<VarianceRow> varianceCompanyWide();
 
+    /** Stock on hand grouped by supplier + product (joins across purchase module). */
+    @Query(value = """
+        SELECT po.supplier_id AS supplierId, sl.product_id AS productId,
+               SUM(sl.qty_remaining) AS qty, SUM(sl.qty_remaining * sl.unit_cost) AS value
+        FROM stock_layer sl
+        JOIN grn_line gl ON gl.id = sl.grn_line_id
+        JOIN goods_receipt gr ON gr.id = gl.grn_id
+        JOIN purchase_order po ON po.id = gr.po_id
+        WHERE sl.qty_remaining > 0
+        GROUP BY po.supplier_id, sl.product_id
+        ORDER BY po.supplier_id, sl.product_id
+    """, nativeQuery = true)
+    List<SupplierStockRow> stockBySupplier();
+
+    interface SupplierStockRow {
+        UUID getSupplierId();
+        UUID getProductId();
+        BigDecimal getQty();
+        BigDecimal getValue();
+    }
+
     interface VarianceRow {
         UUID getProductId();
         UUID getWarehouseId();
