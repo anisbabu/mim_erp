@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, type AccountGroup, type LedgerRow } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { EditIcon, TrashIcon } from "@/components/Icons";
 
 const NATURES = ["ASSET", "LIABILITY", "EQUITY", "INCOME", "EXPENSE"] as const;
 
@@ -162,9 +163,9 @@ export default function ChartOfAccountsPage() {
                       <td className="num">{Number(l.period_credit).toFixed(2)}</td>
                       <td className="num font-medium">{Number(l.closing).toFixed(2)}</td>
                       <td className="text-right whitespace-nowrap">
-                        <button className="btn-ghost btn-sm mr-1" onClick={() => editLedger(l)}>{t("Edit")}</button>
+                        <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => editLedger(l)}><EditIcon /></button>
                         {!l.is_system && !l.party_type &&
-                          <button className="btn-ghost btn-sm btn-danger-ghost" onClick={() => removeLedger(l.id)}>{t("Delete")}</button>}
+                          <button className="btn-icon btn-icon-del" title="Delete" onClick={() => removeLedger(l.id)}><TrashIcon /></button>}
                       </td>
                     </tr>
                   ))}

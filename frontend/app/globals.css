@@ -2,60 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Theme variables — flipped by the dark/light toggle in Shell.tsx.            */
+/* ─── Theme tokens ──────────────────────────────────────────────────────────── */
 :root {
-  --bg:           #ffffff;
-  --surface:      #ffffff;
-  --text:         #0f172a;     /* ink */
-  --muted:        #64748b;     /* slate-500 */
-  --border:       #e2e8f0;     /* slate-200 */
-  --border-soft:  #f1f5f9;     /* slate-100 */
-  --input-border: #cbd5e1;     /* slate-300 */
-  --input-bg:     #ffffff;
-  --input-disabled-bg: #f8fafc;
-  --placeholder:  #94a3b8;     /* slate-400 */
-  --header-bg:    #ffffff;
-  --aside-bg:     #f1f5f9;     /* ash */
-  --aside-border: #e2e8f0;     /* ashdark */
-  --aside-text:   #39404a;
-  --tbl-th-bg:    transparent;
-  --tbl-tr-hover: #f8fafc;
-  --tbl-tfoot-bg: #f8fafc;
-  --note-ok-bg:   #ecfdf5;
-  --note-ok-fg:   #047857;
-  --note-err-bg:  #fff1f2;
-  --note-err-fg:  #be123c;
-  --chip-open-bg: #e6efe9;
-  --chip-open-fg: #1d5e4f;
-  --chip-other-bg:#f0eee8;
-  --chip-other-fg:#6b6960;
+  --bg:                #f9fafb;
+  --surface:           #ffffff;
+  --text:              #1f2937;
+  --muted:             #6b7280;
+  --border:            #e5e7eb;
+  --border-soft:       #f3f4f6;
+  --input-border:      #d1d5db;
+  --input-bg:          #ffffff;
+  --input-disabled-bg: #f9fafb;
+  --placeholder:       #9ca3af;
+  --header-bg:         #ffffff;
+  --aside-bg:          #f3f4f6;
+  --aside-border:      #e5e7eb;
+  --aside-text:        #374151;
+  --tbl-th-bg:         #f9fafb;
+  --tbl-tr-hover:      #f3f4f6;
+  --tbl-tfoot-bg:      #f9fafb;
+  --note-ok-bg:        #f0fdf4;
+  --note-ok-fg:        #166534;
+  --note-err-bg:       #fef2f2;
+  --note-err-fg:       #991b1b;
+  --chip-open-bg:      #dcfce7;
+  --chip-open-fg:      #166534;
+  --chip-other-bg:     #f3f4f6;
+  --chip-other-fg:     #6b7280;
 }
 html.dark {
-  --bg:           #0e1d5c;     /* page background — visible midnight blue */
-  --surface:      #2440b0;     /* cards / table panel */
-  --text:         #e8eeff;
-  --muted:        #8099cc;
-  --border:       #3254c0;
-  --border-soft:  #2a46a8;
-  --input-border: #4a68d0;
-  --input-bg:     #1a2e90;
+  --bg:                #0e1d5c;
+  --surface:           #2440b0;
+  --text:              #e8eeff;
+  --muted:             #8099cc;
+  --border:            #3254c0;
+  --border-soft:       #2a46a8;
+  --input-border:      #4a68d0;
+  --input-bg:          #1a2e90;
   --input-disabled-bg: #1e3498;
-  --placeholder:  #5070b8;
-  --header-bg:    #0e1d5c;
-  --aside-bg:     #1a2e90;
-  --aside-border: #3254c0;
-  --aside-text:   #c0ccee;
-  --tbl-th-bg:    transparent;
-  --tbl-tr-hover: #2c4ec0;
-  --tbl-tfoot-bg: #2440b0;
-  --note-ok-bg:   #064e3b;
-  --note-ok-fg:   #a7f3d0;
-  --note-err-bg:  #4c0519;
-  --note-err-fg:  #fecdd3;
-  --chip-open-bg: #064e3b;
-  --chip-open-fg: #a7f3d0;
-  --chip-other-bg:#2a3f88;
-  --chip-other-fg:#c0ccee;
+  --placeholder:       #5070b8;
+  --header-bg:         #0e1d5c;
+  --aside-bg:          #1a2e90;
+  --aside-border:      #3254c0;
+  --aside-text:        #c0ccee;
+  --tbl-th-bg:         #1e3498;
+  --tbl-tr-hover:      #2c4ec0;
+  --tbl-tfoot-bg:      #2440b0;
+  --note-ok-bg:        #064e3b;
+  --note-ok-fg:        #a7f3d0;
+  --note-err-bg:       #4c0519;
+  --note-err-fg:       #fecdd3;
+  --chip-open-bg:      #064e3b;
+  --chip-open-fg:      #a7f3d0;
+  --chip-other-bg:     #2a3f88;
+  --chip-other-fg:     #c0ccee;
 }
 
 @layer base {
@@ -63,123 +63,150 @@ html.dark {
     background: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
+    font-size: 13px;
   }
   * { -webkit-tap-highlight-color: transparent; }
 }
 
 @layer components {
-  /* ---------------------------------------------------------------
-     FORM FIELD
-     Label has a fixed one-line height and inputs align to the TOP of
-     each grid cell, so nothing shifts up/down when a hint appears or a
-     value is selected. This is what fixes the "field jumps" oddness.
-  ----------------------------------------------------------------*/
-  .field { @apply flex flex-col gap-1.5 min-w-0; }
-  .field > label, .lbl { @apply block text-xs font-medium leading-4 h-4 truncate; color: var(--muted); }
 
+  /* ── Field / label ──────────────────────────────────────────────────────── */
+  .field { @apply flex flex-col items-center gap-1 min-w-0; }
+  .field > label, .lbl {
+    @apply text-[11px] font-semibold leading-4 h-4 uppercase tracking-wide text-center w-full;
+    color: var(--muted);
+  }
+  /* inputs inside field still fill full width */
+  .field > .inp, .field > select.inp, .field > textarea.inp { @apply w-full; }
+
+  /* ── Inputs ─────────────────────────────────────────────────────────────── */
   .inp {
-    @apply w-full h-10 box-border rounded-lg border px-3 text-sm transition-colors;
+    @apply w-full h-8 box-border rounded border px-2.5 text-[13px] transition-colors;
     background: var(--input-bg);
     color: var(--text);
     border-color: var(--input-border);
   }
-  .inp::placeholder { color: var(--placeholder); }
+  .inp::placeholder { color: var(--placeholder); font-size: 12px; }
   .inp:focus {
     outline: none;
-    box-shadow: 0 0 0 2px rgb(15 118 110 / 0.25);
+    box-shadow: 0 0 0 2px rgb(15 118 110 / 0.2);
     border-color: #0f766e;
   }
-  textarea.inp { @apply h-auto min-h-[80px] py-2 leading-relaxed; }
+  textarea.inp { @apply h-auto min-h-[64px] py-1.5 leading-relaxed; }
   .inp:disabled, .inp[readonly] {
     background: var(--input-disabled-bg);
     color: var(--muted);
     cursor: default;
   }
   select.inp {
-    @apply appearance-none pr-9 bg-no-repeat;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2364748b' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
-    background-position: right 0.7rem center;
+    @apply appearance-none pr-7 bg-no-repeat;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%236b7280' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
   }
   html.dark select.inp {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%2394a3b8' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%238099cc' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
   }
   .inp.num, .num { @apply text-right tabular-nums; }
 
-  /* form grid: align inputs to the top of every cell */
-  .form-grid { @apply grid gap-x-4 gap-y-4 items-start; }
+  /* ── Form grid ──────────────────────────────────────────────────────────── */
+  .form-grid { @apply grid gap-x-3 gap-y-3 items-start; }
   .form-grid.cols-2 { @apply grid-cols-1 sm:grid-cols-2; }
   .form-grid.cols-3 { @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3; }
   .form-grid.cols-4 { @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-4; }
 
-  /* buttons */
-  .btn { @apply inline-flex items-center justify-center h-10 rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-dark disabled:opacity-50; }
+  /* ── Buttons ────────────────────────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center h-8 rounded border px-3 text-[13px] font-semibold text-white shadow-sm transition-colors disabled:opacity-50;
+    background: #0f766e;
+    border-color: #0d6660;
+  }
+  .btn:hover:not(:disabled) { background: #0d6660; }
+
   .btn-ghost {
-    @apply inline-flex items-center justify-center h-10 rounded-lg border px-4 text-sm font-medium transition-colors;
+    @apply inline-flex items-center justify-center h-8 rounded border px-3 text-[13px] font-medium transition-colors;
     background: var(--surface);
     color: var(--text);
     border-color: var(--input-border);
   }
   .btn-ghost:hover { background: var(--tbl-tr-hover); }
-  .btn-sm { @apply h-8 px-3 text-[13px]; }
-  .btn-danger-ghost { color: #e11d48; border-color: #fecdd3; }
-  .btn-danger-ghost:hover { background: #fff1f2; }
-  html.dark .btn-danger-ghost { color: #fda4af; border-color: #4c0519; }
+  .btn-sm { @apply h-7 px-2.5 text-[12px]; }
+  .btn-danger-ghost { color: #dc2626; border-color: #fca5a5; }
+  .btn-danger-ghost:hover { background: #fef2f2; }
+  html.dark .btn-danger-ghost { color: #fca5a5; border-color: #4c0519; }
   html.dark .btn-danger-ghost:hover { background: #4c0519; }
 
-  /* cards / panels */
+  /* ── Icon-only action buttons ───────────────────────────────────────────── */
+  .btn-icon {
+    @apply inline-flex items-center justify-center h-7 w-7 rounded transition-colors;
+    border: 1px solid transparent;
+  }
+  .btn-icon-edit { color: #0f766e; }
+  .btn-icon-edit:hover { background: #f0fdf4; border-color: #a7f3d0; }
+  .btn-icon-del  { color: #dc2626; }
+  .btn-icon-del:hover  { background: #fef2f2; border-color: #fca5a5; }
+  html.dark .btn-icon-edit:hover { background: #064e3b; border-color: #065f46; }
+  html.dark .btn-icon-del:hover  { background: #4c0519; border-color: #9f1239; }
+
+  /* ── Cards ──────────────────────────────────────────────────────────────── */
   .card {
-    @apply rounded-xl border shadow-card;
+    @apply rounded-lg border;
     background: var(--surface);
     border-color: var(--border);
     color: var(--text);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.04);
   }
   .muted { color: var(--muted); }
-  .page-title { @apply text-xl font-semibold tracking-tight; color: var(--text); }
-  .section-label { @apply text-[11px] uppercase tracking-wider font-semibold; color: var(--muted); }
+  .page-title { @apply text-base font-semibold tracking-tight; color: var(--text); }
+  .section-label { @apply text-[10px] uppercase tracking-widest font-semibold; color: var(--muted); }
 
-  /* tables */
-  .tbl { @apply w-full border-collapse text-sm; }
+  /* ── Tables ─────────────────────────────────────────────────────────────── */
+  .tbl { @apply w-full border-collapse; font-size: 13px; }
   .tbl th {
-    @apply text-left font-semibold px-3 py-2.5 border-b whitespace-nowrap;
+    @apply font-semibold px-3 py-1.5 border-b whitespace-nowrap text-[11px] uppercase tracking-wide;
+    text-align: center;
     color: var(--muted);
     border-color: var(--border);
     background: var(--tbl-th-bg);
+    vertical-align: middle;
   }
   .tbl td {
-    @apply px-3 py-2.5 border-b align-middle;
+    @apply px-3 py-1.5 border-b align-middle font-medium;
     border-color: var(--border-soft);
     color: var(--text);
   }
-  .tbl tbody tr { transition: background-color 120ms ease; }
+  .tbl tbody tr { transition: background-color 80ms ease; }
   .tbl tbody tr:hover { background: var(--tbl-tr-hover); }
   .tbl tfoot td {
+    @apply py-1.5 px-3;
     border-top: 1px solid var(--border);
     background: var(--tbl-tfoot-bg);
     color: var(--text);
   }
   .table-wrap { @apply overflow-x-auto; }
 
-  /* feedback */
-  .note { @apply text-sm rounded-lg px-3.5 py-2.5; }
+  /* ── Feedback ───────────────────────────────────────────────────────────── */
+  .note { @apply text-[13px] rounded px-3 py-2; }
   .note-ok { background: var(--note-ok-bg); color: var(--note-ok-fg); }
   .note-err { background: var(--note-err-bg); color: var(--note-err-fg); }
 
-  /* status chip */
-  .chip { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium; }
+  /* ── Status chip ────────────────────────────────────────────────────────── */
+  .chip {
+    @apply inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold;
+  }
 }
 
-/* keep span-2/3 fields from forcing extra columns on phones */
+/* narrow phones: collapse multi-column overrides */
 @media (max-width: 640px) {
   .form-grid > [style*="grid-column"] { grid-column: auto !important; }
 }
 
-/* Inline Tailwind utility replacements that pre-date the theme tokens.        */
-.bg-body   { background: var(--bg); }
-.bg-surface{ background: var(--surface); }
-.bg-ash    { background: var(--aside-bg); }
-.bg-white  { background: var(--surface); }
-.text-ink  { color: var(--text); }
-.text-brand{ color: #0f766e; }
+/* Token aliases */
+.bg-body    { background: var(--bg); }
+.bg-surface { background: var(--surface); }
+.bg-ash     { background: var(--aside-bg); }
+.bg-white   { background: var(--surface); }
+.text-ink   { color: var(--text); }
+.text-brand { color: #0f766e; }
 .border-line      { border-color: var(--border); }
 .border-ashdark   { border-color: var(--aside-border); }
 .border-slate-200 { border-color: var(--border); }

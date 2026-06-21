@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Product, type Supplier } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { EditIcon, TrashIcon } from "@/components/Icons";
 
 const CATEGORIES  = ["MDF", "PLY", "Melamine", "HPL", "Acrylic Sheet", "Formica", "PVC"];
 const THICKNESSES = [6, 12, 13, 16.3, 18, 19, 25];
@@ -139,7 +140,7 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-5">{t("Products")}</h1>
+      <h1 className="page-title mb-5">{t("Products")}</h1>
 
       <div className="card p-5 mb-6">
         {isBoard ? (
@@ -266,8 +267,8 @@ export default function ProductsPage() {
                 <td className="text-sm muted">{p.unit ?? "—"}</td>
                 <td className="num">{p.priceLower ?? "—"}–{p.priceUpper ?? "—"}</td>
                 <td className="text-right whitespace-nowrap">
-                  <button className="btn-ghost btn-sm mr-2" onClick={() => edit(p)}>{t("Edit")}</button>
-                  <button className="btn-ghost btn-sm btn-danger-ghost" onClick={() => remove(p.id)}>{t("Delete")}</button>
+                  <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(p)}><EditIcon /></button>
+                  <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(p.id)}><TrashIcon /></button>
                 </td>
               </tr>
             ))}

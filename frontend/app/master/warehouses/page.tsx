@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { endpoints, type Warehouse } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { EditIcon, TrashIcon } from "@/components/Icons";
 
 export default function WarehousesPage() {
   const { t, dn } = useI18n();
@@ -38,7 +39,7 @@ export default function WarehousesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-5">{t("Warehouses")}</h1>
+      <h1 className="page-title mb-5">{t("Warehouses")}</h1>
 
       <div className="card p-5 mb-6">
         <div className="form-grid cols-4">
@@ -75,8 +76,8 @@ export default function WarehousesPage() {
                 <td className="muted">{w.branch ?? "—"}</td>
                 <td className="muted">{w.address ?? "—"}</td>
                 <td className="text-right whitespace-nowrap">
-                  <button className="btn-ghost btn-sm mr-2" onClick={() => edit(w)}>{t("Edit")}</button>
-                  <button className="btn-ghost btn-sm btn-danger-ghost" onClick={() => remove(w.id)}>{t("Delete")}</button>
+                  <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(w)}><EditIcon /></button>
+                  <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(w.id)}><TrashIcon /></button>
                 </td>
               </tr>
             ))}

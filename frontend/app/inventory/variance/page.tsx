@@ -16,7 +16,7 @@ export default function VariancePage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-medium">Price variance</h1>
+        <h1 className="page-title">Price variance</h1>
         <div className="flex gap-1 text-sm">
           {(["warehouse", "company"] as const).map((s) => (
             <button key={s} onClick={() => setScope(s)}

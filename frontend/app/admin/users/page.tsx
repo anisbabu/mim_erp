@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { endpoints, type UserView, type Shop, type Role } from "@/lib/api";
+import { EditIcon } from "@/components/Icons";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserView[]>([]);
@@ -118,7 +119,7 @@ export default function UsersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-1">Users</h1>
+      <h1 className="page-title mb-1">Users</h1>
       <p className="text-sm text-[#6b6960] mb-6">
         Create accounts and bind them to shops. A salesperson is locked to one shop; managers can cover several;
         admins and accountants work company-wide.
@@ -279,7 +280,7 @@ export default function UsersPage() {
                   </span>
                 </td>
                 <td>
-                  <button className="btn-ghost text-xs py-1 px-2" onClick={() => openEdit(u)}>Edit</button>
+                  <button className="btn-icon btn-icon-edit" title="Edit" onClick={() => openEdit(u)}><EditIcon /></button>
                 </td>
               </tr>
             ))}

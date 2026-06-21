@@ -36,7 +36,7 @@ export default function PaymentsPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-medium mb-1">Payments &amp; receipts</h1>
+      <h1 className="page-title mb-1">Payments &amp; receipts</h1>
       <p className="text-sm text-[#6b6960] mb-6">
         Pay a supplier to settle payables, or receive from a customer to settle receivables. Each posts a balanced entry.
       </p>

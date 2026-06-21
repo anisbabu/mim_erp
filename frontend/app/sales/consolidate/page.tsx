@@ -113,7 +113,7 @@ export default function ConsolidatePage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-5">Day-end consolidate</h1>
+      <h1 className="page-title mb-5">Day-end consolidate</h1>
 
       {/* Customer picker */}
       <div className="card overflow-hidden mb-6">

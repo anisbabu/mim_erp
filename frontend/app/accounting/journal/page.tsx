@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type LedgerRow, type JournalEntryView } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 
 type Line = { accountId: string; debit: string; credit: string };
@@ -87,7 +88,7 @@ export default function JournalPage() {
                     <input className="inp num" style={{ width: 130, marginLeft: "auto" }} type="number" min={0}
                       value={l.credit} onChange={(e) => update(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} /></td>
                   <td className="text-right">
-                    {lines.length > 2 && <button className="text-rose-600 text-sm" onClick={() => removeLine(i)}>×</button>}</td>
+                    {lines.length > 2 && <button className="btn-icon btn-icon-del" title="Remove" onClick={() => removeLine(i)}><TrashIcon /></button>}</td>
                 </tr>
               ))}
             </tbody>

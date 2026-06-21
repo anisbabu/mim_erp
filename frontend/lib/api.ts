@@ -94,7 +94,7 @@ export type LedgerRow = {
   period_debit: number; period_credit: number; closing: number;
 };
 export type FinancialYear = {
-  id: string; name: string; startDate: string; middleDate?: string; endDate: string;
+  id: string; name: string; startDate: string; endDate: string;
   status: "OPEN" | "CLOSED"; current?: boolean;
 };
 export type OpeningBalance = { id?: string; financialYearId?: string; accountId: string; debit: number; credit: number; };

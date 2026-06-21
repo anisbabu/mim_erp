@@ -23,11 +23,11 @@ function Section({ title, rows, total }: { title: string; rows: { code: string; 
 export default function PnlPage() {
   const [pnl, setPnl] = useState<PnL | null>(null);
   useEffect(() => { endpoints.profitLoss().then(setPnl).catch(() => {}); }, []);
-  if (!pnl) return <div><h1 className="text-2xl font-medium mb-6">Profit &amp; loss</h1><p className="text-[#6b6960]">Loading…</p></div>;
+  if (!pnl) return <div><h1 className="page-title mb-6">Profit &amp; loss</h1><p className="text-[#6b6960]">Loading…</p></div>;
   const profit = pnl.netProfit;
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-6">Profit &amp; loss</h1>
+      <h1 className="page-title mb-6">Profit &amp; loss</h1>
       <Section title="Income" rows={pnl.income} total={pnl.totalIncome} />
       <Section title="Expenses" rows={pnl.expense} total={pnl.totalExpense} />
       <div className="rounded-xl px-4 py-3 text-sm font-medium flex justify-between"

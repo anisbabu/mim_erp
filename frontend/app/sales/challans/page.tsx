@@ -38,7 +38,7 @@ export default function ChallanListPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-4">Challans</h1>
+      <h1 className="page-title mb-4">Challans</h1>
 
       <input
         className="inp mb-4 max-w-sm"

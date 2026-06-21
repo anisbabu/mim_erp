@@ -41,7 +41,7 @@ export default function AdjustPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-medium mb-1">Stock adjustment</h1>
+      <h1 className="page-title mb-1">Stock adjustment</h1>
       <p className="text-sm text-[#6b6960] mb-6">
         Write off damaged stock, correct a count, or transfer stock between warehouses. Damage and count
         post a loss at FIFO cost; transfer just moves cost layers (no profit impact).

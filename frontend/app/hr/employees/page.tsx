@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Employee, type Shop } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { EditIcon, TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 
 const EMPTY: Partial<Employee> = {
@@ -60,7 +61,7 @@ export default function EmployeesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-5">{t("Employees")}</h1>
+      <h1 className="page-title mb-5">{t("Employees")}</h1>
 
       <div className="card p-5 mb-6">
         {/* identity */}
@@ -135,8 +136,8 @@ export default function EmployeesPage() {
                 <td className="text-xs">{e.salaryType === "MONTHLY" ? t("Monthly") : t("Daily wage")}</td>
                 <td className="num">{Number(e.grossSalary ?? 0).toFixed(2)}</td>
                 <td className="text-right whitespace-nowrap">
-                  <button className="btn-ghost btn-sm mr-2" onClick={() => edit(e)}>{t("Edit")}</button>
-                  <button className="btn-ghost btn-sm btn-danger-ghost" onClick={() => remove(e.id)}>{t("Delete")}</button>
+                  <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(e)}><EditIcon /></button>
+                  <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(e.id)}><TrashIcon /></button>
                 </td>
               </tr>
             ))}

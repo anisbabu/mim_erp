@@ -32,7 +32,7 @@ export default function PettyCashPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-medium mb-1">Petty cash voucher</h1>
+      <h1 className="page-title mb-1">Petty cash voucher</h1>
       <p className="text-sm text-[#6b6960] mb-6">Record a small shop expense paid from the petty-cash float (imprest system).</p>
       <div className="space-y-4">
         <div>

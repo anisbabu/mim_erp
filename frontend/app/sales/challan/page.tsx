@@ -4,16 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Product, type Warehouse, type Shop, type Customer, type WarehouseStock } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import { TrashIcon } from "@/components/Icons";
 
 type Line = { productId: string; qty: string; unitPrice: string };
-
-const TrashIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-  </svg>
-);
 
 export default function ChallanPage() {
   const { activeShopId } = useAuth();
@@ -95,7 +88,7 @@ export default function ChallanPage() {
     <div>
       {/* Header row: title + stock panel */}
       <div className="flex items-start justify-between gap-4 mb-5">
-        <h1 className="text-2xl font-medium">Issue challan</h1>
+        <h1 className="page-title">Issue challan</h1>
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
@@ -192,7 +185,8 @@ export default function ChallanPage() {
                       <input className="inp text-right tabular-nums"
                         style={{ width: 100, marginLeft: "auto", borderColor: band === "out" ? "#b3261e" : undefined }}
                         type="number" min={0} value={l.unitPrice}
-                        onChange={(e) => update(i, { unitPrice: e.target.value })} />
+                        onChange={(e) => update(i, { unitPrice: e.target.value })}
+                        onKeyDown={(e) => e.key === "Enter" && i === lines.length - 1 && addLine()} />
                       <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "#b3261e" }}>
                         {band === "out" ? "✕" : ""}
                       </div>
@@ -202,8 +196,7 @@ export default function ChallanPage() {
                     </td>
                     <td className="text-right">
                       {lines.length > 1 && (
-                        <button onClick={() => removeLine(i)} title="Remove"
-                          className="text-[#9a2b22] hover:text-[#7a1c16] transition-colors">
+                        <button className="btn-icon btn-icon-del" title="Remove" onClick={() => removeLine(i)}>
                           <TrashIcon />
                         </button>
                       )}
@@ -252,7 +245,8 @@ export default function ChallanPage() {
                     </label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
                       style={{ borderColor: band === "out" ? "#b3261e" : undefined }}
-                      value={l.unitPrice} onChange={(e) => update(i, { unitPrice: e.target.value })} />
+                      value={l.unitPrice} onChange={(e) => update(i, { unitPrice: e.target.value })}
+                      onKeyDown={(e) => e.key === "Enter" && i === lines.length - 1 && addLine()} />
                   </div>
                   <div>
                     <label className="text-xs muted block mb-1">Total</label>

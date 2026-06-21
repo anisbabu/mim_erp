@@ -57,7 +57,7 @@ export default function SalesOrdersPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-medium">Sales orders</h1>
+        <h1 className="page-title">Sales orders</h1>
       </div>
 
       <input

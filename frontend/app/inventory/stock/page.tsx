@@ -97,7 +97,7 @@ export default function StockPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-2xl font-medium">Stock on hand</h1>
+        <h1 className="page-title">Stock on hand</h1>
         <button className="btn" onClick={downloadPdf} disabled={downloading}>
           {downloading ? "Generating…" : "Download PDF"}
         </button>

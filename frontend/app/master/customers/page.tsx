@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Customer } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { EditIcon, TrashIcon } from "@/components/Icons";
 
 export default function CustomersPage() {
   const { t, dn } = useI18n();
@@ -53,7 +54,7 @@ export default function CustomersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-5">{t("Customers")}</h1>
+      <h1 className="page-title mb-5">{t("Customers")}</h1>
       <div className="card p-5 mb-6">
         <div className="form-grid cols-3">
           <div className="field"><label>{t("Code")}</label>
@@ -110,8 +111,8 @@ export default function CustomersPage() {
                 <td className="text-xs">{c.type === "PARTY" ? t("Party (credit)") : t("Individual (cash)")}</td>
                 <td className="num">{c.type === "PARTY" ? (c.creditLimit ?? 0) : "—"}</td>
                 <td className="text-right whitespace-nowrap">
-                  <button className="btn-ghost btn-sm mr-2" onClick={() => edit(c)}>{t("Edit")}</button>
-                  <button className="btn-ghost btn-sm btn-danger-ghost" onClick={() => remove(c.id)}>{t("Delete")}</button>
+                  <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(c)}><EditIcon /></button>
+                  <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(c.id)}><TrashIcon /></button>
                 </td>
               </tr>
             ))}

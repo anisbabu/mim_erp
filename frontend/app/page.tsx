@@ -11,7 +11,7 @@ export default function Dashboard() {
   ];
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-1">{t("MIM Enterprise")}</h1>
+      <h1 className="page-title mb-1">{t("MIM Enterprise")}</h1>
       <p className="text-sm muted mb-7">{t("Single application for purchase, inventory, sales and accounting.")}</p>
       <div className="grid grid-cols-2 gap-4">
         {cards.map((c) => (

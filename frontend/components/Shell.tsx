@@ -101,37 +101,33 @@ export default function Shell({ children }: { children: ReactNode }) {
   const sidebar = (isMobile = false) => (
     <aside
       className="bg-ash border-r border-ashdark flex flex-col h-full overflow-hidden transition-all duration-200"
-      style={{ width: isMobile || !collapsed ? 240 : 48 }}>
+      style={{ width: isMobile || !collapsed ? 220 : 44 }}>
 
-      {/* header row: logo + collapse toggle */}
-      <div className="flex items-center justify-between px-3 py-4 shrink-0">
+      {/* logo + collapse */}
+      <div className="flex items-center justify-between px-3 py-3 shrink-0 border-b border-ashdark">
         {(!collapsed || isMobile) && (
           <div className="min-w-0">
-            <div className="font-mono text-sm tracking-tight text-brand">MIM</div>
-            <div className="text-[11px] muted truncate">{t("Plywood & Hardware")}</div>
+            <div className="font-mono text-[13px] font-bold tracking-tight text-brand">MIM ERP</div>
+            <div className="text-[10px] muted truncate">{t("Plywood & Hardware")}</div>
           </div>
         )}
         {!isMobile && (
-          <button
-            onClick={toggleSidebar}
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="shrink-0 h-7 w-7 rounded-full flex items-center justify-center transition-colors shadow-sm"
-            style={{ background: "#0f766e", color: "#ffffff" }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              {collapsed
-                ? <><polyline points="5,3 9,7 5,11" /></>
-                : <><polyline points="9,3 5,7 9,11" /></>}
+          <button onClick={toggleSidebar} title={collapsed ? "Expand" : "Collapse"}
+            className="shrink-0 h-6 w-6 rounded flex items-center justify-center transition-colors"
+            style={{ background: "#0f766e", color: "#fff" }}>
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {collapsed ? <polyline points="5,3 9,7 5,11" /> : <polyline points="9,3 5,7 9,11" />}
             </svg>
           </button>
         )}
       </div>
 
       {/* nav */}
-      <nav className="flex flex-col gap-3 flex-1 overflow-y-auto px-2 pb-2">
+      <nav className="flex flex-col gap-2 flex-1 overflow-y-auto px-1.5 py-2">
         {visible.map((g, i) => (
           <div key={i}>
             {g.label && !collapsed && (
-              <div className="section-label px-2 mb-1">{t(g.label)}</div>
+              <div className="section-label px-2 mb-0.5 mt-1">{t(g.label)}</div>
             )}
             {(!collapsed || isMobile) && (
               <div className="flex flex-col gap-0.5">
@@ -139,10 +135,11 @@ export default function Shell({ children }: { children: ReactNode }) {
                   const active = pathname === n.href;
                   return (
                     <Link key={n.href} href={n.href} onClick={() => setOpenNav(false)}
-                      className="px-2.5 py-1.5 rounded-lg text-sm transition-colors"
+                      className="px-2 py-1 rounded text-[12px] transition-colors"
                       style={{
-                        background: active ? "#2f6f5e" : "transparent",
+                        background: active ? "#0f766e" : "transparent",
                         color: active ? "#fff" : "var(--aside-text)",
+                        fontWeight: active ? 600 : 400,
                         whiteSpace: "nowrap", overflow: "hidden",
                       }}>
                       {t(n.label)}
@@ -157,9 +154,9 @@ export default function Shell({ children }: { children: ReactNode }) {
 
       {/* user footer */}
       {(!collapsed || isMobile) && (
-        <div className="border-t border-ashdark pt-3 pb-4 px-4 shrink-0">
-          <div className="text-sm font-medium truncate">{user.fullName || user.username}</div>
-          <div className="text-[11px] muted mb-2 capitalize">{user.role.toLowerCase()}</div>
+        <div className="border-t border-ashdark pt-2 pb-3 px-3 shrink-0">
+          <div className="text-[12px] font-semibold truncate">{user.fullName || user.username}</div>
+          <div className="text-[10px] muted mb-1.5 capitalize">{user.role.toLowerCase()}</div>
           <button className="btn-ghost btn-sm w-full" onClick={logout}>{t("Sign out")}</button>
         </div>
       )}
@@ -168,10 +165,8 @@ export default function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen flex bg-body">
-      {/* desktop sidebar */}
       <div className="hidden md:flex h-screen sticky top-0">{sidebar(false)}</div>
 
-      {/* mobile drawer */}
       {openNav && (
         <div className="fixed inset-0 z-40 md:hidden">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpenNav(false)} />
@@ -180,24 +175,21 @@ export default function Shell({ children }: { children: ReactNode }) {
       )}
 
       <div className="flex-1 flex flex-col bg-body min-w-0">
-        <header className="h-14 border-b border-line flex items-center justify-between px-4 md:px-8 gap-4 sticky top-0 z-30"
+        <header className="h-10 border-b border-line flex items-center justify-between px-4 md:px-6 gap-3 sticky top-0 z-30"
                 style={{ background: "var(--header-bg)" }}>
           <button className="md:hidden btn-ghost btn-sm" onClick={() => setOpenNav(true)} aria-label="Menu">☰</button>
           <div className="flex-1" />
 
-          <button
-            onClick={toggleTheme}
-            aria-label="Toggle dark mode"
-            title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            className="inline-flex items-center justify-center h-8 w-8 rounded-lg border border-line text-sm transition-colors hover:bg-[var(--tbl-tr-hover)]"
+          <button onClick={toggleTheme} aria-label="Toggle dark mode"
+            className="inline-flex items-center justify-center h-7 w-7 rounded border border-line text-[13px] transition-colors hover:bg-[var(--tbl-tr-hover)]"
             style={{ background: "var(--surface)", color: "var(--text)" }}>
             {theme === "dark" ? "☀️" : "🌙"}
           </button>
 
-          <div className="flex items-center rounded-lg border border-line overflow-hidden text-sm">
+          <div className="flex items-center rounded border border-line overflow-hidden text-[12px]">
             {(["en", "bn"] as const).map((l) => (
               <button key={l} onClick={() => setLang(l)}
-                className={`px-3 h-8 text-sm font-medium transition-colors ${
+                className={`px-2.5 h-7 text-[12px] font-medium transition-colors ${
                   lang === l ? "bg-brand text-white" : "text-[color:var(--muted)] hover:bg-[var(--tbl-tr-hover)]"
                 }`}
                 style={lang !== l ? { background: "var(--surface)" } : undefined}>
@@ -206,7 +198,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             ))}
           </div>
         </header>
-        <main className="flex-1 px-4 md:px-8 py-6 md:py-7 max-w-5xl w-full overflow-y-auto">{children}</main>
+        <main className="flex-1 px-4 md:px-6 py-4 md:py-5 max-w-5xl w-full overflow-y-auto">{children}</main>
       </div>
     </div>
   );

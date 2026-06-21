@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Product, type Supplier } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import { TrashIcon } from "@/components/Icons";
 
 type Line = { productId: string; qty: string; unitPrice: string; free: boolean };
 
@@ -71,32 +72,32 @@ export default function NewPoPage() {
     try {
       const po: any = await endpoints.createPo(payload);
       setMsg({ kind: "ok", text: `${t("New purchase order")} ${po.poNo} ✓` });
-      setLines([{ productId: "", qty: "", unitPrice: "", free: false }]); setNote(""); setPoNo("");
+      setLines([{ productId: "", qty: "", unitPrice: "", free: false }]); setNote(""); setPoNo(""); setManualPo(false);
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
   }
 
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-5">{t("New purchase order")}</h1>
+      <h1 className="page-title mb-5">{t("New purchase order")}</h1>
 
       <div className="form-grid cols-3 mb-5">
         <div className="field"><label>{t("PO no")}</label>
           <input className="inp" value={poNo} onChange={(e) => setPoNo(e.target.value)}
-            placeholder={t("Auto-generated")} /></div>
+            placeholder={t("Manual / Auto-generated")} /></div>
         <div className="field"><label>{t("Supplier")}</label>
           <SearchSelect options={supplierOpts} value={supplierId} onChange={setSupplierId} placeholder={t("Search…")} /></div>
-        <div className="field"><label>{t("Address")}</label>
-          <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} placeholder="note" /></div>
+        <div className="field"><label>{t("Note")}</label>
+          <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional note" /></div>
       </div>
 
       <div className="card table-wrap mb-4">
         <table className="tbl">
           <thead><tr>
             <th style={{ minWidth: 220 }}>{t("Product")}</th>
-            <th className="text-center">{t("Free")}</th>
-            <th className="text-right">{t("Qty")}</th>
-            <th className="text-right">{t("Unit price")}</th>
-            <th className="text-right">{t("Line total")}</th>
+            <th>{t("Free")}</th>
+            <th>{t("Qty")}</th>
+            <th>{t("Unit price")}</th>
+            <th>{t("Line total")}</th>
             <th></th>
           </tr></thead>
           <tbody>
@@ -132,6 +133,7 @@ export default function NewPoPage() {
                       type="number" min={0}
                       value={l.free ? "" : l.unitPrice} disabled={l.free}
                       onChange={(e) => update(i, { unitPrice: e.target.value })}
+                      onKeyDown={(e) => e.key === "Enter" && i === lines.length - 1 && addLine()}
                       placeholder={l.free ? t("Free") : ""} />
                     <div className="h-4 mt-1" />
                   </td>
@@ -143,7 +145,7 @@ export default function NewPoPage() {
                   </td>
                   <td className="text-right align-top pt-2">
                     {lines.length > 1 && (
-                      <button className="text-[#b3261e] text-sm" onClick={() => removeLine(i)}>×</button>
+                      <button className="btn-icon btn-icon-del" title="Remove" onClick={() => removeLine(i)}><TrashIcon /></button>
                     )}
                     <div className="h-4 mt-1" />
                   </td>

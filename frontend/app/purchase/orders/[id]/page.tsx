@@ -40,7 +40,7 @@ export default function PoDetailsPage() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-medium">Purchase order</h1>
+          <h1 className="page-title">Purchase order</h1>
           <span className="text-xs px-2 py-0.5 rounded-full font-mono"
             style={{ background: "var(--chip-other-bg)", color: "var(--chip-other-fg)" }}>{data.poNo}</span>
         </div>

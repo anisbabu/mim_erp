@@ -22,10 +22,10 @@ function Section({ title, rows, extra }: { title: string; rows: { code: string; 
 export default function BalanceSheetPage() {
   const [bs, setBs] = useState<BalanceSheet | null>(null);
   useEffect(() => { endpoints.balanceSheet().then(setBs).catch(() => {}); }, []);
-  if (!bs) return <div><h1 className="text-2xl font-medium mb-6">Balance sheet</h1><p className="text-[#6b6960]">Loading…</p></div>;
+  if (!bs) return <div><h1 className="page-title mb-6">Balance sheet</h1><p className="text-[#6b6960]">Loading…</p></div>;
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-6">Balance sheet</h1>
+      <h1 className="page-title mb-6">Balance sheet</h1>
       <Section title="Assets" rows={bs.assets} />
       <div className="text-right text-sm font-medium mb-5 pr-2">
         Total assets <span className="tabular-nums ml-3">{Number(bs.totalAssets).toFixed(2)}</span>

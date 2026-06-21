@@ -5,16 +5,9 @@ import {
   endpoints, type Product, type Warehouse, type Shop, type Customer, type WarehouseStock, type UserView,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { TrashIcon } from "@/components/Icons";
 
 type Line = { productId: string; qty: string; unitPrice: string; discountAmt: string };
-
-const TrashIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
-    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
-  </svg>
-);
 
 export default function NewSalePage() {
   const { activeShopId } = useAuth();
@@ -142,7 +135,7 @@ export default function NewSalePage() {
     <div>
       {/* Header + stock panel */}
       <div className="flex items-start justify-between gap-4 mb-5">
-        <h1 className="text-2xl font-medium">New sale</h1>
+        <h1 className="page-title">New sale</h1>
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
@@ -267,15 +260,16 @@ export default function NewSalePage() {
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums" style={{ width: 86, marginLeft: "auto" }}
                         type="number" min={0} value={l.discountAmt}
-                        onChange={(e) => update(i, { discountAmt: e.target.value })} placeholder="0.00" />
+                        onChange={(e) => update(i, { discountAmt: e.target.value })}
+                        onKeyDown={(e) => e.key === "Enter" && i === lines.length - 1 && addLine()}
+                        placeholder="0.00" />
                       <div className="text-[11px] text-[#6b6960] mt-1 h-4 leading-4">
                         {discAmt > 0 && grossTotal > 0 && `net ${(grossTotal - discAmt).toFixed(2)}`}
                       </div>
                     </td>
                     <td className="text-right align-top pt-2">
                       {lines.length > 1 && (
-                        <button onClick={() => removeLine(i)} title="Remove"
-                          className="text-[#9a2b22] hover:text-[#7a1c16] transition-colors">
+                        <button className="btn-icon btn-icon-del" title="Remove" onClick={() => removeLine(i)}>
                           <TrashIcon />
                         </button>
                       )}
@@ -341,7 +335,9 @@ export default function NewSalePage() {
                   <div>
                     <label className="text-xs muted block mb-1">Discount</label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
-                      value={l.discountAmt} onChange={(e) => update(i, { discountAmt: e.target.value })} placeholder="0.00" />
+                      value={l.discountAmt} onChange={(e) => update(i, { discountAmt: e.target.value })}
+                      onKeyDown={(e) => e.key === "Enter" && i === lines.length - 1 && addLine()}
+                      placeholder="0.00" />
                     {discAmt > 0 && grossTotal > 0 && (
                       <div className="text-[11px] muted mt-0.5">net {(grossTotal - discAmt).toFixed(2)}</div>
                     )}

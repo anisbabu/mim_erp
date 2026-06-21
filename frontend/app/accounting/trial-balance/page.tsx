@@ -9,7 +9,7 @@ export default function TrialBalancePage() {
   const tc = rows.reduce((s, r) => s + Number(r.total_credit), 0);
   return (
     <div>
-      <h1 className="text-2xl font-medium mb-6">Trial balance</h1>
+      <h1 className="page-title mb-6">Trial balance</h1>
       <div className="border border-line rounded-xl bg-white overflow-hidden">
         <table className="tbl">
           <thead><tr><th>Code</th><th>Account</th><th>Type</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>

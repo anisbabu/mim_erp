@@ -42,7 +42,7 @@ export default function PoListPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-medium">Purchase orders</h1>
+        <h1 className="page-title">Purchase orders</h1>
         <Link href="/purchase/orders/new" className="btn">New purchase order</Link>
       </div>
 
