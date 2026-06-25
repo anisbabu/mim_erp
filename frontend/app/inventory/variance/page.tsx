@@ -44,7 +44,7 @@ export default function VariancePage() {
               const spread = Number(r.maxCost) - Number(r.minCost);
               return (
                 <tr key={i}>
-                  <td>{products[r.productId]?.name ?? r.productId}</td>
+                  <td>{products[r.productId]?.fullName ?? products[r.productId]?.name ?? r.productId}</td>
                   {scope === "warehouse" && <td>{warehouses[r.warehouseId ?? ""]?.name ?? "—"}</td>}
                   <td className="text-right tabular-nums">{Number(r.minCost).toFixed(2)}</td>
                   <td className="text-right tabular-nums">{Number(r.maxCost).toFixed(2)}</td>

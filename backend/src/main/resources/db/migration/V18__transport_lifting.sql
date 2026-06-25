@@ -1,0 +1,1 @@
+ALTER TABLE sales_order ADD COLUMN IF NOT EXISTS transport_and_lifting NUMERIC(14,2) NOT NULL DEFAULT 0;

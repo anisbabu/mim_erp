@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +24,7 @@ public class SalesOrder {
     private LocalDate orderDate;
     private String creditOverrideBy;  // audit: who authorised an over-limit credit sale
     private String discountBy;        // audit: who authorised the discount
+    private BigDecimal transportAndLifting = BigDecimal.ZERO;
 
     @JsonIgnore
     @OneToMany(mappedBy = "so", cascade = CascadeType.ALL, orphanRemoval = true)

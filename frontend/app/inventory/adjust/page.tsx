@@ -13,11 +13,28 @@ export default function AdjustPage() {
   const [reason, setReason] = useState("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [availability, setAvailability] = useState<Record<string, number>>({});
 
   useEffect(() => {
     endpoints.products().then(setProducts).catch(() => {});
     endpoints.warehouses().then(setWarehouses).catch(() => {});
   }, []);
+
+  function refreshAvailability(pid = productId) {
+    if (!pid) { setAvailability({}); return; }
+    endpoints.availability(pid)
+      .then((rows) => {
+        const map: Record<string, number> = {};
+        rows.forEach((r) => { map[r.warehouseId] = r.qty; });
+        setAvailability(map);
+      })
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    setAvailability({});
+    refreshAvailability();
+  }, [productId]);
 
   const isTransfer = type === "TRANSFER";
 
@@ -36,6 +53,7 @@ export default function AdjustPage() {
       });
       setMsg({ kind: "ok", text: `Adjustment ${a.adjNo} posted.` });
       setQty(""); setReason("");
+      refreshAvailability();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
   }
 
@@ -59,24 +77,34 @@ export default function AdjustPage() {
           <label className="text-xs text-[#6b6960]">Product</label>
           <select className="inp mt-1" value={productId} onChange={(e) => setProductId(e.target.value)}>
             <option value="">Select…</option>
-            {products.map((p) => <option key={p.id} value={p.id}>{p.name}{p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""}</option>)}
+            {products.map((p) => <option key={p.id} value={p.id}>{p.fullName ?? p.name}{p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""}</option>)}
           </select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-[#6b6960]">{isTransfer ? "From warehouse" : "Warehouse"}</label>
-            <select className="inp mt-1" value={fromWarehouseId} onChange={(e) => setFromWarehouseId(e.target.value)}>
+            <select className="inp mt-1" value={fromWarehouseId} onChange={(e) => { setFromWarehouseId(e.target.value); setToWarehouseId(""); }}>
               <option value="">Select…</option>
               {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
             </select>
+            <div className="h-4 leading-4 mt-0.5 text-xs text-[#6b6960]">
+              {productId && fromWarehouseId
+                ? `On hand: ${availability[fromWarehouseId] ?? 0}`
+                : ""}
+            </div>
           </div>
           {isTransfer && (
             <div>
               <label className="text-xs text-[#6b6960]">To warehouse</label>
               <select className="inp mt-1" value={toWarehouseId} onChange={(e) => setToWarehouseId(e.target.value)}>
                 <option value="">Select…</option>
-                {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                {warehouses.filter((w) => w.id !== fromWarehouseId).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
+              <div className="h-4 leading-4 mt-0.5 text-xs text-[#6b6960]">
+                {productId && toWarehouseId
+                  ? `On hand: ${availability[toWarehouseId] ?? 0}`
+                  : ""}
+              </div>
             </div>
           )}
         </div>

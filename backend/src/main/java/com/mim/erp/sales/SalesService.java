@@ -13,6 +13,8 @@ import com.mim.erp.master.Customer;
 import com.mim.erp.master.CustomerRepository;
 import com.mim.erp.master.Product;
 import com.mim.erp.master.ProductRepository;
+import com.mim.erp.master.Warehouse;
+import com.mim.erp.master.WarehouseRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,16 +52,18 @@ public class SalesService {
     private final DocNumberService docNo;
     private final CurrentUserService currentUser;
     private final com.mim.erp.accounting.LedgerService ledgers;
+    private final WarehouseRepository warehouses;
 
     public SalesService(SalesOrderRepository orders, DeliveryChallanRepository challans,
                         ProductRepository products, CustomerRepository customers,
                         InventoryService inventory, AccountingService accounting,
                         DocNumberService docNo, CurrentUserService currentUser,
-                        com.mim.erp.accounting.LedgerService ledgers) {
+                        com.mim.erp.accounting.LedgerService ledgers,
+                        WarehouseRepository warehouses) {
         this.orders = orders; this.challans = challans; this.products = products;
         this.customers = customers; this.inventory = inventory;
         this.accounting = accounting; this.docNo = docNo; this.currentUser = currentUser;
-        this.ledgers = ledgers;
+        this.ledgers = ledgers; this.warehouses = warehouses;
     }
 
     /** Cash account (1000) for cash sales, or the customer's subsidiary ledger for credit. */
@@ -135,6 +139,8 @@ public class SalesService {
         so.setOrderDate(LocalDate.now());
         so.setCreditOverrideBy(req.creditOverrideBy());
         so.setDiscountBy(req.discountBy());
+        BigDecimal soTransport = req.transportAndLifting() != null ? req.transportAndLifting() : BigDecimal.ZERO;
+        so.setTransportAndLifting(soTransport);
         int ln = 1;
         for (var a : req.allocations()) {
             SoLine sl = new SoLine();
@@ -166,6 +172,7 @@ public class SalesService {
             }
         }
 
+        totalValue = totalValue.add(soTransport);
         so.setStatus("DELIVERED");
         postSale(so, totalValue, totalCost);
 
@@ -217,6 +224,7 @@ public class SalesService {
                     : (p != null ? p.getName() : "?");
                 result.add(new SalesDtos.ChallanLineView(
                     dl.getId(), dc.getDcNo(), dl.getProductId(), name,
+                    dc.getWarehouseId(),
                     dl.getQty(), dl.getUnitPrice(), dl.getUnitCost(),
                     dl.getDiscountAmt() != null ? dl.getDiscountAmt() : BigDecimal.ZERO,
                     p != null ? p.getPriceLower() : null,
@@ -249,6 +257,8 @@ public class SalesService {
         so.setStatus("INVOICED");
         so.setOrderDate(today);
         so.setCreditOverrideBy(req.creditOverrideBy());
+        BigDecimal transport = req.transportAndLifting() != null ? req.transportAndLifting() : BigDecimal.ZERO;
+        so.setTransportAndLifting(transport);
 
         int ln = 1;
         for (DeliveryChallan dc : open) {
@@ -269,6 +279,8 @@ public class SalesService {
                 totalCost  = totalCost.add(dl.getQty().multiply(dl.getUnitCost()));
             }
         }
+
+        totalValue = totalValue.add(transport);
 
         if ("CREDIT".equals(req.paymentMode()))
             checkCredit(req.customerId(), totalValue, req.creditOverrideBy());
@@ -384,21 +396,31 @@ public class SalesService {
                 tbl.addCell(h);
             }
 
-            BigDecimal grandTotal = BigDecimal.ZERO;
+            // group lines by product
+            record InvLine(String name, BigDecimal qty, BigDecimal grossTotal, BigDecimal disc) {}
+            java.util.LinkedHashMap<UUID, InvLine> grouped = new java.util.LinkedHashMap<>();
             for (SoLine line : so.getLines()) {
-                String name      = productNames.getOrDefault(line.getProductId(), "—");
-                BigDecimal qty   = line.getQty();
-                BigDecimal gross = line.getUnitPrice();
-                BigDecimal disc  = line.getDiscountAmt() != null ? line.getDiscountAmt() : BigDecimal.ZERO;
-                BigDecimal grossTotal = qty.multiply(gross).setScale(2, RoundingMode.HALF_UP);
-                BigDecimal netTotal   = grossTotal.subtract(disc).setScale(2, RoundingMode.HALF_UP);
+                UUID pid = line.getProductId();
+                BigDecimal qty        = line.getQty();
+                BigDecimal lineGross  = qty.multiply(line.getUnitPrice()).setScale(2, RoundingMode.HALF_UP);
+                BigDecimal lineDisc   = line.getDiscountAmt() != null ? line.getDiscountAmt() : BigDecimal.ZERO;
+                String name           = productNames.getOrDefault(pid, "—");
+                grouped.merge(pid, new InvLine(name, qty, lineGross, lineDisc),
+                    (a, b) -> new InvLine(a.name(), a.qty().add(b.qty()), a.grossTotal().add(b.grossTotal()), a.disc().add(b.disc())));
+            }
+
+            BigDecimal grandTotal = BigDecimal.ZERO;
+            for (InvLine line : grouped.values()) {
+                BigDecimal unitPrice = line.qty().compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO
+                    : line.grossTotal().divide(line.qty(), 2, RoundingMode.HALF_UP);
+                BigDecimal netTotal  = line.grossTotal().subtract(line.disc()).setScale(2, RoundingMode.HALF_UP);
                 grandTotal = grandTotal.add(netTotal);
 
-                pdfCell(tbl, name, valueFont, Element.ALIGN_LEFT);
-                pdfCell(tbl, qty.toPlainString(), valueFont, Element.ALIGN_RIGHT);
-                pdfCell(tbl, fmt(gross), valueFont, Element.ALIGN_RIGHT);
-                pdfCell(tbl, fmt(grossTotal), valueFont, Element.ALIGN_RIGHT);
-                pdfCell(tbl, disc.compareTo(BigDecimal.ZERO) == 0 ? "—" : fmt(disc), valueFont, Element.ALIGN_RIGHT);
+                pdfCell(tbl, line.name(), valueFont, Element.ALIGN_LEFT);
+                pdfCell(tbl, line.qty().toPlainString(), valueFont, Element.ALIGN_RIGHT);
+                pdfCell(tbl, fmt(unitPrice), valueFont, Element.ALIGN_RIGHT);
+                pdfCell(tbl, fmt(line.grossTotal()), valueFont, Element.ALIGN_RIGHT);
+                pdfCell(tbl, line.disc().compareTo(BigDecimal.ZERO) == 0 ? "—" : fmt(line.disc()), valueFont, Element.ALIGN_RIGHT);
                 pdfCell(tbl, fmt(netTotal), valueFont, Element.ALIGN_RIGHT);
             }
 
@@ -424,6 +446,419 @@ public class SalesService {
             return out.toByteArray();
         } catch (Exception e) {
             throw new ApiException("Failed to generate invoice: " + e.getMessage());
+        }
+    }
+
+    // ===================================================================
+    // order challan PDF (all challans for one SO combined)
+    // ===================================================================
+
+    @Transactional(readOnly = true)
+    public byte[] generateOrderChallanPdf(UUID soId) {
+        SalesOrder so = orders.findById(soId)
+            .orElseThrow(() -> new ApiException("Sales order not found"));
+
+        List<DeliveryChallan> dcList = challans.findBySoIdWithLines(soId);
+        if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
+
+        String customerName = customers.findById(so.getCustomerId())
+            .map(c -> { StringBuilder sb = new StringBuilder(c.getName());
+                if (c.getMobile() != null) sb.append("  ·  ").append(c.getMobile());
+                return sb.toString(); }).orElse("—");
+
+        // collect all product ids
+        Set<UUID> pids = dcList.stream()
+            .flatMap(dc -> dc.getLines().stream().map(DcLine::getProductId))
+            .collect(Collectors.toSet());
+        Map<UUID, String> productNames = new HashMap<>();
+        products.findAllById(pids).forEach(p -> productNames.put(p.getId(),
+            p.getFullName() != null ? p.getFullName() : p.getName()));
+
+        // group all lines across all challans by productId
+        record ChallanLine(String name, BigDecimal qty) {}
+        java.util.LinkedHashMap<UUID, ChallanLine> grouped = new java.util.LinkedHashMap<>();
+        for (DeliveryChallan dc : dcList) {
+            for (DcLine l : dc.getLines()) {
+                String name = productNames.getOrDefault(l.getProductId(), "—");
+                grouped.merge(l.getProductId(), new ChallanLine(name, l.getQty()),
+                    (a, b) -> new ChallanLine(a.name(), a.qty().add(b.qty())));
+            }
+        }
+
+        // DC numbers for reference
+        String dcNos = dcList.stream().map(DeliveryChallan::getDcNo)
+            .collect(java.util.stream.Collectors.joining(", "));
+
+        try {
+            Document doc = new Document(PageSize.A4, 40, 40, 60, 40);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PdfWriter.getInstance(doc, out);
+            doc.open();
+
+            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20);
+            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
+            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
+            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+
+            Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
+            co.setAlignment(Element.ALIGN_CENTER);
+            doc.add(co);
+            Paragraph titleP = new Paragraph("DELIVERY CHALLAN", titleFont);
+            titleP.setAlignment(Element.ALIGN_CENTER);
+            titleP.setSpacingAfter(14);
+            doc.add(titleP);
+
+            // meta
+            PdfPTable meta = new PdfPTable(2);
+            meta.setWidthPercentage(100);
+            meta.setSpacingAfter(14);
+            meta.addCell(metaBlock(labelFont, valueFont, new String[][]{
+                {"Order No",   so.getSoNo()},
+                {"Challan(s)", dcNos},
+                {"Date",       so.getOrderDate() != null ? so.getOrderDate().toString() : ""},
+            }));
+            meta.addCell(metaBlock(labelFont, valueFont, new String[][]{
+                {"Customer",   customerName},
+            }));
+            doc.add(meta);
+
+            // lines table
+            Color teal = new Color(0x0f, 0x76, 0x6e);
+            PdfPTable tbl = new PdfPTable(3);
+            tbl.setWidthPercentage(100);
+            tbl.setWidths(new float[]{0.8f, 5f, 1.5f});
+            tbl.setSpacingAfter(8);
+
+            String[] heads  = {"#", "Product", "Qty"};
+            int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
+            for (int i = 0; i < heads.length; i++) {
+                PdfPCell h = new PdfPCell(new Phrase(heads[i], thFont));
+                h.setBackgroundColor(teal);
+                h.setHorizontalAlignment(aligns[i]);
+                h.setPadding(5);
+                tbl.addCell(h);
+            }
+
+            int serial = 1;
+            BigDecimal totalQty = BigDecimal.ZERO;
+            for (ChallanLine line : grouped.values()) {
+                pdfCell(tbl, String.valueOf(serial++), valueFont, Element.ALIGN_CENTER);
+                pdfCell(tbl, line.name(), valueFont, Element.ALIGN_LEFT);
+                pdfCell(tbl, line.qty().toPlainString(), valueFont, Element.ALIGN_RIGHT);
+                totalQty = totalQty.add(line.qty());
+            }
+
+            PdfPCell tlabel = new PdfPCell(new Phrase("TOTAL", labelFont));
+            tlabel.setColspan(2);
+            tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            tlabel.setPadding(5);
+            tbl.addCell(tlabel);
+            PdfPCell tval = new PdfPCell(new Phrase(totalQty.toPlainString(), totalFont));
+            tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            tval.setPadding(5);
+            tbl.addCell(tval);
+            doc.add(tbl);
+
+            // signature block
+            PdfPTable sig = new PdfPTable(2);
+            sig.setWidthPercentage(100);
+            sig.setSpacingBefore(40);
+            PdfPCell r1 = new PdfPCell(new Phrase("Received by: _______________________", valueFont));
+            r1.setBorder(Rectangle.NO_BORDER);
+            PdfPCell r2 = new PdfPCell(new Phrase("Authorised by: _______________________", valueFont));
+            r2.setBorder(Rectangle.NO_BORDER);
+            r2.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            sig.addCell(r1); sig.addCell(r2);
+            doc.add(sig);
+
+            doc.close();
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new ApiException("Failed to generate challan PDF: " + e.getMessage());
+        }
+    }
+
+    // ===================================================================
+    // challan PDF
+    // ===================================================================
+
+    @Transactional(readOnly = true)
+    public byte[] generateChallanPdf(UUID dcId) {
+        DeliveryChallan dc = challans.findByIdWithLines(dcId)
+            .orElseThrow(() -> new ApiException("Challan not found"));
+
+        String customerName = customers.findById(dc.getCustomerId())
+            .map(c -> { StringBuilder sb = new StringBuilder(c.getName());
+                if (c.getMobile() != null) sb.append("  ·  ").append(c.getMobile());
+                return sb.toString(); }).orElse("—");
+
+        String warehouseName = dc.getWarehouseId() == null ? "—"
+            : warehouses.findById(dc.getWarehouseId()).map(Warehouse::getName).orElse("—");
+
+        Set<UUID> pids = dc.getLines().stream().map(DcLine::getProductId).collect(Collectors.toSet());
+        Map<UUID, String> productNames = new HashMap<>();
+        products.findAllById(pids).forEach(p -> productNames.put(p.getId(),
+            p.getFullName() != null ? p.getFullName() : p.getName()));
+
+        try {
+            Document doc = new Document(PageSize.A4, 40, 40, 60, 40);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PdfWriter.getInstance(doc, out);
+            doc.open();
+
+            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20);
+            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
+            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
+            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+
+            Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
+            co.setAlignment(Element.ALIGN_CENTER);
+            doc.add(co);
+            Paragraph title = new Paragraph("DELIVERY CHALLAN", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            title.setSpacingAfter(14);
+            doc.add(title);
+
+            // meta
+            PdfPTable meta = new PdfPTable(2);
+            meta.setWidthPercentage(100);
+            meta.setSpacingAfter(14);
+            meta.addCell(metaBlock(labelFont, valueFont, new String[][]{
+                {"Challan No", dc.getDcNo()},
+                {"Date",       dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
+                {"Status",     dc.getStatus()},
+            }));
+            meta.addCell(metaBlock(labelFont, valueFont, new String[][]{
+                {"Customer",   customerName},
+                {"Warehouse",  warehouseName},
+            }));
+            doc.add(meta);
+
+            // line items table — no prices (delivery document)
+            Color teal = new Color(0x0f, 0x76, 0x6e);
+            PdfPTable tbl = new PdfPTable(3);
+            tbl.setWidthPercentage(100);
+            tbl.setWidths(new float[]{0.8f, 5f, 1.5f});
+            tbl.setSpacingAfter(8);
+
+            String[] heads  = {"#", "Product", "Qty"};
+            int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
+            for (int i = 0; i < heads.length; i++) {
+                PdfPCell h = new PdfPCell(new Phrase(heads[i], thFont));
+                h.setBackgroundColor(teal);
+                h.setHorizontalAlignment(aligns[i]);
+                h.setPadding(5);
+                tbl.addCell(h);
+            }
+
+            // group lines by product
+            record ChallanLine(String name, BigDecimal qty) {}
+            java.util.LinkedHashMap<UUID, ChallanLine> grouped = new java.util.LinkedHashMap<>();
+            for (DcLine l : dc.getLines()) {
+                String name = productNames.getOrDefault(l.getProductId(), "—");
+                grouped.merge(l.getProductId(), new ChallanLine(name, l.getQty()),
+                    (a, b) -> new ChallanLine(a.name(), a.qty().add(b.qty())));
+            }
+
+            int serial = 1;
+            BigDecimal totalQty = BigDecimal.ZERO;
+            for (ChallanLine line : grouped.values()) {
+                pdfCell(tbl, String.valueOf(serial++), valueFont, Element.ALIGN_CENTER);
+                pdfCell(tbl, line.name(), valueFont, Element.ALIGN_LEFT);
+                pdfCell(tbl, line.qty().toPlainString(), valueFont, Element.ALIGN_RIGHT);
+                totalQty = totalQty.add(line.qty());
+            }
+
+            // total row
+            PdfPCell tlabel = new PdfPCell(new Phrase("TOTAL", labelFont));
+            tlabel.setColspan(2);
+            tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            tlabel.setPadding(5);
+            tbl.addCell(tlabel);
+            PdfPCell tval = new PdfPCell(new Phrase(totalQty.toPlainString(), totalFont));
+            tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            tval.setPadding(5);
+            tbl.addCell(tval);
+            doc.add(tbl);
+
+            // signature line
+            PdfPTable sig = new PdfPTable(2);
+            sig.setWidthPercentage(100);
+            sig.setSpacingBefore(40);
+            PdfPCell r1 = new PdfPCell(new Phrase("Received by: _______________________", valueFont));
+            r1.setBorder(Rectangle.NO_BORDER);
+            PdfPCell r2 = new PdfPCell(new Phrase("Authorised by: _______________________", valueFont));
+            r2.setBorder(Rectangle.NO_BORDER);
+            r2.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            sig.addCell(r1); sig.addCell(r2);
+            doc.add(sig);
+
+            doc.close();
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new ApiException("Failed to generate challan PDF: " + e.getMessage());
+        }
+    }
+
+    // ===================================================================
+    // warehouse dispatch token PDF
+    // ===================================================================
+
+    @Transactional(readOnly = true)
+    public byte[] generateWarehouseTokenPdf(UUID soId) {
+        SalesOrder so = orders.findById(soId)
+            .orElseThrow(() -> new ApiException("Sales order not found"));
+
+        List<DeliveryChallan> dcList = challans.findBySoIdWithLines(soId);
+        if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
+
+        // collect all product names
+        Set<UUID> pids = dcList.stream()
+            .flatMap(dc -> dc.getLines().stream().map(DcLine::getProductId))
+            .collect(Collectors.toSet());
+        Map<UUID, String> productNames = new HashMap<>();
+        products.findAllById(pids).forEach(p -> productNames.put(p.getId(),
+            p.getFullName() != null ? p.getFullName() : p.getName()));
+
+        // collect warehouse names
+        Set<UUID> wids = dcList.stream().map(DeliveryChallan::getWarehouseId)
+            .filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, String> warehouseNames = new HashMap<>();
+        warehouses.findAllById(wids).forEach(w -> warehouseNames.put(w.getId(), w.getName()));
+
+        try {
+            Document doc = new Document(PageSize.A4, 40, 40, 60, 40);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PdfWriter.getInstance(doc, out);
+            doc.open();
+
+            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
+            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
+            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
+            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font whFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Color teal       = new Color(0x0f, 0x76, 0x6e);
+
+            boolean first = true;
+            for (DeliveryChallan dc : dcList) {
+                if (!first) doc.newPage();
+                first = false;
+
+                String whName = dc.getWarehouseId() != null
+                    ? warehouseNames.getOrDefault(dc.getWarehouseId(), "—") : "—";
+
+                // header
+                Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
+                co.setAlignment(Element.ALIGN_CENTER);
+                doc.add(co);
+
+                Paragraph titleP = new Paragraph("WAREHOUSE DISPATCH TOKEN", titleFont);
+                titleP.setAlignment(Element.ALIGN_CENTER);
+                titleP.setSpacingAfter(10);
+                doc.add(titleP);
+
+                // warehouse badge
+                PdfPTable badge = new PdfPTable(1);
+                badge.setWidthPercentage(100);
+                badge.setSpacingAfter(10);
+                PdfPCell bc = new PdfPCell(new Phrase("  WAREHOUSE: " + whName.toUpperCase(), whFont));
+                bc.setBackgroundColor(teal);
+                bc.setPadding(7);
+                bc.setBorder(Rectangle.NO_BORDER);
+                bc.getPhrase().getFont().setColor(Color.WHITE);
+                badge.addCell(bc);
+                doc.add(badge);
+
+                // meta
+                PdfPTable meta = new PdfPTable(2);
+                meta.setWidthPercentage(100);
+                meta.setSpacingAfter(12);
+                meta.addCell(metaBlock(labelFont, valueFont, new String[][]{
+                    {"Order No",  so.getSoNo()},
+                    {"DC No",     dc.getDcNo()},
+                    {"Date",      dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
+                }));
+                meta.addCell(metaBlock(labelFont, valueFont, new String[][]{
+                    {"Status",    dc.getStatus()},
+                    {"Warehouse", whName},
+                }));
+                doc.add(meta);
+
+                // product table
+                PdfPTable tbl = new PdfPTable(3);
+                tbl.setWidthPercentage(100);
+                tbl.setWidths(new float[]{0.8f, 5f, 1.5f});
+                tbl.setSpacingAfter(8);
+
+                String[] heads  = {"#", "Product", "Qty"};
+                int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
+                for (int i = 0; i < heads.length; i++) {
+                    PdfPCell h = new PdfPCell(new Phrase(heads[i], thFont));
+                    h.setBackgroundColor(teal);
+                    h.setHorizontalAlignment(aligns[i]);
+                    h.setPadding(5);
+                    tbl.addCell(h);
+                }
+
+                // group lines by product within this DC
+                record DispatchLine(String name, BigDecimal qty) {}
+                java.util.LinkedHashMap<UUID, DispatchLine> grouped = new java.util.LinkedHashMap<>();
+                for (DcLine l : dc.getLines()) {
+                    String name = productNames.getOrDefault(l.getProductId(), "—");
+                    grouped.merge(l.getProductId(), new DispatchLine(name, l.getQty()),
+                        (a, b) -> new DispatchLine(a.name(), a.qty().add(b.qty())));
+                }
+
+                int serial = 1;
+                BigDecimal totalQty = BigDecimal.ZERO;
+                for (DispatchLine line : grouped.values()) {
+                    pdfCell(tbl, String.valueOf(serial++), valueFont, Element.ALIGN_CENTER);
+                    pdfCell(tbl, line.name(), valueFont, Element.ALIGN_LEFT);
+                    pdfCell(tbl, line.qty().toPlainString(), valueFont, Element.ALIGN_RIGHT);
+                    totalQty = totalQty.add(line.qty());
+                }
+
+                PdfPCell tlabel = new PdfPCell(new Phrase("TOTAL ITEMS", labelFont));
+                tlabel.setColspan(2);
+                tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                tlabel.setPadding(5);
+                tbl.addCell(tlabel);
+                PdfPCell tval = new PdfPCell(new Phrase(totalQty.toPlainString(), totalFont));
+                tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                tval.setPadding(5);
+                tbl.addCell(tval);
+                doc.add(tbl);
+
+                // dispatch signature block
+                PdfPTable sig = new PdfPTable(2);
+                sig.setWidthPercentage(100);
+                sig.setSpacingBefore(30);
+                PdfPCell s1 = new PdfPCell(new Phrase("Dispatched by: _______________________", valueFont));
+                s1.setBorder(Rectangle.NO_BORDER);
+                PdfPCell s2 = new PdfPCell(new Phrase("Checked by: _______________________", valueFont));
+                s2.setBorder(Rectangle.NO_BORDER);
+                s2.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                sig.addCell(s1); sig.addCell(s2);
+                doc.add(sig);
+
+                Paragraph note = new Paragraph(
+                    "* This token authorises dispatch from " + whName + " only. Do not release without this token.",
+                    FontFactory.getFont(FontFactory.HELVETICA_OBLIQUE, 8));
+                note.setAlignment(Element.ALIGN_CENTER);
+                note.setSpacingBefore(16);
+                doc.add(note);
+            }
+
+            doc.close();
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new ApiException("Failed to generate warehouse token: " + e.getMessage());
         }
     }
 

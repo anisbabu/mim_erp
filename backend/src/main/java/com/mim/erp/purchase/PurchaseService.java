@@ -173,7 +173,7 @@ public class PurchaseService {
                 String name = products.findById(gl.getReceivedProductId())
                     .map(p -> p.getFullName() != null ? p.getFullName() : p.getName()).orElse("—");
                 result.add(new PurchaseDtos.ReceiptView(
-                    grn.getGrnNo(), grn.getReceiptDate(), name, gl.getQtyReceived()));
+                    grn.getGrnNo(), grn.getReceiptDate(), name, grn.getWarehouseId(), gl.getQtyReceived()));
             }
         }
         return result;

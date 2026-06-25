@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type SalesOrder, type Customer } from "@/lib/api";
+import { beep } from "@/lib/beep";
 
 const PAGE_SIZE = 20;
 
@@ -9,7 +10,7 @@ export default function SalesOrdersPage() {
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [downloading, setDownloading] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     endpoints.salesOrders().then(setOrders).catch(() => {});
@@ -37,20 +38,45 @@ export default function SalesOrdersPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  async function downloadInvoice(soId: string, soNo: string) {
-    setDownloading(soId);
+  type BusyKey = string; // soId + "inv" | soId + "dc"
+  async function fetchBlob(fetcher: () => Promise<Blob>, key: BusyKey): Promise<{ blob: Blob; url: string } | null> {
+    setBusy(key);
     try {
-      const blob = await endpoints.invoiceBlob(soId);
+      const blob = await fetcher();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${soNo}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      beep();
+      return { blob, url };
     } catch (e: any) {
       alert(e.message);
+      return null;
     } finally {
-      setDownloading(null);
+      setBusy(null);
+    }
+  }
+
+  async function openDoc(fetcher: () => Promise<Blob>, key: BusyKey) {
+    const r = await fetchBlob(fetcher, key);
+    if (!r) return;
+    window.open(r.url, "_blank");
+  }
+
+  async function downloadDoc(fetcher: () => Promise<Blob>, key: BusyKey, filename: string) {
+    const r = await fetchBlob(fetcher, key);
+    if (!r) return;
+    const a = document.createElement("a");
+    a.href = r.url; a.download = filename; a.click();
+    URL.revokeObjectURL(r.url);
+  }
+
+  async function shareDoc(fetcher: () => Promise<Blob>, key: BusyKey, filename: string, title: string) {
+    const r = await fetchBlob(fetcher, key);
+    if (!r) return;
+    const file = new File([r.blob], filename, { type: "application/pdf" });
+    if (navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title, text: title }); } catch { /* cancelled */ }
+      URL.revokeObjectURL(r.url);
+    } else {
+      window.open(r.url, "_blank");
     }
   }
 
@@ -69,15 +95,21 @@ export default function SalesOrdersPage() {
 
       <div className="border border-line rounded-xl bg-surface overflow-hidden">
         <table className="tbl">
-          <thead><tr><th>SO no</th><th>Customer</th><th>Workflow</th><th>Date</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>SO no</th><th>Customer</th><th>Workflow</th><th>Date</th><th>Status</th><th>Dispatch token</th><th>Challan</th><th>Invoice</th></tr></thead>
           <tbody>
             {pageItems.length === 0 && (
-              <tr><td colSpan={6} className="text-[#6b6960]">
+              <tr><td colSpan={8} className="text-[#6b6960]">
                 {search ? "No matching orders." : "No sales orders yet."}
               </td></tr>
             )}
             {pageItems.map((o) => {
               const cust = customers[o.customerId];
+              const wtKey  = o.id + "wt";
+              const dcKey  = o.id + "dc";
+              const invKey = o.id + "inv";
+              const wtBusy  = busy === wtKey;
+              const dcBusy  = busy === dcKey;
+              const invBusy = busy === invKey;
               return (
                 <tr key={o.id}>
                   <td className="font-mono text-[13px]">{o.soNo}</td>
@@ -90,13 +122,59 @@ export default function SalesOrdersPage() {
                   <td className="text-xs">{o.workflow}</td>
                   <td>{fmtDate(o.orderDate)}</td>
                   <td>{o.status}</td>
+
+                  {/* Dispatch token column */}
                   <td className="text-right">
-                    <button
-                      className="text-brand text-sm disabled:opacity-40"
-                      disabled={downloading === o.id}
-                      onClick={() => downloadInvoice(o.id, o.soNo)}>
-                      {downloading === o.id ? "…" : "Invoice ↓"}
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      <button className="btn-ghost btn-sm" disabled={wtBusy} title="Print dispatch token"
+                        onClick={() => openDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey)}>
+                        {wtBusy ? "…" : "🖨"}
+                      </button>
+                      <button className="btn-ghost btn-sm" disabled={wtBusy} title="Download dispatch token"
+                        onClick={() => downloadDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey, `dispatch-${o.soNo}.pdf`)}>
+                        ↓
+                      </button>
+                      <button className="btn btn-sm" disabled={wtBusy} title="Share dispatch token"
+                        onClick={() => shareDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey, `dispatch-${o.soNo}.pdf`, `Dispatch Token ${o.soNo}`)}>
+                        ↗
+                      </button>
+                    </div>
+                  </td>
+
+                  {/* Challan column */}
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button className="btn-ghost btn-sm" disabled={dcBusy} title="Print challan"
+                        onClick={() => openDoc(() => endpoints.orderChallanBlob(o.id), dcKey)}>
+                        {dcBusy ? "…" : "🖨"}
+                      </button>
+                      <button className="btn-ghost btn-sm" disabled={dcBusy} title="Download challan"
+                        onClick={() => downloadDoc(() => endpoints.orderChallanBlob(o.id), dcKey, `challan-${o.soNo}.pdf`)}>
+                        ↓
+                      </button>
+                      <button className="btn btn-sm" disabled={dcBusy} title="Share challan"
+                        onClick={() => shareDoc(() => endpoints.orderChallanBlob(o.id), dcKey, `challan-${o.soNo}.pdf`, `Challan ${o.soNo}`)}>
+                        ↗
+                      </button>
+                    </div>
+                  </td>
+
+                  {/* Invoice column */}
+                  <td className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button className="btn-ghost btn-sm" disabled={invBusy} title="Print invoice"
+                        onClick={() => openDoc(() => endpoints.invoiceBlob(o.id), invKey)}>
+                        {invBusy ? "…" : "🖨"}
+                      </button>
+                      <button className="btn-ghost btn-sm" disabled={invBusy} title="Download invoice"
+                        onClick={() => downloadDoc(() => endpoints.invoiceBlob(o.id), invKey, `${o.soNo}.pdf`)}>
+                        ↓
+                      </button>
+                      <button className="btn btn-sm" disabled={invBusy} title="Share invoice"
+                        onClick={() => shareDoc(() => endpoints.invoiceBlob(o.id), invKey, `${o.soNo}.pdf`, `Invoice ${o.soNo}`)}>
+                        ↗
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

@@ -56,4 +56,32 @@ public class SalesController {
             .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
             .body(pdf);
     }
+
+    /** Warehouse dispatch token — one page per warehouse DC. */
+    @GetMapping(value = "/orders/{soId}/warehouse-token", produces = "application/pdf")
+    public ResponseEntity<byte[]> warehouseToken(@PathVariable UUID soId) {
+        byte[] pdf = service.generateWarehouseTokenPdf(soId);
+        return ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"dispatch-token-" + soId + ".pdf\"")
+            .body(pdf);
+    }
+
+    /** Delivery challan PDF for all challans under a sales order. */
+    @GetMapping(value = "/orders/{soId}/challan", produces = "application/pdf")
+    public ResponseEntity<byte[]> orderChallan(@PathVariable UUID soId) {
+        byte[] pdf = service.generateOrderChallanPdf(soId);
+        return ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"challan-" + soId + ".pdf\"")
+            .body(pdf);
+    }
+
+    /** Download a delivery challan as PDF. */
+    @GetMapping(value = "/challans/{dcId}/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> challanPdf(@PathVariable UUID dcId) {
+        byte[] pdf = service.generateChallanPdf(dcId);
+        String filename = "challan-" + dcId + ".pdf";
+        return ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+            .body(pdf);
+    }
 }

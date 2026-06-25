@@ -124,7 +124,7 @@ export type PoDetails = {
 export type PurchaseOrder = { id: string; poNo: string; supplierId: string; status: string; orderDate: string; note?: string };
 export type SalesOrder = { id: string; soNo: string; customerId: string; shopId: string; workflow: string; status: string; orderDate: string };
 export type DeliveryChallan = { id: string; dcNo: string; customerId: string; warehouseId: string; status: string; challanDate: string };
-export type ChallanLineView = { dcLineId: string; dcNo: string; productId: string; productName: string; qty: number; unitPrice: number; unitCost: number; discountAmt: number; priceLower?: number; priceUpper?: number };
+export type ChallanLineView = { dcLineId: string; dcNo: string; productId: string; productName: string; warehouseId?: string; qty: number; unitPrice: number; unitCost: number; discountAmt: number; priceLower?: number; priceUpper?: number };
 
 export type WarehouseStock = { warehouseId: string; qty: number };
 export type StockRow = { productId: string; warehouseId: string; qty: number; value: number };
@@ -215,6 +215,42 @@ export const endpoints = {
     if (!res.ok) throw new Error("Failed to generate invoice");
     return res.blob();
   },
+  warehouseTokenBlob: async (soId: string): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/sales/orders/${soId}/warehouse-token`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      let msg = `Request failed (${res.status})`;
+      try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore */ }
+      throw new Error(msg);
+    }
+    return res.blob();
+  },
+  orderChallanBlob: async (soId: string): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/sales/orders/${soId}/challan`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      let msg = `Request failed (${res.status})`;
+      try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore */ }
+      throw new Error(msg);
+    }
+    return res.blob();
+  },
+  challanBlob: async (dcId: string): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/sales/challans/${dcId}/pdf`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      let msg = `Request failed (${res.status})`;
+      try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore */ }
+      throw new Error(msg);
+    }
+    return res.blob();
+  },
 
   // accounting
   accounts:     () => api.get<Account[]>("/api/accounting/accounts"),
@@ -267,4 +303,4 @@ export const endpoints = {
 
 export type JournalLineView = { code: string; name: string; debit: number; credit: number };
 export type JournalEntryView = { entryNo: string; entryDate: string; narration: string; sourceType: string; lines: JournalLineView[] };
-export type ReceiptView = { grnNo: string; receiptDate: string; productName: string; qtyReceived: number };
+export type ReceiptView = { grnNo: string; receiptDate: string; productName: string; warehouseId?: string; qtyReceived: number };

@@ -7,7 +7,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
 
-type Line = { productId: string; qty: string; unitPrice: string; discountAmt: string };
+type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 
 export default function NewSalePage() {
   const { activeShopId } = useAuth();
@@ -18,12 +18,13 @@ export default function NewSalePage() {
   const [authorisers, setAuthorisers] = useState<UserView[]>([]);
 
   const [customerId, setCustomerId]     = useState("");
-  const [warehouseId, setWarehouseId]   = useState("");
   const [localShopId, setLocalShopId]   = useState("");
   const [paymentMode, setPaymentMode]   = useState<"CASH" | "CREDIT">("CASH");
-  const [lines, setLines] = useState<Line[]>([{ productId: "", qty: "", unitPrice: "", discountAmt: "" }]);
+  const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "", discountAmt: "" }]);
   const [overrideBy, setOverrideBy] = useState("");
   const [discountBy, setDiscountBy] = useState("");
+  const [discount, setDiscount]     = useState("");
+  const [transport, setTransport]   = useState("");
   const [msg, setMsg]   = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -54,7 +55,7 @@ export default function NewSalePage() {
   function update(i: number, patch: Partial<Line>) {
     setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   }
-  const addLine    = () => setLines((ls) => [...ls, { productId: "", qty: "", unitPrice: "", discountAmt: "" }]);
+  const addLine    = () => setLines((ls) => [...ls, { productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
   const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
   function bandState(l: Line): "ok" | "out" | "none" {
@@ -66,30 +67,12 @@ export default function NewSalePage() {
     return "ok";
   }
 
-  const anyOutOfBand = lines.some((l) => bandState(l) === "out");
-  const anyDiscount  = lines.some((l) => Number(l.discountAmt) > 0);
-  const grandGross   = lines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
-  const totalDiscount = lines.reduce((s, l) => s + (Number(l.discountAmt) || 0), 0);
-  const netTotal      = grandGross - totalDiscount;
-
-  function applyNetTotal(newNet: number) {
-    if (grandGross <= 0) return;
-    const newTotalDisc = Math.max(0, grandGross - newNet);
-    setLines((ls) => {
-      const grosses  = ls.map((l) => Number(l.qty) * Number(l.unitPrice));
-      const sumGross = grosses.reduce((a, b) => a + b, 0);
-      if (sumGross === 0) return ls;
-      let assigned = 0;
-      return ls.map((l, i) => {
-        const isLast = i === ls.length - 1;
-        const disc   = isLast
-          ? Math.round((newTotalDisc - assigned) * 100) / 100
-          : Math.round((newTotalDisc * grosses[i] / sumGross) * 100) / 100;
-        if (!isLast) assigned += disc;
-        return { ...l, discountAmt: disc > 0 ? String(disc) : "" };
-      });
-    });
-  }
+  const anyOutOfBand  = lines.some((l) => bandState(l) === "out");
+  const grandGross    = lines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
+  const totalDiscount = Math.min(Number(discount) || 0, grandGross);
+  const totalTransport = Number(transport) || 0;
+  const netTotal      = grandGross - totalDiscount + totalTransport;
+  const anyDiscount   = totalDiscount > 0;
 
   const shopId = activeShopId || localShopId;
 
@@ -97,14 +80,20 @@ export default function NewSalePage() {
     setMsg(null);
     if (!shopId)      { setMsg({ kind: "err", text: "Select a shop." }); return; }
     if (!customerId)  { setMsg({ kind: "err", text: "Select a customer." }); return; }
-    if (!warehouseId) { setMsg({ kind: "err", text: "Select a warehouse." }); return; }
-    const allocations = lines
-      .filter((l) => l.productId && Number(l.qty) > 0)
-      .map((l) => ({
-        productId: l.productId, warehouseId,
-        qty: Number(l.qty), unitPrice: Number(l.unitPrice),
-        discountAmt: Number(l.discountAmt) || 0,
-      }));
+    const validLines = lines.filter((l) => l.productId && l.warehouseId && Number(l.qty) > 0);
+    const sumGross = validLines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
+    let assigned = 0;
+    const allocations = validLines.map((l, i) => {
+      const lineGross = Number(l.qty) * Number(l.unitPrice);
+      const isLast = i === validLines.length - 1;
+      const lineDisc = sumGross > 0
+        ? isLast
+          ? Math.round((totalDiscount - assigned) * 100) / 100
+          : Math.round((totalDiscount * lineGross / sumGross) * 100) / 100
+        : 0;
+      if (!isLast) assigned += lineDisc;
+      return { productId: l.productId, warehouseId: l.warehouseId, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
+    });
     if (!allocations.length) { setMsg({ kind: "err", text: "Add at least one line with qty." }); return; }
     if (anyOutOfBand && !overrideBy.trim()) {
       setMsg({ kind: "err", text: "A price is out of band — enter the authoriser name to override." }); return;
@@ -116,12 +105,14 @@ export default function NewSalePage() {
     try {
       const res: any = await endpoints.createOrder({
         shopId, customerId, paymentMode, allocations,
-        creditOverrideBy: overrideBy || null,
-        priceOverrideBy:  anyOutOfBand ? overrideBy : null,
-        discountBy:       anyDiscount  ? discountBy : null,
+        creditOverrideBy:    overrideBy || null,
+        priceOverrideBy:     anyOutOfBand ? overrideBy : null,
+        discountBy:          anyDiscount  ? discountBy : null,
+        transportAndLifting: totalTransport || null,
       });
       const margin = (res.totalValue - res.totalCost).toFixed(2);
       setMsg({ kind: "ok", text: `Sale ${res.soNo} created · ${res.challanIds.length} challan(s) · margin ${margin}` });
+      setDiscount(""); setTransport("");
       if (panelProductId) {
         const s = await endpoints.availability(panelProductId);
         setStockPanel(s);
@@ -135,7 +126,7 @@ export default function NewSalePage() {
     <div>
       {/* Header + stock panel */}
       <div className="flex items-start justify-between gap-4 mb-5">
-        <h1 className="page-title">New sale</h1>
+        <h1 className="page-title">Sales invoice</h1>
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
@@ -181,13 +172,6 @@ export default function NewSalePage() {
           </select>
         </div>
         <div className="field">
-          <label>Warehouse</label>
-          <select className="inp" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
-            <option value="">Select warehouse…</option>
-            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
-        </div>
-        <div className="field">
           <label>Payment</label>
           <select className="inp" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value as "CASH" | "CREDIT")}>
             <option value="CASH">Cash</option>
@@ -205,10 +189,10 @@ export default function NewSalePage() {
             <thead>
               <tr>
                 <th>Product</th>
+                <th style={{ width: 150 }}>Warehouse</th>
                 <th className="text-right" style={{ width: 90 }}>Qty</th>
                 <th className="text-right" style={{ width: 110 }}>Unit price</th>
                 <th className="text-right" style={{ width: 120 }}>Gross total</th>
-                <th className="text-right" style={{ width: 100 }}>Discount</th>
                 <th style={{ width: 40 }}></th>
               </tr>
             </thead>
@@ -217,7 +201,6 @@ export default function NewSalePage() {
                 const p = productById[l.productId];
                 const band = bandState(l);
                 const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
-                const discAmt    = Number(l.discountAmt) || 0;
                 return (
                   <tr key={i}>
                     <td className="align-top">
@@ -234,6 +217,13 @@ export default function NewSalePage() {
                         style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                         {p ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}` : ""}
                       </div>
+                    </td>
+                    <td className="align-top">
+                      <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
+                        <option value="">Select…</option>
+                        {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                      </select>
+                      <div className="h-4 mt-1" />
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums" style={{ width: 75, marginLeft: "auto" }}
@@ -257,16 +247,6 @@ export default function NewSalePage() {
                         placeholder="0.00" />
                       <div className="h-4 mt-1" />
                     </td>
-                    <td className="text-right align-top">
-                      <input className="inp text-right tabular-nums" style={{ width: 86, marginLeft: "auto" }}
-                        type="number" min={0} value={l.discountAmt}
-                        onChange={(e) => update(i, { discountAmt: e.target.value })}
-                        onKeyDown={(e) => e.key === "Enter" && i === lines.length - 1 && addLine()}
-                        placeholder="0.00" />
-                      <div className="text-[11px] text-[#6b6960] mt-1 h-4 leading-4">
-                        {discAmt > 0 && grossTotal > 0 && `net ${(grossTotal - discAmt).toFixed(2)}`}
-                      </div>
-                    </td>
                     <td className="text-right align-top pt-2">
                       {lines.length > 1 && (
                         <button className="btn-icon btn-icon-del" title="Remove" onClick={() => removeLine(i)}>
@@ -288,7 +268,6 @@ export default function NewSalePage() {
             const p = productById[l.productId];
             const band = bandState(l);
             const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
-            const discAmt    = Number(l.discountAmt) || 0;
             return (
               <div key={i} className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -311,6 +290,13 @@ export default function NewSalePage() {
                 <div className="text-[11px] -mt-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                   {p ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}` : ""}
                 </div>
+                <div className="field">
+                  <label className="text-xs muted block mb-1">Warehouse</label>
+                  <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
+                    <option value="">Select…</option>
+                    {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs muted block mb-1">Qty</label>
@@ -332,16 +318,6 @@ export default function NewSalePage() {
                       onChange={(e) => { const t = Number(e.target.value), q = Number(l.qty); if (q > 0) update(i, { unitPrice: String(t / q) }); }}
                       placeholder="0.00" />
                   </div>
-                  <div>
-                    <label className="text-xs muted block mb-1">Discount</label>
-                    <input className="inp text-right tabular-nums w-full" type="number" min={0}
-                      value={l.discountAmt} onChange={(e) => update(i, { discountAmt: e.target.value })}
-                      onKeyDown={(e) => e.key === "Enter" && i === lines.length - 1 && addLine()}
-                      placeholder="0.00" />
-                    {discAmt > 0 && grossTotal > 0 && (
-                      <div className="text-[11px] muted mt-0.5">net {(grossTotal - discAmt).toFixed(2)}</div>
-                    )}
-                  </div>
                 </div>
               </div>
             );
@@ -358,16 +334,18 @@ export default function NewSalePage() {
           <div style={{ display: "grid", gridTemplateColumns: "auto auto", rowGap: 6, columnGap: 24, alignItems: "center" }}>
             <span className="text-xs muted text-right">Gross</span>
             <span className="tabular-nums text-right">{grandGross.toFixed(2)}</span>
-            {totalDiscount > 0 && <>
-              <span className="text-xs muted text-right">Discount</span>
-              <span className="tabular-nums text-right text-[#b4690e]">− {totalDiscount.toFixed(2)}</span>
-            </>}
+            <span className="text-xs muted text-right">Discount</span>
+            <input className="inp text-right tabular-nums" style={{ width: 120 }}
+              type="number" min={0} max={grandGross} placeholder="0"
+              value={discount} onChange={(e) => setDiscount(e.target.value)} />
+            <span className="text-xs muted text-right">Transport &amp; Lifting</span>
+            <input className="inp text-right tabular-nums" style={{ width: 120 }}
+              type="number" min={0} placeholder="0"
+              value={transport} onChange={(e) => setTransport(e.target.value)} />
             <span className="text-xs muted font-semibold text-right">Net total</span>
-            <input className="inp text-right tabular-nums font-semibold" style={{ width: 150 }}
-              type="number" min={0}
-              value={netTotal > 0 ? netTotal.toFixed(2) : ""}
-              onChange={(e) => applyNetTotal(Number(e.target.value))}
-              placeholder="0.00" />
+            <span className="tabular-nums font-bold text-right text-base" style={{ color: "#0f766e" }}>
+              {netTotal.toFixed(2)}
+            </span>
           </div>
         </div>
       )}
@@ -395,7 +373,7 @@ export default function NewSalePage() {
       )}
 
       <button className="btn w-full sm:w-auto" onClick={submit} disabled={busy}>
-        {busy ? "Creating…" : "Create sale & deliver"}
+        {busy ? "Creating…" : "Create invoice & deliver"}
       </button>
 
       {msg && (

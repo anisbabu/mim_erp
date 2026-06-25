@@ -72,7 +72,7 @@ export default function NewPoPage() {
     try {
       const po: any = await endpoints.createPo(payload);
       setMsg({ kind: "ok", text: `${t("New purchase order")} ${po.poNo} ✓` });
-      setLines([{ productId: "", qty: "", unitPrice: "", free: false }]); setNote(""); setPoNo(""); setManualPo(false);
+      setLines([{ productId: "", qty: "", unitPrice: "", free: false }]); setNote(""); setPoNo("");
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
   }
 

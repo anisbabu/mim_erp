@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { endpoints, type DeliveryChallan, type Customer, type ChallanLineView, type UserView } from "@/lib/api";
+import { endpoints, type DeliveryChallan, type Customer, type ChallanLineView, type UserView, type Warehouse } from "@/lib/api";
 
-type LineEdit = { unitPrice: string; discountAmt: string };
+type LineEdit = { unitPrice: string };
 
 function bandStatus(l: ChallanLineView, edit: LineEdit): "out" | "ok" | "none" {
   const price = Number(edit.unitPrice);
@@ -17,11 +17,13 @@ function bandStatus(l: ChallanLineView, edit: LineEdit): "out" | "ok" | "none" {
 export default function ConsolidatePage() {
   const [challans, setChallans]   = useState<DeliveryChallan[]>([]);
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
+  const [warehouseById, setWarehouseById] = useState<Record<string, Warehouse>>({});
   const [authorisers, setAuthorisers] = useState<UserView[]>([]);
   const [customerId, setCustomerId]   = useState("");
   const [paymentMode, setPaymentMode] = useState<"CASH" | "CREDIT">("CASH");
   const [overrideBy, setOverrideBy]   = useState("");
-  const [discountBy, setDiscountBy]   = useState("");
+  const [discount, setDiscount]       = useState("");
+  const [transport, setTransport]     = useState("");
   const [lines, setLines]             = useState<ChallanLineView[]>([]);
   const [edits, setEdits]             = useState<Record<string, LineEdit>>({});
   const [linesLoading, setLinesLoading] = useState(false);
@@ -33,6 +35,9 @@ export default function ConsolidatePage() {
   }
   useEffect(() => {
     loadChallans();
+    endpoints.warehouses()
+      .then((ws) => setWarehouseById(Object.fromEntries(ws.map((w) => [w.id, w]))))
+      .catch(() => {});
     endpoints.customers()
       .then((c) => setCustomers(Object.fromEntries(c.map((x) => [x.id, x]))))
       .catch(() => {});
@@ -50,7 +55,7 @@ export default function ConsolidatePage() {
       const ls = await endpoints.openChallanLines(cid);
       setLines(ls);
       const init: Record<string, LineEdit> = {};
-      for (const l of ls) init[l.dcLineId] = { unitPrice: String(l.unitPrice), discountAmt: String(l.discountAmt || 0) };
+      for (const l of ls) init[l.dcLineId] = { unitPrice: String(l.unitPrice) };
       setEdits(init);
     } catch { setLines([]); }
     finally { setLinesLoading(false); }
@@ -72,15 +77,15 @@ export default function ConsolidatePage() {
     return m;
   }, [lines]);
 
-  const anyOut = lines.some((l) => bandStatus(l, edits[l.dcLineId] ?? { unitPrice: String(l.unitPrice), discountAmt: "0" }) === "out");
-  const anyDiscount = lines.some((l) => Number(edits[l.dcLineId]?.discountAmt) > 0);
+  const anyOut = lines.some((l) => bandStatus(l, edits[l.dcLineId] ?? { unitPrice: String(l.unitPrice) }) === "out");
 
   const grandGross = lines.reduce((s, l) => {
     const e = edits[l.dcLineId];
     return s + l.qty * Number(e?.unitPrice ?? l.unitPrice);
   }, 0);
-  const grandDiscount = lines.reduce((s, l) => s + Number(edits[l.dcLineId]?.discountAmt || 0), 0);
-  const netTotal = grandGross - grandDiscount;
+  const totalDiscount = Math.min(Number(discount) || 0, grandGross);
+  const totalTransport = Number(transport) || 0;
+  const netTotal = grandGross - totalDiscount + totalTransport;
 
   async function submit() {
     setMsg(null);
@@ -88,24 +93,26 @@ export default function ConsolidatePage() {
     if (anyOut && !overrideBy.trim()) {
       setMsg({ kind: "err", text: "Price out of band — enter authoriser name." }); return;
     }
-    if (anyDiscount && !discountBy.trim()) {
-      setMsg({ kind: "err", text: "Discount requires an authoriser." }); return;
-    }
     setBusy(true);
     try {
       const r: any = await endpoints.consolidate({
         customerId, paymentMode,
         creditOverrideBy: overrideBy || null,
         priceOverrideBy:  anyOut ? overrideBy : null,
-        discountBy:       anyDiscount ? discountBy : null,
-        lineOverrides: lines.map((l) => ({
-          dcLineId:    l.dcLineId,
-          unitPrice:   Number(edits[l.dcLineId]?.unitPrice ?? l.unitPrice),
-          discountAmt: Number(edits[l.dcLineId]?.discountAmt ?? l.discountAmt ?? 0),
-        })),
+        discountBy:       totalDiscount > 0 ? (overrideBy || null) : null,
+        transportAndLifting: totalTransport || null,
+        lineOverrides: lines.map((l) => {
+          const lineGross = l.qty * Number(edits[l.dcLineId]?.unitPrice ?? l.unitPrice);
+          const lineDisc  = grandGross > 0 ? (lineGross / grandGross) * totalDiscount : 0;
+          return {
+            dcLineId:    l.dcLineId,
+            unitPrice:   Number(edits[l.dcLineId]?.unitPrice ?? l.unitPrice),
+            discountAmt: Math.round(lineDisc * 100) / 100,
+          };
+        }),
       });
       setMsg({ kind: "ok", text: `Invoice ${r.soNo} · ${r.challanIds.length} challan(s) · net ${Number(r.totalValue).toFixed(2)}` });
-      setCustomerId(""); setLines([]); setEdits({}); setOverrideBy(""); setDiscountBy("");
+      setCustomerId(""); setLines([]); setEdits({}); setOverrideBy(""); setDiscount(""); setTransport("");
       loadChallans();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
     finally { setBusy(false); }
@@ -157,20 +164,19 @@ export default function ConsolidatePage() {
                     <tr>
                       <th>Challan</th>
                       <th>Product</th>
+                      <th style={{ width: 130 }}>Warehouse</th>
                       <th className="text-right" style={{ width: 70 }}>Qty</th>
                       <th className="text-right" style={{ width: 120 }}>Unit price</th>
-                      <th className="text-right" style={{ width: 100 }}>Discount</th>
                       <th className="text-right" style={{ width: 110 }}>Net</th>
                     </tr>
                   </thead>
                   <tbody>
                     {Object.entries(grouped).map(([dcNo, dcLines]) =>
                       dcLines.map((l, idx) => {
-                        const e = edits[l.dcLineId] ?? { unitPrice: String(l.unitPrice), discountAmt: "0" };
+                        const e = edits[l.dcLineId] ?? { unitPrice: String(l.unitPrice) };
                         const band = bandStatus(l, e);
                         const hasBand = l.priceLower != null || l.priceUpper != null;
                         const gross = l.qty * Number(e.unitPrice);
-                        const disc  = Number(e.discountAmt) || 0;
                         return (
                           <tr key={l.dcLineId}>
                             {idx === 0 && (
@@ -188,6 +194,9 @@ export default function ConsolidatePage() {
                                   : "no band"}
                               </div>
                             </td>
+                            <td className="align-top pt-1 text-sm">
+                              {l.warehouseId ? (warehouseById[l.warehouseId]?.name ?? "—") : "—"}
+                            </td>
                             <td className="text-right tabular-nums align-top pt-1">{l.qty}</td>
                             <td className="text-right align-top">
                               <input className="inp text-right tabular-nums"
@@ -196,15 +205,8 @@ export default function ConsolidatePage() {
                                 onChange={(ev) => updateEdit(l.dcLineId, { unitPrice: ev.target.value })} />
                               <div className="h-4 mt-0.5" />
                             </td>
-                            <td className="text-right align-top">
-                              <input className="inp text-right tabular-nums"
-                                style={{ width: 86, marginLeft: "auto" }}
-                                type="number" min={0} value={e.discountAmt}
-                                onChange={(ev) => updateEdit(l.dcLineId, { discountAmt: ev.target.value })} />
-                              <div className="h-4 mt-0.5" />
-                            </td>
                             <td className="text-right tabular-nums align-top pt-1 font-medium">
-                              {(gross - disc).toFixed(2)}
+                              {gross.toFixed(2)}
                             </td>
                           </tr>
                         );
@@ -213,18 +215,32 @@ export default function ConsolidatePage() {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={3} className="text-right font-semibold text-sm">Gross</td>
-                      <td colSpan={3} className="text-right tabular-nums font-semibold">{grandGross.toFixed(2)}</td>
+                      <td colSpan={4} className="text-right text-sm muted">Gross</td>
+                      <td colSpan={2} className="text-right tabular-nums muted">{grandGross.toFixed(2)}</td>
                     </tr>
-                    {grandDiscount > 0 && (
-                      <tr>
-                        <td colSpan={3} className="text-right text-sm muted">Discount</td>
-                        <td colSpan={3} className="text-right tabular-nums muted">− {grandDiscount.toFixed(2)}</td>
-                      </tr>
-                    )}
                     <tr>
-                      <td colSpan={3} className="text-right font-semibold">Net total</td>
-                      <td colSpan={3} className="text-right tabular-nums font-bold text-base" style={{ color: "#0f766e" }}>
+                      <td colSpan={4} className="text-right text-sm muted">Discount</td>
+                      <td colSpan={2} className="text-right">
+                        <input className="inp text-right tabular-nums"
+                          style={{ width: 100, marginLeft: "auto" }}
+                          type="number" min={0} max={grandGross} placeholder="0"
+                          value={discount}
+                          onChange={(e) => setDiscount(e.target.value)} />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan={4} className="text-right text-sm muted">Transport &amp; Lifting</td>
+                      <td colSpan={2} className="text-right">
+                        <input className="inp text-right tabular-nums"
+                          style={{ width: 100, marginLeft: "auto" }}
+                          type="number" min={0} placeholder="0"
+                          value={transport}
+                          onChange={(e) => setTransport(e.target.value)} />
+                      </td>
+                    </tr>
+                    <tr>
+                      <td colSpan={4} className="text-right font-semibold">Net total</td>
+                      <td colSpan={2} className="text-right tabular-nums font-bold text-base" style={{ color: "#0f766e" }}>
                         {netTotal.toFixed(2)}
                       </td>
                     </tr>
@@ -248,18 +264,6 @@ export default function ConsolidatePage() {
                 <label>Authoriser {anyOut ? "(price out of band)" : "(credit limit)"}</label>
                 <select className="inp mt-1" value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)}
                   style={{ borderColor: (anyOut || paymentMode === "CREDIT") && !overrideBy ? "#b3261e" : undefined }}>
-                  <option value="">Select…</option>
-                  {authorisers.map((u) => (
-                    <option key={u.id} value={u.fullName || u.username}>{u.fullName || u.username} ({u.role})</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {anyDiscount && (
-              <div className="field flex-1" style={{ minWidth: 200 }}>
-                <label>Discount authorised by</label>
-                <select className="inp mt-1" value={discountBy} onChange={(e) => setDiscountBy(e.target.value)}
-                  style={{ borderColor: !discountBy ? "#b3261e" : undefined }}>
                   <option value="">Select…</option>
                   {authorisers.map((u) => (
                     <option key={u.id} value={u.fullName || u.username}>{u.fullName || u.username} ({u.role})</option>

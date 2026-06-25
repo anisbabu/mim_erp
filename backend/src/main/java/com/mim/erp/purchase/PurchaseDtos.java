@@ -24,7 +24,7 @@ public class PurchaseDtos {
 
     /** One historical receipt line against a PO. */
     public record ReceiptView(String grnNo, java.time.LocalDate receiptDate,
-                              String productName, BigDecimal qtyReceived) {}
+                              String productName, java.util.UUID warehouseId, BigDecimal qtyReceived) {}
     public record PoView(UUID poId, String poNo, UUID supplierId, String supplierName,
                          String status, List<PoLineView> lines) {}
 

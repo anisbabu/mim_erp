@@ -52,7 +52,7 @@ function genFullName(
     const supWord = suppliers.find((s) => s.id === f.supplierId)?.name?.trim().split(/\s+/)[0];
     const supPart = supWord ? `(${supWord})` : "";
     return [
-      f.thicknessMm != null ? String(f.thicknessMm) : "",
+      f.thicknessMm != null ? `${f.thicknessMm}MM` : "",
       f.name?.trim() ?? "",
       f.category?.trim() ?? "",
       f.color?.trim() ?? "",
@@ -151,11 +151,14 @@ export default function ProductsPage() {
                 <option value="BOARD">{t("Board")}</option>
                 <option value="HARDWARE">{t("Hardware")}</option>
               </select></div>
-            <div className="field"><label>{t("Thickness")} (mm) <R /></label>
-              <select className="inp" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined })}>
-                <option value="">— {t("Select")} —</option>
-                {THICKNESSES.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select></div>
+            <div className="field"><label>{t("Thickness")} <R /></label>
+              <div className="flex items-center gap-2">
+                <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined })}>
+                  <option value="">— {t("Select")} —</option>
+                  {THICKNESSES.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+                <span className="text-sm font-semibold muted">MM</span>
+              </div></div>
             <div className="field"><label>{t("Name")} <R /></label>
               <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
             {/* row 2 */}

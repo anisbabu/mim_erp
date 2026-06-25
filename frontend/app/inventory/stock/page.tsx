@@ -47,7 +47,7 @@ export default function StockPage() {
     return Array.from(m.entries()).map(([warehouseId, v]) => ({ warehouseId, ...v }));
   }, [rows]);
 
-  const pName = (id: string) => products[id]?.name ?? id;
+  const pName = (id: string) => products[id]?.fullName ?? products[id]?.name ?? id;
   const wName = (id: string) => warehouses[id]?.name ?? id;
   const sName = (id: string) => suppliers[id]?.name ?? id;
 

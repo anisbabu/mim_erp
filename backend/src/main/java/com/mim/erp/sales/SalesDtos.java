@@ -15,7 +15,8 @@ public class SalesDtos {
         List<Allocation> allocations,
         String creditOverrideBy,                            // set when over limit, authorised
         String priceOverrideBy,                             // set when out-of-band price, authorised
-        String discountBy                                   // set when any line has a discount, authorised
+        String discountBy,                                  // set when any line has a discount, authorised
+        BigDecimal transportAndLifting
     ) {}
 
     /** DC_FIRST: issue one challan now (single warehouse). */
@@ -31,10 +32,11 @@ public class SalesDtos {
 
     /** DC_FIRST consolidation at day end: roll a customer's challans into one SO. */
     public record ConsolidateRequest(UUID customerId, String paymentMode, String creditOverrideBy,
-        String priceOverrideBy, String discountBy, List<LineOverride> lineOverrides) {}
+        String priceOverrideBy, String discountBy, BigDecimal transportAndLifting, List<LineOverride> lineOverrides) {}
 
     /** One challan line surfaced for the consolidation review form. */
     public record ChallanLineView(UUID dcLineId, String dcNo, UUID productId, String productName,
+        UUID warehouseId,
         BigDecimal qty, BigDecimal unitPrice, BigDecimal unitCost, BigDecimal discountAmt,
         BigDecimal priceLower, BigDecimal priceUpper) {}
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { endpoints, fmtDate, type PoDetails, type Product } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { ReceiveIcon } from "@/components/Icons";
 
 export default function PoDetailsPage() {
   const { t } = useI18n();
@@ -107,7 +108,9 @@ export default function PoDetailsPage() {
       </div>
 
       {data.status === "OPEN" && (
-        <Link className="btn" href={`/purchase/receive?poId=${id}`}>Receive goods →</Link>
+        <Link className="btn inline-flex items-center gap-1.5" href={`/purchase/receive?poId=${id}`}>
+          <ReceiveIcon /> Receive
+        </Link>
       )}
     </div>
   );

@@ -17,7 +17,7 @@
   --header-bg:         #ffffff;
   --aside-bg:          #f3f4f6;
   --aside-border:      #e5e7eb;
-  --aside-text:        #374151;
+  --aside-text:        #111827;
   --tbl-th-bg:         #f9fafb;
   --tbl-tr-hover:      #f3f4f6;
   --tbl-tfoot-bg:      #f9fafb;
@@ -64,6 +64,7 @@ html.dark {
     color: var(--text);
     -webkit-font-smoothing: antialiased;
     font-size: 13px;
+    overflow-x: hidden;
   }
   * { -webkit-tap-highlight-color: transparent; }
 }
@@ -71,13 +72,12 @@ html.dark {
 @layer components {
 
   /* ── Field / label ──────────────────────────────────────────────────────── */
-  .field { @apply flex flex-col items-center gap-1 min-w-0; }
+  .field { @apply flex flex-col gap-1 min-w-0; }
   .field > label, .lbl {
-    @apply text-[11px] font-semibold leading-4 h-4 uppercase tracking-wide text-center w-full;
+    @apply block text-[11px] font-semibold leading-4 h-4 uppercase tracking-wide w-full;
     color: var(--muted);
+    text-align: center;
   }
-  /* inputs inside field still fill full width */
-  .field > .inp, .field > select.inp, .field > textarea.inp { @apply w-full; }
 
   /* ── Inputs ─────────────────────────────────────────────────────────────── */
   .inp {
@@ -137,7 +137,7 @@ html.dark {
 
   /* ── Icon-only action buttons ───────────────────────────────────────────── */
   .btn-icon {
-    @apply inline-flex items-center justify-center h-7 w-7 rounded transition-colors;
+    @apply inline-flex items-center justify-center h-8 w-8 rounded transition-colors;
     border: 1px solid transparent;
   }
   .btn-icon-edit { color: #0f766e; }
@@ -157,7 +157,7 @@ html.dark {
   }
   .muted { color: var(--muted); }
   .page-title { @apply text-base font-semibold tracking-tight; color: var(--text); }
-  .section-label { @apply text-[10px] uppercase tracking-widest font-semibold; color: var(--muted); }
+  .section-label { @apply text-[10px] uppercase tracking-widest font-bold; color: #0f766e; border-left: 2px solid #0f766e; padding-left: 6px; }
 
   /* ── Tables ─────────────────────────────────────────────────────────────── */
   .tbl { @apply w-full border-collapse; font-size: 13px; }

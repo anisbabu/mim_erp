@@ -24,8 +24,8 @@ const groups: { label: string; items: Item[] }[] = [
     { href: "/inventory/adjust", label: "Stock adjustment", roles: ["MANAGER", "ADMIN"] },
   ]},
   { label: "Sales", items: [
-    { href: "/sales/new", label: "New sale", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/challan", label: "Issue challan", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
+    { href: "/sales/new", label: "Sales invoice", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
+    { href: "/sales/challan", label: "Challan", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
     { href: "/sales/consolidate", label: "Day-end consolidate", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
     { href: "/sales/challans", label: "Challan list", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
     { href: "/sales/orders", label: "Sales orders", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
@@ -76,6 +76,61 @@ export default function Shell({ children }: { children: ReactNode }) {
 
     const savedSidebar = typeof window !== "undefined" && localStorage.getItem(SIDEBAR_KEY);
     if (savedSidebar === "collapsed") setCollapsed(true);
+  }, []);
+
+  useEffect(() => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")!.set!;
+    function patch(el: HTMLInputElement, val: string) {
+      setter.call(el, val);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    let busy = false;
+    function onInput(e: Event) {
+      if (busy) return;
+      const el = e.target as HTMLInputElement;
+      if (el.tagName !== "INPUT" || el.type !== "number") return;
+      if (!/^0[0-9]/.test(el.value)) return;
+      busy = true;
+      patch(el, el.value.replace(/^0+([1-9])/, "$1"));
+      busy = false;
+    }
+
+    function onBlur(e: Event) {
+      const el = e.target as HTMLInputElement;
+      if (el.tagName !== "INPUT" || el.type !== "number") return;
+      if (el.value === "0" || el.value === "00") patch(el, "");
+    }
+
+    const ALLOWED_KEYS = new Set([
+      "Backspace","Delete","Tab","Enter","Escape",
+      "ArrowLeft","ArrowRight","ArrowUp","ArrowDown","Home","End",
+      ".", "0","1","2","3","4","5","6","7","8","9",
+    ]);
+    function onKeyDown(e: KeyboardEvent) {
+      const el = e.target as HTMLInputElement;
+      if (el.tagName !== "INPUT" || el.type !== "number") return;
+      if (e.ctrlKey || e.metaKey) return; // allow Ctrl+A/C/V/X
+      if (!ALLOWED_KEYS.has(e.key)) e.preventDefault();
+    }
+
+    function onPaste(e: ClipboardEvent) {
+      const el = e.target as HTMLInputElement;
+      if (el.tagName !== "INPUT" || el.type !== "number") return;
+      const text = e.clipboardData?.getData("text") ?? "";
+      if (!/^\d*\.?\d*$/.test(text)) e.preventDefault();
+    }
+
+    document.addEventListener("input",   onInput,   true);
+    document.addEventListener("blur",    onBlur,    true);
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("paste",   onPaste,   true);
+    return () => {
+      document.removeEventListener("input",   onInput,   true);
+      document.removeEventListener("blur",    onBlur,    true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("paste",   onPaste,   true);
+    };
   }, []);
 
   function toggleTheme() {
@@ -139,7 +194,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                       style={{
                         background: active ? "#0f766e" : "transparent",
                         color: active ? "#fff" : "var(--aside-text)",
-                        fontWeight: active ? 600 : 400,
+                        fontWeight: active ? 600 : 500,
                         whiteSpace: "nowrap", overflow: "hidden",
                       }}>
                       {t(n.label)}
@@ -164,7 +219,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-body">
+    <div className="min-h-screen flex bg-body w-screen overflow-x-hidden">
       <div className="hidden md:flex h-screen sticky top-0">{sidebar(false)}</div>
 
       {openNav && (

@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { TrashIcon } from "@/components/Icons";
 
-type Line = { productId: string; qty: string; unitPrice: string };
+type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 
 export default function ChallanPage() {
   const { activeShopId } = useAuth();
@@ -15,9 +15,8 @@ export default function ChallanPage() {
   const [shops, setShops]           = useState<Shop[]>([]);
   const [customers, setCustomers]   = useState<Customer[]>([]);
   const [customerId, setCustomerId]     = useState("");
-  const [warehouseId, setWarehouseId]   = useState("");
   const [localShopId, setLocalShopId]   = useState("");
-  const [lines, setLines] = useState<Line[]>([{ productId: "", qty: "", unitPrice: "" }]);
+  const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
   const [msg, setMsg]   = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [stockPanel, setStockPanel]       = useState<WarehouseStock[]>([]);
@@ -46,7 +45,7 @@ export default function ChallanPage() {
 
   const update = (i: number, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
-  const addLine    = () => setLines((ls) => [...ls, { productId: "", qty: "", unitPrice: "" }]);
+  const addLine    = () => setLines((ls) => [...ls, { productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
   const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
   function bandStatus(l: Line): "out" | "ok" | "none" {
@@ -67,15 +66,14 @@ export default function ChallanPage() {
     setMsg(null);
     if (!shopId)      { setMsg({ kind: "err", text: "Select a shop." }); return; }
     if (!customerId)  { setMsg({ kind: "err", text: "Select a customer." }); return; }
-    if (!warehouseId) { setMsg({ kind: "err", text: "Select a warehouse." }); return; }
     const allocations = lines
-      .filter((l) => l.productId && Number(l.qty) > 0)
-      .map((l) => ({ productId: l.productId, warehouseId, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: 0 }));
-    if (!allocations.length) { setMsg({ kind: "err", text: "Add at least one line with quantity." }); return; }
+      .filter((l) => l.productId && l.warehouseId && Number(l.qty) > 0)
+      .map((l) => ({ productId: l.productId, warehouseId: l.warehouseId, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: 0 }));
+    if (!allocations.length) { setMsg({ kind: "err", text: "Add at least one line with product, warehouse and quantity." }); return; }
     setBusy(true);
     try {
       const dc: any = await endpoints.issueChallan({
-        shopId, customerId, warehouseId, allocations,
+        shopId, customerId, warehouseId: allocations[0].warehouseId, allocations,
         priceOverrideBy: null, discountBy: null,
       });
       setMsg({ kind: "ok", text: `Challan ${dc.dcNo} issued.` });
@@ -88,7 +86,7 @@ export default function ChallanPage() {
     <div>
       {/* Header row: title + stock panel */}
       <div className="flex items-start justify-between gap-4 mb-5">
-        <h1 className="page-title">Issue challan</h1>
+        <h1 className="page-title">Challan</h1>
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
@@ -133,13 +131,6 @@ export default function ChallanPage() {
             {customers.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
           </select>
         </div>
-        <div className="field">
-          <label>Ship from warehouse</label>
-          <select className="inp mt-1" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
-            <option value="">Select…</option>
-            {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </select>
-        </div>
       </div>
 
       {/* Lines — table on md+, cards on mobile */}
@@ -151,6 +142,7 @@ export default function ChallanPage() {
             <thead>
               <tr>
                 <th>Product</th>
+                <th style={{ width: 150 }}>Warehouse</th>
                 <th className="text-right" style={{ width: 100 }}>Qty</th>
                 <th className="text-right" style={{ width: 130 }}>Unit price</th>
                 <th className="text-right" style={{ width: 130 }}>Gross total</th>
@@ -174,6 +166,13 @@ export default function ChallanPage() {
                           ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}`
                           : (p ? "no band set" : "")}
                       </div>
+                    </td>
+                    <td className="align-top">
+                      <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
+                        <option value="">Select…</option>
+                        {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                      </select>
+                      <div className="h-4 mt-1" />
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums" style={{ width: 80, marginLeft: "auto" }}
@@ -232,6 +231,13 @@ export default function ChallanPage() {
                   {hasBand
                     ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}`
                     : (p ? "no band set" : "")}
+                </div>
+                <div className="field">
+                  <label className="text-xs muted block mb-1">Warehouse</label>
+                  <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
+                    <option value="">Select…</option>
+                    {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
