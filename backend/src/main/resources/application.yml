@@ -11,10 +11,15 @@ spring:
       ddl-auto: validate          # schema owned by Flyway, JPA only validates
     properties:
       hibernate.format_sql: true
+      # Neon's pgbouncer pooler returns an empty search_path; schema-qualify all ORM SQL.
+      # Harmless for local Postgres (public is the default schema).
+      hibernate.default_schema: public
     open-in-view: false
   flyway:
     enabled: true
     locations: classpath:db/migration
+    schemas: public               # pooler search_path is empty; tell Flyway explicitly
+    default-schema: public
 
 # CORS for the Next.js dev server / Flutter app
 mim:
