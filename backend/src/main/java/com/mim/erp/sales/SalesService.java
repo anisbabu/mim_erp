@@ -15,6 +15,8 @@ import com.mim.erp.master.Product;
 import com.mim.erp.master.ProductRepository;
 import com.mim.erp.master.Warehouse;
 import com.mim.erp.master.WarehouseRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +44,7 @@ import java.util.stream.Collectors;
  */
 @Service
 public class SalesService {
+    private static final Logger log = LoggerFactory.getLogger(SalesService.class);
 
     private final SalesOrderRepository orders;
     private final DeliveryChallanRepository challans;
@@ -445,6 +448,7 @@ public class SalesService {
             doc.close();
             return out.toByteArray();
         } catch (Exception e) {
+            log.error("generateInvoicePdf failed for SO {}", soId, e);
             throw new ApiException("Failed to generate invoice: " + e.getMessage());
         }
     }
@@ -576,6 +580,7 @@ public class SalesService {
             doc.close();
             return out.toByteArray();
         } catch (Exception e) {
+            log.error("generateOrderChallanPdf failed for SO {}", soId, e);
             throw new ApiException("Failed to generate challan PDF: " + e.getMessage());
         }
     }
@@ -700,6 +705,7 @@ public class SalesService {
             doc.close();
             return out.toByteArray();
         } catch (Exception e) {
+            log.error("generateChallanPdf failed for DC {}", dcId, e);
             throw new ApiException("Failed to generate challan PDF: " + e.getMessage());
         }
     }
