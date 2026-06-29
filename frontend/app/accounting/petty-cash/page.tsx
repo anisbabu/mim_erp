@@ -37,7 +37,7 @@ export default function PettyCashPage() {
       <div className="space-y-4">
         <div>
           <label className="text-xs text-[#6b6960]">Shop</label>
-          <select className="inp mt-1" value={shopId} onChange={(e) => setShopId(e.target.value)}>
+          <select className="inp inp-shop mt-1" value={shopId} onChange={(e) => setShopId(e.target.value)}>
             <option value="">Select shop…</option>
             {shops.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>

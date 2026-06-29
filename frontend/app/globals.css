@@ -106,6 +106,22 @@ html.dark {
   html.dark select.inp {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%238099cc' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
   }
+  /* Shop picker — light but colorful tint so the active sales scope stands out. */
+  .inp-shop {
+    background-color: #ecfdf5;   /* light mint */
+    border-color: #2dd4bf;       /* teal-400 */
+    color: #0f766e;              /* brand teal */
+    font-weight: 500;
+  }
+  .inp-shop:focus {
+    border-color: #0d9488;
+    box-shadow: 0 0 0 2px rgb(20 184 166 / 0.25);
+  }
+  html.dark .inp-shop {
+    background-color: #134e4a;   /* deep teal tint over dark */
+    border-color: #2dd4bf;
+    color: #99f6e4;
+  }
   .inp.num, .num { @apply text-right tabular-nums; }
 
   /* ── Form grid ──────────────────────────────────────────────────────────── */

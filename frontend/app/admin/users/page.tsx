@@ -163,9 +163,9 @@ export default function UsersPage() {
                 const on = shopIds.includes(s.id);
                 return (
                   <button key={s.id} onClick={() => toggleShop(s.id)} type="button"
-                    className="px-3 py-1.5 rounded-lg text-sm border"
-                    style={{ background: on ? "#1d5e4f" : "#fff", color: on ? "#fff" : "#1c1b19",
-                             borderColor: on ? "#1d5e4f" : "#d8d4ca" }}>
+                    className="px-3 py-1.5 rounded-lg text-sm border transition-colors"
+                    style={{ background: on ? "#ecfdf5" : "#fff", color: on ? "#0f766e" : "#374151",
+                             borderColor: on ? "#14b8a6" : "#e5e7eb", fontWeight: on ? 600 : 500 }}>
                     {s.name}
                   </button>
                 );

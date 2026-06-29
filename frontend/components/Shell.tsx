@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
-import type { Role } from "@/lib/api";
+import { endpoints, type Role, type Shop } from "@/lib/api";
 
 type Item = { href: string; label: string; roles: Role[] };
 const ALL: Role[] = ["SALESPERSON", "MANAGER", "ACCOUNTANT", "ADMIN"];
@@ -61,12 +61,22 @@ function applyTheme(t: Theme) {
 }
 
 export default function Shell({ children }: { children: ReactNode }) {
-  const { user, ready, logout } = useAuth();
+  const { user, ready, logout, activeShopId, setActiveShopId } = useAuth();
   const { t, lang, setLang } = useI18n();
   const pathname = usePathname();
   const [openNav,   setOpenNav]   = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [theme,     setTheme]     = useState<Theme>("light");
+  const [shops,     setShops]     = useState<Shop[]>([]);
+
+  // load shop names for the header switcher (only useful when assigned >1 shop)
+  useEffect(() => {
+    if (user && user.shopIds.length > 1) {
+      endpoints.shops().then(setShops).catch(() => {});
+    } else {
+      setShops([]);
+    }
+  }, [user]);
 
   useEffect(() => {
     const savedTheme = (typeof window !== "undefined" && localStorage.getItem(THEME_KEY)) as Theme | null;
@@ -234,6 +244,18 @@ export default function Shell({ children }: { children: ReactNode }) {
                 style={{ background: "var(--header-bg)" }}>
           <button className="md:hidden btn-ghost btn-sm" onClick={() => setOpenNav(true)} aria-label="Menu">☰</button>
           <div className="flex-1" />
+
+          {user.shopIds.length > 1 && shops.length > 0 && (
+            <select
+              aria-label={t("Active shop")}
+              className="inp inp-shop h-7 w-auto max-w-[180px] text-[12px]"
+              value={activeShopId ?? ""}
+              onChange={(e) => setActiveShopId(e.target.value)}>
+              {shops
+                .filter((s) => user.shopIds.includes(s.id))
+                .map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          )}
 
           <button onClick={toggleTheme} aria-label="Toggle dark mode"
             className="inline-flex items-center justify-center h-7 w-7 rounded border border-line text-[13px] transition-colors hover:bg-[var(--tbl-tr-hover)]"

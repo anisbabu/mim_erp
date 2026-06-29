@@ -158,7 +158,7 @@ export default function NewSalePage() {
         {!activeShopId && (
           <div className="field">
             <label>Shop</label>
-            <select className="inp" value={localShopId} onChange={(e) => setLocalShopId(e.target.value)}>
+            <select className="inp inp-shop" value={localShopId} onChange={(e) => setLocalShopId(e.target.value)}>
               <option value="">Select shop…</option>
               {shops.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>

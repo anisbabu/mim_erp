@@ -14,6 +14,7 @@ type AuthState = {
 };
 
 const AuthCtx = createContext<AuthState | null>(null);
+const SHOP_KEY = "mim_active_shop";
 
 export function useAuth() {
   const v = useContext(AuthCtx);
@@ -24,14 +25,26 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Me | null>(null);
   const [ready, setReady] = useState(false);
-  const [activeShopId, setActiveShopId] = useState<string | null>(null);
+  const [activeShopId, setActiveShopIdState] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
-  // default the active shop to the user's first assigned shop
+  // persist the chosen shop so a reload keeps the same scope
+  function setActiveShopId(id: string) {
+    setActiveShopIdState(id);
+    if (typeof window !== "undefined") localStorage.setItem(SHOP_KEY, id);
+  }
+
+  // default the active shop to the saved one (if still assigned) else the first
   function applyUser(m: Me | null) {
     setUser(m);
-    setActiveShopId(m && m.shopIds.length > 0 ? m.shopIds[0] : null);
+    if (m && m.shopIds.length > 0) {
+      const saved = typeof window !== "undefined" ? localStorage.getItem(SHOP_KEY) : null;
+      setActiveShopIdState(saved && m.shopIds.includes(saved) ? saved : m.shopIds[0]);
+    } else {
+      setActiveShopIdState(null);
+      if (typeof window !== "undefined") localStorage.removeItem(SHOP_KEY);
+    }
   }
 
   // on mount, if we have a stored token, fetch the profile

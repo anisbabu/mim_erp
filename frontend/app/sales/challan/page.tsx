@@ -118,7 +118,7 @@ export default function ChallanPage() {
         {!activeShopId && (
           <div className="field">
             <label>Shop</label>
-            <select className="inp mt-1" value={localShopId} onChange={(e) => setLocalShopId(e.target.value)}>
+            <select className="inp inp-shop mt-1" value={localShopId} onChange={(e) => setLocalShopId(e.target.value)}>
               <option value="">Select shop…</option>
               {shops.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
