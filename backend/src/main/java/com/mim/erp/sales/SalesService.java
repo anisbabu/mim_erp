@@ -571,7 +571,7 @@ public class SalesService {
             sig.setSpacingBefore(40);
             PdfPCell r1 = new PdfPCell(new Phrase("Received by: _______________________", valueFont));
             r1.setBorder(Rectangle.NO_BORDER);
-            PdfPCell r2 = new PdfPCell(new Phrase("Authorised by: _______________________", valueFont));
+            PdfPCell r2 = new PdfPCell(new Phrase("Seller's by: _______________________", valueFont));
             r2.setBorder(Rectangle.NO_BORDER);
             r2.setHorizontalAlignment(Element.ALIGN_RIGHT);
             sig.addCell(r1); sig.addCell(r2);
@@ -696,7 +696,7 @@ public class SalesService {
             sig.setSpacingBefore(40);
             PdfPCell r1 = new PdfPCell(new Phrase("Received by: _______________________", valueFont));
             r1.setBorder(Rectangle.NO_BORDER);
-            PdfPCell r2 = new PdfPCell(new Phrase("Authorised by: _______________________", valueFont));
+            PdfPCell r2 = new PdfPCell(new Phrase("Seller's by: _______________________", valueFont));
             r2.setBorder(Rectangle.NO_BORDER);
             r2.setHorizontalAlignment(Element.ALIGN_RIGHT);
             sig.addCell(r1); sig.addCell(r2);
