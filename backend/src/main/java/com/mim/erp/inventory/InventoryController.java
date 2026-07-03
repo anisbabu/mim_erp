@@ -80,7 +80,7 @@ public class InventoryController {
         warehouses.findAll().forEach(w -> warehouseNames.put(w.getId(), w.getName()));
 
         try {
-            Document doc = new Document(PageSize.A4, 40, 40, 60, 40);
+            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(doc, out);
             doc.open();

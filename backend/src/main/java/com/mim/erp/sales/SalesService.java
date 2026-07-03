@@ -340,7 +340,7 @@ public class SalesService {
         products.findAllById(pids).forEach(p -> productNames.put(p.getId(), p.getFullName() != null ? p.getFullName() : p.getName()));
 
         try {
-            Document doc = new Document(PageSize.A4, 40, 40, 60, 40);
+            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(doc, out);
             doc.open();
@@ -494,7 +494,7 @@ public class SalesService {
             .collect(java.util.stream.Collectors.joining(", "));
 
         try {
-            Document doc = new Document(PageSize.A4, 40, 40, 60, 40);
+            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(doc, out);
             doc.open();
@@ -608,7 +608,7 @@ public class SalesService {
             p.getFullName() != null ? p.getFullName() : p.getName()));
 
         try {
-            Document doc = new Document(PageSize.A4, 40, 40, 60, 40);
+            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(doc, out);
             doc.open();
@@ -737,7 +737,7 @@ public class SalesService {
         warehouses.findAllById(wids).forEach(w -> warehouseNames.put(w.getId(), w.getName()));
 
         try {
-            Document doc = new Document(PageSize.A4, 40, 40, 60, 40);
+            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(doc, out);
             doc.open();
