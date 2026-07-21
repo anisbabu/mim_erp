@@ -147,6 +147,12 @@ export type BalanceSheet = {
 };
 export type TrialRow = { code: string; name: string; type: string; total_debit: number; total_credit: number };
 
+export type Cheque = {
+  id: string; paymentId: string; chequeNo: string; bankName?: string; customerId: string;
+  amount: number; receiveDate: string; maturityDate: string;
+  status: "PENDING" | "CLEARED" | "BOUNCED"; note?: string;
+};
+
 export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
 export type Me = { token?: string; username: string; fullName?: string; role: Role; shopIds: string[] };
 export type UserView = { id: string; username: string; fullName?: string; role: Role; active: boolean; shopIds: string[] };
@@ -259,6 +265,10 @@ export const endpoints = {
   balanceSheet: () => api.get<BalanceSheet>("/api/accounting/balance-sheet"),
   payment:      (b: unknown) => api.post("/api/accounting/payments", b),
   pettyCash:    (b: unknown) => api.post("/api/accounting/petty-cash", b),
+  cheques:      () => api.get<Cheque[]>("/api/accounting/cheques"),
+  recordCheque: (b: unknown) => api.post<Cheque>("/api/accounting/cheques", b),
+  clearCheque:  (id: string) => api.post<Cheque>(`/api/accounting/cheques/${id}/clear`, {}),
+  bounceCheque: (id: string) => api.post<Cheque>(`/api/accounting/cheques/${id}/bounce`, {}),
 
   // auth + users
   login: (username: string, password: string) =>
