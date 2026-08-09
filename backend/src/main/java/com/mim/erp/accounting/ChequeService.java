@@ -1,6 +1,7 @@
 package com.mim.erp.accounting;
 
 import com.mim.erp.accounting.AccountingService.Leg;
+import com.mim.erp.auth.CurrentUserService;
 import com.mim.erp.common.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,14 +21,16 @@ import java.util.UUID;
 public class ChequeService {
 
     private final ChequeRepository cheques;
+    private final ChequeExtensionRepository extensions;
     private final CashService cash;
     private final AccountingService accounting;
     private final LedgerService ledgers;
+    private final CurrentUserService currentUser;
 
-    public ChequeService(ChequeRepository cheques, CashService cash,
-                         AccountingService accounting, LedgerService ledgers) {
-        this.cheques = cheques; this.cash = cash;
-        this.accounting = accounting; this.ledgers = ledgers;
+    public ChequeService(ChequeRepository cheques, ChequeExtensionRepository extensions, CashService cash,
+                         AccountingService accounting, LedgerService ledgers, CurrentUserService currentUser) {
+        this.cheques = cheques; this.extensions = extensions; this.cash = cash;
+        this.accounting = accounting; this.ledgers = ledgers; this.currentUser = currentUser;
     }
 
     @Transactional
@@ -56,10 +59,14 @@ public class ChequeService {
         return cheques.findAllByOrderByMaturityDateAsc();
     }
 
+    private static boolean isOpen(String status) {
+        return "PENDING".equals(status) || "EXTENDED".equals(status);
+    }
+
     @Transactional
     public Cheque markCleared(UUID id) {
         Cheque c = get(id);
-        if (!"PENDING".equals(c.getStatus())) throw new ApiException("Only a pending cheque can be cleared");
+        if (!isOpen(c.getStatus())) throw new ApiException("Only a pending cheque can be cleared");
         c.setStatus("CLEARED");
         return cheques.save(c);
     }
@@ -67,7 +74,7 @@ public class ChequeService {
     @Transactional
     public Cheque markBounced(UUID id) {
         Cheque c = get(id);
-        if (!"PENDING".equals(c.getStatus())) throw new ApiException("Only a pending cheque can be bounced");
+        if (!isOpen(c.getStatus())) throw new ApiException("Only a pending cheque can be bounced");
         c.setStatus("BOUNCED");
         cheques.save(c);
 
@@ -77,6 +84,36 @@ public class ChequeService {
             "CHEQUE_BOUNCE", c.getId(),
             List.of(Leg.debit(arLedger, c.getAmount()), Leg.credit("1000", c.getAmount())));
         return c;
+    }
+
+    @Transactional
+    public Cheque extendMaturity(UUID id, LocalDate newMaturityDate, String requestedBy, String note) {
+        Cheque c = get(id);
+        if (!isOpen(c.getStatus())) throw new ApiException("Only a pending cheque can have its maturity extended");
+        if (newMaturityDate == null) throw new ApiException("New maturity date is required");
+        if (!newMaturityDate.isAfter(c.getMaturityDate()))
+            throw new ApiException("New maturity date must be after the current maturity date");
+        if (requestedBy == null || requestedBy.isBlank())
+            throw new ApiException("Requested by is required");
+
+        ChequeExtension ext = new ChequeExtension();
+        ext.setChequeId(c.getId());
+        ext.setOldMaturityDate(c.getMaturityDate());
+        ext.setNewMaturityDate(newMaturityDate);
+        ext.setRequestedBy(requestedBy);
+        ext.setNote(note);
+        var me = currentUser.me();
+        ext.setExtendedBy(me.getId());
+        ext.setExtendedByName(me.getFullName() != null && !me.getFullName().isBlank() ? me.getFullName() : me.getUsername());
+        extensions.save(ext);
+
+        c.setMaturityDate(newMaturityDate);
+        c.setStatus("EXTENDED");
+        return cheques.save(c);
+    }
+
+    public List<ChequeExtension> extensionHistory(UUID chequeId) {
+        return extensions.findByChequeIdOrderByExtendedAtDesc(chequeId);
     }
 
     private Cheque get(UUID id) {

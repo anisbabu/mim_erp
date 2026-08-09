@@ -16,6 +16,7 @@ public class ChequeController {
 
     public record ChequeRequest(UUID customerId, BigDecimal amount, String chequeNo,
                                 String bankName, LocalDate maturityDate, String note) {}
+    public record ExtendRequest(LocalDate newMaturityDate, String requestedBy, String note) {}
 
     @GetMapping
     public List<Cheque> list() { return cheques.list(); }
@@ -30,4 +31,14 @@ public class ChequeController {
 
     @PostMapping("/{id}/bounce")
     public Cheque bounce(@PathVariable UUID id) { return cheques.markBounced(id); }
+
+    @PostMapping("/{id}/extend")
+    public Cheque extend(@PathVariable UUID id, @RequestBody ExtendRequest r) {
+        return cheques.extendMaturity(id, r.newMaturityDate(), r.requestedBy(), r.note());
+    }
+
+    @GetMapping("/{id}/extensions")
+    public List<ChequeExtension> extensions(@PathVariable UUID id) {
+        return cheques.extensionHistory(id);
+    }
 }

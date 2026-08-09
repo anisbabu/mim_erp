@@ -150,7 +150,12 @@ export type TrialRow = { code: string; name: string; type: string; total_debit: 
 export type Cheque = {
   id: string; paymentId: string; chequeNo: string; bankName?: string; customerId: string;
   amount: number; receiveDate: string; maturityDate: string;
-  status: "PENDING" | "CLEARED" | "BOUNCED"; note?: string;
+  status: "PENDING" | "CLEARED" | "BOUNCED" | "EXTENDED"; note?: string;
+};
+
+export type ChequeExtension = {
+  id: string; chequeId: string; oldMaturityDate: string; newMaturityDate: string;
+  requestedBy: string; note?: string; extendedByName: string; extendedAt: string;
 };
 
 export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
@@ -269,6 +274,8 @@ export const endpoints = {
   recordCheque: (b: unknown) => api.post<Cheque>("/api/accounting/cheques", b),
   clearCheque:  (id: string) => api.post<Cheque>(`/api/accounting/cheques/${id}/clear`, {}),
   bounceCheque: (id: string) => api.post<Cheque>(`/api/accounting/cheques/${id}/bounce`, {}),
+  extendCheque: (id: string, b: unknown) => api.post<Cheque>(`/api/accounting/cheques/${id}/extend`, b),
+  chequeExtensions: (id: string) => api.get<ChequeExtension[]>(`/api/accounting/cheques/${id}/extensions`),
 
   // auth + users
   login: (username: string, password: string) =>

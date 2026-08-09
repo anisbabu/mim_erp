@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { endpoints, fmtDate, type Customer, type Cheque } from "@/lib/api";
+import { Fragment, useEffect, useState } from "react";
+import { endpoints, fmtDate, type Customer, type Cheque, type ChequeExtension } from "@/lib/api";
 
 function daysUntil(dateStr: string): number {
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -16,9 +16,10 @@ function urgency(days: number): { bg: string; fg: string; label: string } {
 }
 
 const STATUS_STYLE: Record<Cheque["status"], { bg: string; fg: string }> = {
-  PENDING: { bg: "#eef0ec", fg: "#5c5a52" },
-  CLEARED: { bg: "#e6efe9", fg: "#1d5e4f" },
-  BOUNCED: { bg: "#fbeceb", fg: "#9a2b22" },
+  PENDING:  { bg: "#eef0ec", fg: "#5c5a52" },
+  CLEARED:  { bg: "#e6efe9", fg: "#1d5e4f" },
+  BOUNCED:  { bg: "#fbeceb", fg: "#9a2b22" },
+  EXTENDED: { bg: "#fdf0d5", fg: "#8a5a00" },
 };
 
 export default function ChequesPage() {
@@ -32,6 +33,17 @@ export default function ChequesPage() {
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // extend-maturity inline form state, keyed by cheque id
+  const [extendingId, setExtendingId]   = useState<string | null>(null);
+  const [extNewDate, setExtNewDate]     = useState("");
+  const [extRequestedBy, setExtRequestedBy] = useState("");
+  const [extNote, setExtNote]           = useState("");
+  const [extBusy, setExtBusy]           = useState(false);
+
+  // per-cheque extension history, fetched on demand
+  const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
+  const [history, setHistory]             = useState<Record<string, ChequeExtension[]>>({});
 
   function load() {
     endpoints.cheques().then(setCheques).catch(() => {});
@@ -66,6 +78,35 @@ export default function ChequesPage() {
       action === "clear" ? await endpoints.clearCheque(id) : await endpoints.bounceCheque(id);
       load();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
+  }
+
+  function openExtend(c: Cheque) {
+    setExtendingId(c.id);
+    setExtNewDate("");
+    setExtRequestedBy("");
+    setExtNote("");
+  }
+
+  async function submitExtend(id: string) {
+    setMsg(null);
+    if (!extNewDate || !extRequestedBy.trim()) {
+      setMsg({ kind: "err", text: "New maturity date and requested-by are required." }); return;
+    }
+    setExtBusy(true);
+    try {
+      await endpoints.extendCheque(id, { newMaturityDate: extNewDate, requestedBy: extRequestedBy, note: extNote });
+      setExtendingId(null);
+      setHistory((h) => { const n = { ...h }; delete n[id]; return n; }); // force refetch next open
+      load();
+    } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setExtBusy(false); }
+  }
+
+  function toggleHistory(id: string) {
+    if (historyOpenId === id) { setHistoryOpenId(null); return; }
+    setHistoryOpenId(id);
+    if (!history[id]) {
+      endpoints.chequeExtensions(id).then((rows) => setHistory((h) => ({ ...h, [id]: rows }))).catch(() => {});
+    }
   }
 
   return (
@@ -129,31 +170,101 @@ export default function ChequesPage() {
           <tbody>
             {cheques.map((c) => {
               const days = daysUntil(c.maturityDate);
-              const u = c.status === "PENDING" ? urgency(days) : null;
+              const open = c.status === "PENDING" || c.status === "EXTENDED";
+              const u = open ? urgency(days) : null;
               const s = STATUS_STYLE[c.status];
+              const isExtending = extendingId === c.id;
+              const isHistoryOpen = historyOpenId === c.id;
+              const hist = history[c.id];
               return (
-                <tr key={c.id}>
-                  <td>
-                    {fmtDate(c.maturityDate)}
-                    {u && (
-                      <span className="chip ml-2" style={{ background: u.bg, color: u.fg }}>{u.label}</span>
-                    )}
-                  </td>
-                  <td>{customerName(c.customerId)}</td>
-                  <td>{c.chequeNo}</td>
-                  <td>{c.bankName || "—"}</td>
-                  <td className="text-right tabular-nums">{c.amount.toLocaleString()}</td>
-                  <td>{fmtDate(c.receiveDate)}</td>
-                  <td><span className="chip" style={{ background: s.bg, color: s.fg }}>{c.status}</span></td>
-                  <td className="whitespace-nowrap">
-                    {c.status === "PENDING" && (
-                      <>
-                        <button className="btn-ghost text-xs mr-1" onClick={() => act(c.id, "clear")}>Clear</button>
-                        <button className="btn-ghost text-xs" onClick={() => act(c.id, "bounce")}>Bounce</button>
-                      </>
-                    )}
-                  </td>
-                </tr>
+                <Fragment key={c.id}>
+                  <tr>
+                    <td>
+                      {fmtDate(c.maturityDate)}
+                      {u && (
+                        <span className="chip ml-2" style={{ background: u.bg, color: u.fg }}>{u.label}</span>
+                      )}
+                    </td>
+                    <td>{customerName(c.customerId)}</td>
+                    <td>{c.chequeNo}</td>
+                    <td>{c.bankName || "—"}</td>
+                    <td className="text-right tabular-nums">{c.amount.toLocaleString()}</td>
+                    <td>{fmtDate(c.receiveDate)}</td>
+                    <td><span className="chip" style={{ background: s.bg, color: s.fg }}>{c.status}</span></td>
+                    <td className="whitespace-nowrap">
+                      {open && (
+                        <>
+                          <button className="btn-ghost text-xs mr-1" onClick={() => act(c.id, "clear")}>Clear</button>
+                          <button className="btn-ghost text-xs mr-1" onClick={() => act(c.id, "bounce")}>Bounce</button>
+                          <button className="btn-ghost text-xs mr-1" onClick={() => openExtend(c)}>Extend</button>
+                        </>
+                      )}
+                      <button className="btn-ghost text-xs" onClick={() => toggleHistory(c.id)}>
+                        {isHistoryOpen ? "Hide history" : "History"}
+                      </button>
+                    </td>
+                  </tr>
+
+                  {isExtending && (
+                    <tr className="bg-[#faf9f6]">
+                      <td colSpan={8} className="py-3">
+                        <div className="flex flex-wrap items-end gap-3">
+                          <div>
+                            <label className="text-xs text-[#6b6960]">New maturity date</label>
+                            <input className="inp mt-1" type="date" value={extNewDate}
+                              onChange={(e) => setExtNewDate(e.target.value)} />
+                          </div>
+                          <div>
+                            <label className="text-xs text-[#6b6960]">Requested by</label>
+                            <input className="inp mt-1" placeholder="Who asked for the extension"
+                              value={extRequestedBy} onChange={(e) => setExtRequestedBy(e.target.value)} />
+                          </div>
+                          <div className="flex-1 min-w-[200px]">
+                            <label className="text-xs text-[#6b6960]">Note (optional)</label>
+                            <input className="inp mt-1" value={extNote} onChange={(e) => setExtNote(e.target.value)} />
+                          </div>
+                          <button className="btn text-xs" disabled={extBusy} onClick={() => submitExtend(c.id)}>
+                            {extBusy ? "Saving…" : "Save extension"}
+                          </button>
+                          <button className="btn-ghost text-xs" onClick={() => setExtendingId(null)}>Cancel</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {isHistoryOpen && (
+                    <tr className="bg-[#faf9f6]">
+                      <td colSpan={8} className="py-3">
+                        {hist === undefined && <span className="text-xs text-[#6b6960]">Loading…</span>}
+                        {hist && hist.length === 0 && (
+                          <span className="text-xs text-[#6b6960]">No maturity extensions for this cheque.</span>
+                        )}
+                        {hist && hist.length > 0 && (
+                          <table className="tbl">
+                            <thead>
+                              <tr>
+                                <th>Extended</th><th>Old maturity</th><th>New maturity</th>
+                                <th>Requested by</th><th>Note</th><th>Processed by</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {hist.map((h) => (
+                                <tr key={h.id}>
+                                  <td>{fmtDate(h.extendedAt.slice(0, 10))}</td>
+                                  <td>{fmtDate(h.oldMaturityDate)}</td>
+                                  <td>{fmtDate(h.newMaturityDate)}</td>
+                                  <td>{h.requestedBy}</td>
+                                  <td>{h.note || "—"}</td>
+                                  <td>{h.extendedByName}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
             {cheques.length === 0 && (
