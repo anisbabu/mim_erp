@@ -56,6 +56,7 @@ export default function PoListPage() {
       />
 
       <div className="border border-line rounded-xl bg-surface overflow-hidden">
+        <div className="table-wrap">
         <table className="tbl">
           <thead><tr>
             <th style={{ textAlign: "center" }}>PO no</th>
@@ -104,6 +105,7 @@ export default function PoListPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {totalPages > 1 && (

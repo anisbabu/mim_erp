@@ -6,6 +6,7 @@ function Section({ title, rows, total }: { title: string; rows: { code: string; 
   return (
     <div className="border border-line rounded-xl bg-white overflow-hidden mb-4">
       <div className="px-4 py-2 text-sm font-medium border-b border-line">{title}</div>
+      <div className="table-wrap">
       <table className="tbl">
         <tbody>
           {rows.map((r) => (
@@ -16,6 +17,7 @@ function Section({ title, rows, total }: { title: string; rows: { code: string; 
         <tfoot><tr><td colSpan={2} className="text-right font-medium">Total {title.toLowerCase()}</td>
           <td className="text-right font-medium tabular-nums">{total.toFixed(2)}</td></tr></tfoot>
       </table>
+      </div>
     </div>
   );
 }

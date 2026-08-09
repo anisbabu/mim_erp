@@ -230,8 +230,8 @@ export default function Shell({ children }: { children: ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-body w-screen overflow-x-hidden">
-      <div className="hidden md:flex h-screen sticky top-0">{sidebar(false)}</div>
+    <div className="min-h-screen flex bg-body w-full">
+      <div className="hidden md:flex h-screen sticky top-0 shrink-0">{sidebar(false)}</div>
 
       {openNav && (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -276,7 +276,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             ))}
           </div>
         </header>
-        <main className="flex-1 px-4 md:px-6 py-4 md:py-5 max-w-5xl w-full overflow-y-auto">{children}</main>
+        <main className="flex-1 px-4 md:px-6 py-4 md:py-5 max-w-5xl w-full">{children}</main>
       </div>
     </div>
   );

@@ -95,6 +95,7 @@ export default function ChallanListPage() {
       />
 
       <div className="border border-line rounded-xl bg-surface overflow-hidden">
+        <div className="table-wrap">
         <table className="tbl">
           <thead><tr><th>DC no</th><th>Customer</th><th>Date</th><th>Status</th><th></th></tr></thead>
           <tbody>
@@ -146,6 +147,7 @@ export default function ChallanListPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {totalPages > 1 && (

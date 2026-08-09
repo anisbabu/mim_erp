@@ -64,7 +64,6 @@ html.dark {
     color: var(--text);
     -webkit-font-smoothing: antialiased;
     font-size: 13px;
-    overflow-x: hidden;
   }
   * { -webkit-tap-highlight-color: transparent; }
 }

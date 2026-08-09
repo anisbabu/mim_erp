@@ -134,6 +134,7 @@ export default function StockPage() {
       <div className="border border-line rounded-xl bg-white overflow-hidden">
         {/* ALL view */}
         {view === "all" && (
+          <div className="table-wrap">
           <table className="tbl">
             <thead><tr><th>Product</th><th>Warehouse</th><th className="text-right">Qty</th><th className="text-right">Value (cost)</th></tr></thead>
             <tbody>
@@ -152,10 +153,12 @@ export default function StockPage() {
               <td className="text-right font-medium tabular-nums">{totalValue.toFixed(2)}</td>
             </tr></tfoot>}
           </table>
+          </div>
         )}
 
         {/* BY PRODUCT view */}
         {view === "product" && (
+          <div className="table-wrap">
           <table className="tbl">
             <thead><tr><th>Product</th><th className="text-right">Total Qty</th><th className="text-right">Total Value (cost)</th></tr></thead>
             <tbody>
@@ -173,10 +176,12 @@ export default function StockPage() {
               <td colSpan={2} className="text-right font-medium tabular-nums">{totalValue.toFixed(2)}</td>
             </tr></tfoot>}
           </table>
+          </div>
         )}
 
         {/* BY WAREHOUSE view */}
         {view === "warehouse" && (
+          <div className="table-wrap">
           <table className="tbl">
             <thead><tr><th>Warehouse</th><th className="text-right">Total Qty</th><th className="text-right">Total Value (cost)</th></tr></thead>
             <tbody>
@@ -194,10 +199,12 @@ export default function StockPage() {
               <td colSpan={2} className="text-right font-medium tabular-nums">{totalValue.toFixed(2)}</td>
             </tr></tfoot>}
           </table>
+          </div>
         )}
 
         {/* BY SUPPLIER view */}
         {view === "supplier" && (
+          <div className="table-wrap">
           <table className="tbl">
             <thead><tr><th>Supplier</th><th>Product</th><th className="text-right">Qty</th><th className="text-right">Value (cost)</th></tr></thead>
             <tbody>
@@ -216,6 +223,7 @@ export default function StockPage() {
               <td className="text-right font-medium tabular-nums">{totalValue.toFixed(2)}</td>
             </tr></tfoot>}
           </table>
+          </div>
         )}
       </div>
 

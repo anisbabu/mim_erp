@@ -11,6 +11,7 @@ export default function TrialBalancePage() {
     <div>
       <h1 className="page-title mb-6">Trial balance</h1>
       <div className="border border-line rounded-xl bg-white overflow-hidden">
+        <div className="table-wrap">
         <table className="tbl">
           <thead><tr><th>Code</th><th>Account</th><th>Type</th><th className="text-right">Debit</th><th className="text-right">Credit</th></tr></thead>
           <tbody>
@@ -30,6 +31,7 @@ export default function TrialBalancePage() {
             <td className="text-right font-medium tabular-nums">{tc.toFixed(2)}</td>
           </tr></tfoot>
         </table>
+        </div>
       </div>
       <p className="text-sm mt-3" style={{ color: Math.abs(td - tc) < 0.01 ? "#1d5e4f" : "#9a2b22" }}>
         {Math.abs(td - tc) < 0.01 ? "Debits equal credits — the ledger balances." : "Out of balance — check postings."}

@@ -6,6 +6,7 @@ function Section({ title, rows, extra }: { title: string; rows: { code: string; 
   return (
     <div className="border border-line rounded-xl bg-white overflow-hidden mb-4">
       <div className="px-4 py-2 text-sm font-medium border-b border-line">{title}</div>
+      <div className="table-wrap">
       <table className="tbl">
         <tbody>
           {rows.map((r) => (
@@ -15,6 +16,7 @@ function Section({ title, rows, extra }: { title: string; rows: { code: string; 
           {extra && <tr><td></td><td>{extra.name}</td><td className="text-right tabular-nums">{extra.amount.toFixed(2)}</td></tr>}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }

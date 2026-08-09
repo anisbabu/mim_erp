@@ -32,6 +32,7 @@ export default function VariancePage() {
         Spread between the cheapest and dearest open cost layer per product — the purchase-price drift you carry in stock.
       </p>
       <div className="border border-line rounded-xl bg-white overflow-hidden">
+        <div className="table-wrap">
         <table className="tbl">
           <thead><tr>
             <th>Product</th>{scope === "warehouse" && <th>Warehouse</th>}
@@ -58,6 +59,7 @@ export default function VariancePage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

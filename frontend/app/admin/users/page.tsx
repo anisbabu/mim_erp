@@ -261,6 +261,7 @@ export default function UsersPage() {
 
       {/* user list */}
       <div className="border border-line rounded-xl bg-white overflow-hidden">
+        <div className="table-wrap">
         <table className="tbl">
           <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Shops</th><th>Status</th><th></th></tr></thead>
           <tbody>
@@ -286,6 +287,7 @@ export default function UsersPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
