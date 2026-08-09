@@ -1,9 +1,10 @@
 server:
-  port: 8080
+  port: ${PORT:8080}          # Render injects PORT at runtime
 
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/merry_erp}
+    # DB_URL wins if set; otherwise assembled from Render database parts (host/port/name).
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:merry_erp}}
     username: ${DB_USER:postgres}
     password: ${DB_PASS:sys123}
   jpa:

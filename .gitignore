@@ -9,3 +9,6 @@ next-env.d.ts
 .env
 # IDE
 .idea/
+# local dev process artifacts
+*.pid
+*.out.log

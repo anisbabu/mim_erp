@@ -1,9 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
+    // In dev, proxy to local Spring Boot. On Render, BACKEND_URL points at the
+    // backend service (host:port) so the browser stays same-origin — no CORS.
+    const backend = process.env.BACKEND_URL || 'http://localhost:8080';
     return [
-      // proxy API to Spring Boot in dev so the browser hits one origin
-      { source: '/api/:path*', destination: 'http://localhost:8080/api/:path*' },
+      { source: '/api/:path*', destination: `${backend}/api/:path*` },
     ];
   },
 };
