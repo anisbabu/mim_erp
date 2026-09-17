@@ -24,8 +24,8 @@ const groups: { label: string; items: Item[] }[] = [
     { href: "/inventory/adjust", label: "Stock adjustment", roles: ["MANAGER", "ADMIN"] },
   ]},
   { label: "Sales", items: [
-    { href: "/sales/new", label: "Sales invoice", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/orders", label: "Sales orders", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
+    { href: "/sales/new", label: "Sales Order", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
+    { href: "/sales/orders", label: "Sales Orders List", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
     { href: "/sales/challan", label: "Challan", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
     { href: "/sales/challans", label: "Challan list", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
     { href: "/sales/consolidate", label: "Day-end consolidate", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
