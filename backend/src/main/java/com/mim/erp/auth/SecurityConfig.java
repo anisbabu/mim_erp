@@ -32,7 +32,9 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/auth/login").permitAll()
-                // user administration
+                // user administration — reads open to any authenticated role (e.g. authoriser
+                // pickers on sales screens), writes remain admin-only
+                .requestMatchers(HttpMethod.GET, "/api/users/**").authenticated()
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
                 // employees / payroll master
                 .requestMatchers("/api/hr/**").hasAnyRole("ADMIN", "ACCOUNTANT")

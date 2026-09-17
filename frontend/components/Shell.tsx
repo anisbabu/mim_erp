@@ -25,10 +25,10 @@ const groups: { label: string; items: Item[] }[] = [
   ]},
   { label: "Sales", items: [
     { href: "/sales/new", label: "Sales invoice", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/challan", label: "Challan", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/consolidate", label: "Day-end consolidate", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/challans", label: "Challan list", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
     { href: "/sales/orders", label: "Sales orders", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
+    { href: "/sales/challan", label: "Challan", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
+    { href: "/sales/challans", label: "Challan list", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
+    { href: "/sales/consolidate", label: "Day-end consolidate", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
   ]},
   { label: "Accounting", items: [
     { href: "/accounting/coa", label: "Chart of accounts", roles: ["ACCOUNTANT", "ADMIN"] },

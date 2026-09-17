@@ -35,12 +35,15 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     },
     ...init,
   });
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 401) {
     if (typeof window !== "undefined" && !path.endsWith("/auth/login")) {
       setToken(null);
       if (location.pathname !== "/login") location.href = "/login";
     }
     throw new Error("Not authorised");
+  }
+  if (res.status === 403) {
+    throw new Error("You don't have permission for this.");
   }
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;

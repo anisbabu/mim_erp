@@ -63,7 +63,8 @@ html.dark {
     background: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
-    font-size: 13px;
+    font-size: 16px;
+    font-weight: 500;
   }
   * { -webkit-tap-highlight-color: transparent; }
 }

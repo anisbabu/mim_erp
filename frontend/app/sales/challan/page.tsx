@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { endpoints, type Product, type Warehouse, type Shop, type Customer, type WarehouseStock } from "@/lib/api";
+import { endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { TrashIcon } from "@/components/Icons";
@@ -14,6 +14,7 @@ export default function ChallanPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [shops, setShops]           = useState<Shop[]>([]);
   const [customers, setCustomers]   = useState<Customer[]>([]);
+  const [suppliers, setSuppliers]   = useState<Supplier[]>([]);
   const [customerId, setCustomerId]     = useState("");
   const [localShopId, setLocalShopId]   = useState("");
   const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
@@ -21,26 +22,49 @@ export default function ChallanPage() {
   const [busy, setBusy] = useState(false);
   const [stockPanel, setStockPanel]       = useState<WarehouseStock[]>([]);
   const [panelProductId, setPanelProductId] = useState("");
+  const [panelLineIndex, setPanelLineIndex] = useState<number | null>(null);
+  const [stockByProduct, setStockByProduct] = useState<Record<string, WarehouseStock[]>>({});
 
   useEffect(() => {
     endpoints.products().then(setProducts).catch(() => {});
     endpoints.warehouses().then(setWarehouses).catch(() => {});
     endpoints.shops().then(setShops).catch(() => {});
     endpoints.customers().then(setCustomers).catch(() => {});
+    endpoints.suppliers().then(setSuppliers).catch(() => {});
   }, []);
 
   const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
   const productById   = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
+  const supplierById  = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
   const productOpts: Option[] = useMemo(
-    () => products.map((p) => ({ value: p.id, label: p.fullName || p.name, sublabel: p.sku })),
-    [products]);
+    () => products.map((p) => {
+      const supplierName = p.supplierId ? supplierById[p.supplierId]?.name : undefined;
+      const thickness = p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined;
+      const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
+      return { value: p.id, label: p.fullName || p.name, sublabel: sub };
+    }),
+    [products, supplierById]);
+  const customerOpts: Option[] = useMemo(
+    () => customers.map((c) => ({ value: c.id, label: `${c.name} (${c.type})`, sublabel: c.mobile })),
+    [customers]);
 
   async function selectProduct(i: number, productId: string) {
-    update(i, { productId });
+    update(i, { productId, warehouseId: "" });
     if (!productId) return;
     setPanelProductId(productId);
-    try { setStockPanel(await endpoints.availability(productId)); }
-    catch { setStockPanel([]); }
+    setPanelLineIndex(i);
+    try {
+      const s = await endpoints.availability(productId);
+      setStockPanel(s);
+      setStockByProduct((m) => ({ ...m, [productId]: s }));
+      const stocked = s.filter((x) => x.qty > 0);
+      if (stocked.length === 1) update(i, { warehouseId: stocked[0].warehouseId });
+    } catch { setStockPanel([]); }
+  }
+
+  function pickWarehouseFromPanel(warehouseId: string) {
+    if (panelLineIndex == null) return;
+    update(panelLineIndex, { warehouseId });
   }
 
   const update = (i: number, patch: Partial<Line>) =>
@@ -70,14 +94,28 @@ export default function ChallanPage() {
       .filter((l) => l.productId && l.warehouseId && Number(l.qty) > 0)
       .map((l) => ({ productId: l.productId, warehouseId: l.warehouseId, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: 0 }));
     if (!allocations.length) { setMsg({ kind: "err", text: "Add at least one line with product, warehouse and quantity." }); return; }
+
+    // A single delivery challan ships from one warehouse (DB constraint) — lines can
+    // come from different warehouses, so split into one challan per warehouse.
+    const byWarehouse = new Map<string, typeof allocations>();
+    for (const a of allocations) {
+      const g = byWarehouse.get(a.warehouseId) ?? [];
+      g.push(a);
+      byWarehouse.set(a.warehouseId, g);
+    }
+
     setBusy(true);
     try {
-      const dc: any = await endpoints.issueChallan({
-        shopId, customerId, warehouseId: allocations[0].warehouseId, allocations,
-        priceOverrideBy: null, discountBy: null,
-      });
-      setMsg({ kind: "ok", text: `Challan ${dc.dcNo} issued.` });
-      setLines([{ productId: "", qty: "", unitPrice: "" }]);
+      const dcNos: string[] = [];
+      for (const [warehouseId, allocs] of byWarehouse) {
+        const dc: any = await endpoints.issueChallan({
+          shopId, customerId, warehouseId, allocations: allocs,
+          priceOverrideBy: null, discountBy: null,
+        });
+        dcNos.push(dc.dcNo);
+      }
+      setMsg({ kind: "ok", text: `Challan${dcNos.length > 1 ? "s" : ""} ${dcNos.join(", ")} issued.` });
+      setLines([{ productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
     finally { setBusy(false); }
   }
@@ -100,13 +138,21 @@ export default function ChallanPage() {
                 {stockPanel.length === 0 && (
                   <tr><td colSpan={2} className="muted text-xs px-3 py-2">No stock</td></tr>
                 )}
-                {stockPanel.map((s, idx) => (
-                  <tr key={s.warehouseId} style={{ background: idx % 2 === 0 ? "var(--surface)" : "var(--bg)" }}>
-                    <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId]?.name ?? s.warehouseId}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
-                        style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
-                  </tr>
-                ))}
+                {stockPanel.map((s, idx) => {
+                  const selected = panelLineIndex != null && lines[panelLineIndex]?.warehouseId === s.warehouseId;
+                  return (
+                    <tr key={s.warehouseId}
+                      onClick={() => s.qty > 0 && pickWarehouseFromPanel(s.warehouseId)}
+                      style={{
+                        background: selected ? "#d1fae5" : (idx % 2 === 0 ? "var(--surface)" : "var(--bg)"),
+                        cursor: s.qty > 0 ? "pointer" : "default",
+                      }}>
+                      <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId]?.name ?? s.warehouseId}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
+                          style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -126,10 +172,8 @@ export default function ChallanPage() {
         )}
         <div className="field">
           <label>Customer</label>
-          <select className="inp mt-1" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">Select…</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
-          </select>
+          <SearchSelect options={customerOpts} value={customerId}
+            onChange={setCustomerId} placeholder="Search name or mobile…" />
         </div>
       </div>
 
@@ -155,11 +199,14 @@ export default function ChallanPage() {
                 const band = bandStatus(l);
                 const hasBand = p && (p.priceLower != null || p.priceUpper != null);
                 const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
+                const lineStock = l.productId ? stockByProduct[l.productId] : undefined;
+                const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
+                const stockedWarehouses = lineStock ? warehouses.filter((w) => qtyByWarehouse[w.id] > 0) : warehouses;
                 return (
                   <tr key={i}>
                     <td className="align-top">
                       <SearchSelect options={productOpts} value={l.productId}
-                        onChange={(v) => selectProduct(i, v)} placeholder="Search product…" />
+                        onChange={(v) => selectProduct(i, v)} placeholder="Search name, code, supplier, mm…" />
                       <div className="text-[11px] mt-1 h-4 leading-4"
                         style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                         {hasBand
@@ -170,9 +217,16 @@ export default function ChallanPage() {
                     <td className="align-top">
                       <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
                         <option value="">Select…</option>
-                        {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                        {stockedWarehouses.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.name}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                          </option>
+                        ))}
                       </select>
-                      <div className="h-4 mt-1" />
+                      <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
+                        {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
+                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                      </div>
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums" style={{ width: 80, marginLeft: "auto" }}
@@ -214,6 +268,9 @@ export default function ChallanPage() {
             const band = bandStatus(l);
             const hasBand = p && (p.priceLower != null || p.priceUpper != null);
             const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
+            const lineStock = l.productId ? stockByProduct[l.productId] : undefined;
+            const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
+            const stockedWarehouses = lineStock ? warehouses.filter((w) => qtyByWarehouse[w.id] > 0) : warehouses;
             return (
               <div key={i} className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">
@@ -226,7 +283,7 @@ export default function ChallanPage() {
                   )}
                 </div>
                 <SearchSelect options={productOpts} value={l.productId}
-                  onChange={(v) => selectProduct(i, v)} placeholder="Search product…" />
+                  onChange={(v) => selectProduct(i, v)} placeholder="Search name, code, supplier, mm…" />
                 <div className="text-[11px] -mt-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                   {hasBand
                     ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}`
@@ -236,8 +293,16 @@ export default function ChallanPage() {
                   <label className="text-xs muted block mb-1">Warehouse</label>
                   <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
                     <option value="">Select…</option>
-                    {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    {stockedWarehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                      </option>
+                    ))}
                   </select>
+                  <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+                    {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
+                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>

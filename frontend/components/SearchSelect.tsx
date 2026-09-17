@@ -29,9 +29,13 @@ export default function SearchSelect({
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return options;
-    return options.filter(
-      (o) => o.label.toLowerCase().includes(s) || (o.sublabel ?? "").toLowerCase().includes(s)
-    );
+    const sNorm = s.replace(/\s+/g, "");
+    return options.filter((o) => {
+      const label = o.label.toLowerCase();
+      const sub = (o.sublabel ?? "").toLowerCase();
+      if (label.includes(s) || sub.includes(s)) return true;
+      return label.replace(/\s+/g, "").includes(sNorm) || sub.replace(/\s+/g, "").includes(sNorm);
+    });
   }, [q, options]);
 
   useEffect(() => {

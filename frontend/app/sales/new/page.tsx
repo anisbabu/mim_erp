@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  endpoints, type Product, type Warehouse, type Shop, type Customer, type WarehouseStock, type UserView,
+  endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
+import SearchSelect, { type Option } from "@/components/SearchSelect";
 
 type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 
@@ -15,6 +16,7 @@ export default function NewSalePage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [shops, setShops]           = useState<Shop[]>([]);
   const [customers, setCustomers]   = useState<Customer[]>([]);
+  const [suppliers, setSuppliers]   = useState<Supplier[]>([]);
   const [authorisers, setAuthorisers] = useState<UserView[]>([]);
 
   const [customerId, setCustomerId]     = useState("");
@@ -30,12 +32,15 @@ export default function NewSalePage() {
 
   const [stockPanel, setStockPanel]         = useState<WarehouseStock[]>([]);
   const [panelProductId, setPanelProductId] = useState("");
+  const [panelLineIndex, setPanelLineIndex] = useState<number | null>(null);
+  const [stockByProduct, setStockByProduct] = useState<Record<string, WarehouseStock[]>>({});
 
   useEffect(() => {
     endpoints.products().then(setProducts).catch(() => {});
     endpoints.warehouses().then(setWarehouses).catch(() => {});
     endpoints.shops().then(setShops).catch(() => {});
     endpoints.customers().then(setCustomers).catch(() => {});
+    endpoints.suppliers().then(setSuppliers).catch(() => {});
     endpoints.users()
       .then((u) => setAuthorisers(u.filter((x) => x.active && (x.role === "MANAGER" || x.role === "ADMIN"))))
       .catch(() => {});
@@ -43,13 +48,36 @@ export default function NewSalePage() {
 
   const productById   = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
   const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
+  const supplierById  = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
+  const customerOpts: Option[] = useMemo(
+    () => customers.map((c) => ({ value: c.id, label: `${c.name} (${c.type})`, sublabel: c.mobile })),
+    [customers]);
+  const productOpts: Option[] = useMemo(
+    () => products.map((p) => {
+      const supplierName = p.supplierId ? supplierById[p.supplierId]?.name : undefined;
+      const thickness = p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined;
+      const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
+      return { value: p.id, label: p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub };
+    }),
+    [products, supplierById]);
 
   async function selectProduct(i: number, productId: string) {
-    update(i, { productId });
+    update(i, { productId, warehouseId: "" });
     if (!productId) return;
     setPanelProductId(productId);
-    try { setStockPanel(await endpoints.availability(productId)); }
-    catch { setStockPanel([]); }
+    setPanelLineIndex(i);
+    try {
+      const s = await endpoints.availability(productId);
+      setStockPanel(s);
+      setStockByProduct((m) => ({ ...m, [productId]: s }));
+      const stocked = s.filter((x) => x.qty > 0);
+      if (stocked.length === 1) update(i, { warehouseId: stocked[0].warehouseId });
+    } catch { setStockPanel([]); }
+  }
+
+  function pickWarehouseFromPanel(warehouseId: string) {
+    if (panelLineIndex == null) return;
+    update(panelLineIndex, { warehouseId });
   }
 
   function update(i: number, patch: Partial<Line>) {
@@ -140,13 +168,21 @@ export default function NewSalePage() {
                 {stockPanel.length === 0 && (
                   <tr><td colSpan={2} className="muted text-xs px-3 py-2">No stock</td></tr>
                 )}
-                {stockPanel.map((s, idx) => (
-                  <tr key={s.warehouseId} style={{ background: idx % 2 === 0 ? "var(--surface)" : "var(--bg)" }}>
-                    <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId]?.name ?? s.warehouseId}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
-                        style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
-                  </tr>
-                ))}
+                {stockPanel.map((s, idx) => {
+                  const selected = panelLineIndex != null && lines[panelLineIndex]?.warehouseId === s.warehouseId;
+                  return (
+                    <tr key={s.warehouseId}
+                      onClick={() => s.qty > 0 && pickWarehouseFromPanel(s.warehouseId)}
+                      style={{
+                        background: selected ? "#d1fae5" : (idx % 2 === 0 ? "var(--surface)" : "var(--bg)"),
+                        cursor: s.qty > 0 ? "pointer" : "default",
+                      }}>
+                      <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId]?.name ?? s.warehouseId}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
+                          style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -166,10 +202,8 @@ export default function NewSalePage() {
         )}
         <div className="field">
           <label>Customer</label>
-          <select className="inp" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
-            <option value="">Select customer…</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.type})</option>)}
-          </select>
+          <SearchSelect options={customerOpts} value={customerId}
+            onChange={setCustomerId} placeholder="Search name or mobile…" />
         </div>
         <div className="field">
           <label>Payment</label>
@@ -201,18 +235,14 @@ export default function NewSalePage() {
                 const p = productById[l.productId];
                 const band = bandState(l);
                 const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
+                const lineStock = l.productId ? stockByProduct[l.productId] : undefined;
+                const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
+                const stockedWarehouses = lineStock ? warehouses.filter((w) => qtyByWarehouse[w.id] > 0) : warehouses;
                 return (
                   <tr key={i}>
                     <td className="align-top">
-                      <select className="inp" value={l.productId}
-                        onChange={(e) => selectProduct(i, e.target.value)}>
-                        <option value="">Select…</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""))}
-                          </option>
-                        ))}
-                      </select>
+                      <SearchSelect options={productOpts} value={l.productId}
+                        onChange={(v) => selectProduct(i, v)} placeholder="Search name, code, supplier, mm…" />
                       <div className="text-[11px] mt-1 h-4 leading-4"
                         style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                         {p ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}` : ""}
@@ -221,9 +251,16 @@ export default function NewSalePage() {
                     <td className="align-top">
                       <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
                         <option value="">Select…</option>
-                        {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                        {stockedWarehouses.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.name}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                          </option>
+                        ))}
                       </select>
-                      <div className="h-4 mt-1" />
+                      <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
+                        {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
+                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                      </div>
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums" style={{ width: 75, marginLeft: "auto" }}
@@ -268,6 +305,9 @@ export default function NewSalePage() {
             const p = productById[l.productId];
             const band = bandState(l);
             const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
+            const lineStock = l.productId ? stockByProduct[l.productId] : undefined;
+            const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
+            const stockedWarehouses = lineStock ? warehouses.filter((w) => qtyByWarehouse[w.id] > 0) : warehouses;
             return (
               <div key={i} className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -279,14 +319,8 @@ export default function NewSalePage() {
                     </button>
                   )}
                 </div>
-                <select className="inp" value={l.productId} onChange={(e) => selectProduct(i, e.target.value)}>
-                  <option value="">Select…</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""))}
-                    </option>
-                  ))}
-                </select>
+                <SearchSelect options={productOpts} value={l.productId}
+                  onChange={(v) => selectProduct(i, v)} placeholder="Search name, code, supplier, mm…" />
                 <div className="text-[11px] -mt-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                   {p ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}` : ""}
                 </div>
@@ -294,8 +328,16 @@ export default function NewSalePage() {
                   <label className="text-xs muted block mb-1">Warehouse</label>
                   <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
                     <option value="">Select…</option>
-                    {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                    {stockedWarehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                      </option>
+                    ))}
                   </select>
+                  <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+                    {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
+                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>

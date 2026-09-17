@@ -99,14 +99,15 @@ export default function ReceivePage() {
         <div className="card table-wrap mb-6">
           <table className="tbl">
             <thead><tr>
-              <th className="text-center" style={{ width: 90 }}>{t("Received")}</th>
+              <th className="text-center" style={{ width: 90 }} title={t("Received")}>
+                <ReceiveIcon size={16} className="inline-block" />
+              </th>
               <th style={{ maxWidth: 180 }}>{t("Product")}</th>
-              <th className="text-right">{t("Ordered")}</th>
-              <th className="text-right">{t("Unit price")}</th>
-              <th className="text-right">{t("Balance")}</th>
               <th>{t("Receiving")} ↔</th>
-              <th className="text-right">{t("Qty")}</th>
-              <th className="text-right">New bal.</th>
+              <th className="text-center">{t("Ordered")}</th>
+              <th className="text-center">{t("Balance")}</th>
+              <th className="text-center">{t("Qty")}</th>
+              <th className="text-center">New bal.</th>
             </tr></thead>
             <tbody>
               {po.lines.map((l) => {
@@ -124,17 +125,19 @@ export default function ReceivePage() {
                       <div className="truncate" title={l.productName}>{l.productName}</div>
                       {sub && <span className="chip bg-amber-50 text-amberwarn">sub</span>}
                     </td>
-                    <td className="num">{l.qtyOrdered}</td>
-                    <td className="num">{l.unitPrice.toFixed(2)}</td>
-                    <td className="num">{l.qtyBalance}</td>
                     <td>
                       <SearchSelect options={productOpts} value={recvProduct[l.poLineId] || l.productId}
                         onChange={(v) => setProd(l.poLineId, v)} placeholder={t("Search…")} disabled={!on} /></td>
-                    <td className="text-right">
-                      <input className="inp num" style={{ width: 90, marginLeft: "auto", borderColor: invalid ? "#b45309" : undefined }}
-                        type="number" min={0} max={l.qtyBalance} disabled={!on}
-                        value={on ? (recv[l.poLineId] ?? "") : "0"} onChange={(e) => setQty(l.poLineId, e.target.value)} /></td>
-                    <td className="num" style={{ color: newBal === 0 ? "#0f766e" : undefined }}>{newBal}</td>
+                    <td className="num text-center">{l.qtyOrdered}</td>
+                    <td className="num text-center">{l.qtyBalance}</td>
+                    <td className="text-center" style={{ verticalAlign: "middle" }}>
+                      <input className="inp num text-center" style={{ width: 90, marginLeft: "auto", marginRight: "auto", borderColor: invalid ? "#b45309" : undefined }}
+                        type="text" inputMode="numeric" disabled={!on}
+                        value={on ? (recv[l.poLineId] ?? "") : "0"}
+                        onChange={(e) => setQty(l.poLineId, e.target.value.replace(/[^0-9]/g, ""))} /></td>
+                    <td className="num text-center">
+                      <div style={{ width: 90, marginLeft: "auto", marginRight: "auto", color: newBal === 0 ? "#0f766e" : undefined }}>{newBal}</div>
+                    </td>
                   </tr>
                 );
               })}

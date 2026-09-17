@@ -27,8 +27,10 @@ export default function NewPoPage() {
   const supplierOpts: Option[] = useMemo(
     () => suppliers.map((s) => ({ value: s.id, label: dn(s), sublabel: s.code })), [suppliers, dn]);
   const productOpts: Option[] = useMemo(
-    () => products.map((p) => ({ value: p.id, label: p.fullName || (dn(p) + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: p.sku })),
-    [products, dn]);
+    () => products
+      .filter((p) => !supplierId || p.supplierId === supplierId)
+      .map((p) => ({ value: p.id, label: p.fullName || (dn(p) + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: p.sku })),
+    [products, dn, supplierId]);
 
   const update     = (i: number, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
@@ -85,7 +87,12 @@ export default function NewPoPage() {
           <input className="inp" value={poNo} onChange={(e) => setPoNo(e.target.value)}
             placeholder={t("Manual / Auto-generated")} /></div>
         <div className="field"><label>{t("Supplier")}</label>
-          <SearchSelect options={supplierOpts} value={supplierId} onChange={setSupplierId} placeholder={t("Search…")} /></div>
+          <SearchSelect options={supplierOpts} value={supplierId}
+            onChange={(v) => {
+              setSupplierId(v);
+              setLines((ls) => ls.map((l) => (l.productId && productById[l.productId]?.supplierId !== v)
+                ? { ...l, productId: "" } : l));
+            }} placeholder={t("Search…")} /></div>
         <div className="field"><label>{t("Note")}</label>
           <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} placeholder="optional note" /></div>
       </div>
