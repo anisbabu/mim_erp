@@ -105,6 +105,18 @@ public class SalesService {
         }
     }
 
+    /**
+     * Resolve which salesperson this sale/challan is attributed to:
+     *   SALESPERSON — always themselves (request value ignored)
+     *   others      — must explicitly choose one (e.g. manager raising on someone's behalf)
+     */
+    private UUID resolveSalesperson(UUID requested) {
+        AppUser u = currentUser.me();
+        if ("SALESPERSON".equals(u.getRole())) return u.getId();
+        if (requested == null) throw new ApiException("Select a salesperson");
+        return requested;
+    }
+
     // ===================================================================
     // WORKFLOW 1 — SO_FIRST: order first, then per-warehouse challans
     // ===================================================================
@@ -114,6 +126,7 @@ public class SalesService {
             throw new ApiException("A sales order needs at least one allocation");
 
         UUID shopId = resolveShop(req.shopId());
+        UUID salespersonId = resolveSalesperson(req.salespersonId());
 
         // validate GROSS unit price against band (discount is separately authorised via discountBy)
         for (var a : req.allocations())
@@ -136,6 +149,7 @@ public class SalesService {
         so.setSoNo(docNo.next("SO"));
         so.setShopId(shopId);
         so.setCustomerId(req.customerId());
+        so.setSalespersonId(salespersonId);
         so.setWorkflow("SO_FIRST");
         so.setPaymentMode(req.paymentMode());
         so.setStatus("CONFIRMED");
@@ -166,7 +180,7 @@ public class SalesService {
         BigDecimal totalValue = BigDecimal.ZERO;
 
         for (var entry : byWarehouse.entrySet()) {
-            DeliveryChallan dc = buildAndDeliver(so.getId(), shopId, req.customerId(),
+            DeliveryChallan dc = buildAndDeliver(so.getId(), shopId, req.customerId(), salespersonId,
                 entry.getKey(), entry.getValue(), req.discountBy());
             challanIds.add(dc.getId());
             for (DcLine dl : dc.getLines()) {
@@ -190,6 +204,7 @@ public class SalesService {
         if (req.warehouseId() == null)
             throw new ApiException("A challan must ship from one warehouse");
         UUID shopId = resolveShop(req.shopId());
+        UUID salespersonId = resolveSalesperson(req.salespersonId());
         for (var a : req.allocations()) {
             if (!req.warehouseId().equals(a.warehouseId()))
                 throw new ApiException("All challan lines must be from the challan's warehouse");
@@ -200,7 +215,7 @@ public class SalesService {
                 .anyMatch(a -> a.discountAmt() != null && a.discountAmt().compareTo(BigDecimal.ZERO) > 0);
             if (hasDiscount) throw new ApiException("Discount requires an authoriser (discountBy)");
         }
-        DeliveryChallan dc = buildAndDeliver(null, shopId, req.customerId(),
+        DeliveryChallan dc = buildAndDeliver(null, shopId, req.customerId(), salespersonId,
             req.warehouseId(), req.allocations(), req.discountBy());
 
         BigDecimal cost = dc.getLines().stream()
@@ -255,6 +270,7 @@ public class SalesService {
         so.setSoNo(docNo.next("SO"));
         so.setShopId(open.get(0).getShopId());
         so.setCustomerId(req.customerId());
+        so.setSalespersonId(open.get(0).getSalespersonId());
         so.setWorkflow("DC_FIRST");
         so.setPaymentMode(req.paymentMode());
         so.setStatus("INVOICED");
@@ -873,7 +889,7 @@ public class SalesService {
     // ===================================================================
 
     /** Build a single-warehouse challan, consuming FIFO layers for each line. */
-    private DeliveryChallan buildAndDeliver(UUID soId, UUID shopId, UUID customerId,
+    private DeliveryChallan buildAndDeliver(UUID soId, UUID shopId, UUID customerId, UUID salespersonId,
                                             UUID warehouseId, List<SalesDtos.Allocation> allocs,
                                             String discountBy) {
         DeliveryChallan dc = new DeliveryChallan();
@@ -881,6 +897,7 @@ public class SalesService {
         dc.setSoId(soId);
         dc.setShopId(shopId);
         dc.setCustomerId(customerId);
+        dc.setSalespersonId(salespersonId);
         dc.setWarehouseId(warehouseId);
         dc.setChallanDate(LocalDate.now());
         dc.setDiscountBy(discountBy);

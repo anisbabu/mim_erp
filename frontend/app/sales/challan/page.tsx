@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock } from "@/lib/api";
+import { endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { TrashIcon } from "@/components/Icons";
@@ -9,13 +9,15 @@ import { TrashIcon } from "@/components/Icons";
 type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 
 export default function ChallanPage() {
-  const { activeShopId } = useAuth();
+  const { user, activeShopId } = useAuth();
   const [products, setProducts]     = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [shops, setShops]           = useState<Shop[]>([]);
   const [customers, setCustomers]   = useState<Customer[]>([]);
   const [suppliers, setSuppliers]   = useState<Supplier[]>([]);
+  const [salespeople, setSalespeople] = useState<UserView[]>([]);
   const [customerId, setCustomerId]     = useState("");
+  const [salespersonId, setSalespersonId] = useState("");
   const [localShopId, setLocalShopId]   = useState("");
   const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
   const [msg, setMsg]   = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -31,6 +33,9 @@ export default function ChallanPage() {
     endpoints.shops().then(setShops).catch(() => {});
     endpoints.customers().then(setCustomers).catch(() => {});
     endpoints.suppliers().then(setSuppliers).catch(() => {});
+    endpoints.users()
+      .then((u) => setSalespeople(u.filter((x) => x.active && x.role === "SALESPERSON")))
+      .catch(() => {});
   }, []);
 
   const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
@@ -47,6 +52,10 @@ export default function ChallanPage() {
   const customerOpts: Option[] = useMemo(
     () => customers.map((c) => ({ value: c.id, label: `${c.name} (${c.type})`, sublabel: c.mobile })),
     [customers]);
+  const needsSalesperson = user?.role !== "SALESPERSON";
+  const salespersonOpts: Option[] = useMemo(
+    () => salespeople.map((s) => ({ value: s.id, label: s.fullName || s.username })),
+    [salespeople]);
 
   async function selectProduct(i: number, productId: string) {
     update(i, { productId, warehouseId: "" });
@@ -90,6 +99,7 @@ export default function ChallanPage() {
     setMsg(null);
     if (!shopId)      { setMsg({ kind: "err", text: "Select a shop." }); return; }
     if (!customerId)  { setMsg({ kind: "err", text: "Select a customer." }); return; }
+    if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: "Select a salesperson." }); return; }
     const allocations = lines
       .filter((l) => l.productId && l.warehouseId && Number(l.qty) > 0)
       .map((l) => ({ productId: l.productId, warehouseId: l.warehouseId, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: 0 }));
@@ -109,7 +119,7 @@ export default function ChallanPage() {
       const dcNos: string[] = [];
       for (const [warehouseId, allocs] of byWarehouse) {
         const dc: any = await endpoints.issueChallan({
-          shopId, customerId, warehouseId, allocations: allocs,
+          shopId, customerId, salespersonId: needsSalesperson ? salespersonId : null, warehouseId, allocations: allocs,
           priceOverrideBy: null, discountBy: null,
         });
         dcNos.push(dc.dcNo);
@@ -175,6 +185,13 @@ export default function ChallanPage() {
           <SearchSelect options={customerOpts} value={customerId}
             onChange={setCustomerId} placeholder="Search name or mobile…" />
         </div>
+        {needsSalesperson && (
+          <div className="field">
+            <label>Salesperson</label>
+            <SearchSelect options={salespersonOpts} value={salespersonId}
+              onChange={setSalespersonId} placeholder="Search…" />
+          </div>
+        )}
       </div>
 
       {/* Lines — table on md+, cards on mobile */}

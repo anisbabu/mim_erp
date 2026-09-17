@@ -11,7 +11,7 @@ public class SalesDtos {
 
     /** SO_FIRST: create order, then system splits into per-warehouse challans. */
     public record CreateOrderRequest(
-        UUID shopId, UUID customerId, String paymentMode,   // CASH | CREDIT
+        UUID shopId, UUID customerId, UUID salespersonId, String paymentMode,   // CASH | CREDIT
         List<Allocation> allocations,
         String creditOverrideBy,                            // set when over limit, authorised
         String priceOverrideBy,                             // set when out-of-band price, authorised
@@ -21,7 +21,7 @@ public class SalesDtos {
 
     /** DC_FIRST: issue one challan now (single warehouse). */
     public record IssueChallanRequest(
-        UUID shopId, UUID customerId, UUID warehouseId,
+        UUID shopId, UUID customerId, UUID salespersonId, UUID warehouseId,
         List<Allocation> allocations,
         String priceOverrideBy,
         String discountBy

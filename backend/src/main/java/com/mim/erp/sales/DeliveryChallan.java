@@ -18,6 +18,7 @@ public class DeliveryChallan {
     @Column(name = "so_id")        private UUID soId;        // nullable in DC_FIRST until consolidated
     @Column(name = "shop_id")      private UUID shopId;
     @Column(name = "customer_id")  private UUID customerId;
+    @Column(name = "salesperson_id") private UUID salespersonId;
     @Column(name = "warehouse_id") private UUID warehouseId;  // ONE warehouse per challan
     private LocalDate challanDate;
     private String status = "ISSUED";   // ISSUED | CONSOLIDATED | CANCELLED

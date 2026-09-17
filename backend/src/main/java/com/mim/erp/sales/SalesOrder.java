@@ -18,6 +18,7 @@ public class SalesOrder {
     private String soNo;
     @Column(name = "shop_id")     private UUID shopId;
     @Column(name = "customer_id") private UUID customerId;
+    @Column(name = "salesperson_id") private UUID salespersonId;
     private String workflow;       // SO_FIRST | DC_FIRST
     private String paymentMode;     // CASH | CREDIT
     private String status = "DRAFT";

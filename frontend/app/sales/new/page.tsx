@@ -11,15 +11,17 @@ import SearchSelect, { type Option } from "@/components/SearchSelect";
 type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 
 export default function NewSalePage() {
-  const { activeShopId } = useAuth();
+  const { user, activeShopId } = useAuth();
   const [products, setProducts]     = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [shops, setShops]           = useState<Shop[]>([]);
   const [customers, setCustomers]   = useState<Customer[]>([]);
   const [suppliers, setSuppliers]   = useState<Supplier[]>([]);
   const [authorisers, setAuthorisers] = useState<UserView[]>([]);
+  const [salespeople, setSalespeople] = useState<UserView[]>([]);
 
   const [customerId, setCustomerId]     = useState("");
+  const [salespersonId, setSalespersonId] = useState("");
   const [localShopId, setLocalShopId]   = useState("");
   const [paymentMode, setPaymentMode]   = useState<"CASH" | "CREDIT">("CASH");
   const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "", discountAmt: "" }]);
@@ -42,7 +44,10 @@ export default function NewSalePage() {
     endpoints.customers().then(setCustomers).catch(() => {});
     endpoints.suppliers().then(setSuppliers).catch(() => {});
     endpoints.users()
-      .then((u) => setAuthorisers(u.filter((x) => x.active && (x.role === "MANAGER" || x.role === "ADMIN"))))
+      .then((u) => {
+        setAuthorisers(u.filter((x) => x.active && (x.role === "MANAGER" || x.role === "ADMIN")));
+        setSalespeople(u.filter((x) => x.active && x.role === "SALESPERSON"));
+      })
       .catch(() => {});
   }, []);
 
@@ -52,6 +57,10 @@ export default function NewSalePage() {
   const customerOpts: Option[] = useMemo(
     () => customers.map((c) => ({ value: c.id, label: `${c.name} (${c.type})`, sublabel: c.mobile })),
     [customers]);
+  const needsSalesperson = user?.role !== "SALESPERSON";
+  const salespersonOpts: Option[] = useMemo(
+    () => salespeople.map((s) => ({ value: s.id, label: s.fullName || s.username })),
+    [salespeople]);
   const productOpts: Option[] = useMemo(
     () => products.map((p) => {
       const supplierName = p.supplierId ? supplierById[p.supplierId]?.name : undefined;
@@ -108,6 +117,7 @@ export default function NewSalePage() {
     setMsg(null);
     if (!shopId)      { setMsg({ kind: "err", text: "Select a shop." }); return; }
     if (!customerId)  { setMsg({ kind: "err", text: "Select a customer." }); return; }
+    if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: "Select a salesperson." }); return; }
     const validLines = lines.filter((l) => l.productId && l.warehouseId && Number(l.qty) > 0);
     const sumGross = validLines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
     let assigned = 0;
@@ -132,7 +142,7 @@ export default function NewSalePage() {
     setBusy(true);
     try {
       const res: any = await endpoints.createOrder({
-        shopId, customerId, paymentMode, allocations,
+        shopId, customerId, salespersonId: needsSalesperson ? salespersonId : null, paymentMode, allocations,
         creditOverrideBy:    overrideBy || null,
         priceOverrideBy:     anyOutOfBand ? overrideBy : null,
         discountBy:          anyDiscount  ? discountBy : null,
@@ -205,6 +215,13 @@ export default function NewSalePage() {
           <SearchSelect options={customerOpts} value={customerId}
             onChange={setCustomerId} placeholder="Search name or mobile…" />
         </div>
+        {needsSalesperson && (
+          <div className="field">
+            <label>Salesperson</label>
+            <SearchSelect options={salespersonOpts} value={salespersonId}
+              onChange={setSalespersonId} placeholder="Search…" />
+          </div>
+        )}
         <div className="field">
           <label>Payment</label>
           <select className="inp" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value as "CASH" | "CREDIT")}>
