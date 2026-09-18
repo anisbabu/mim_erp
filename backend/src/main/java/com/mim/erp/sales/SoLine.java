@@ -21,6 +21,7 @@ public class SoLine {
     private BigDecimal qty;
     private BigDecimal unitPrice;        // net selling price (after discount)
     private BigDecimal discountAmt = java.math.BigDecimal.ZERO;  // flat line discount amount
+    @Column(name = "qty_pending") private BigDecimal qtyPending = java.math.BigDecimal.ZERO;  // not yet delivered (backorder)
     private String priceOverrideBy;       // audit: who authorised out-of-band price
     private Integer lineNo;
 }

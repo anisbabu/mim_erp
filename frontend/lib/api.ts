@@ -128,6 +128,7 @@ export type PurchaseOrder = { id: string; poNo: string; supplierId: string; stat
 export type SalesOrder = { id: string; soNo: string; customerId: string; shopId: string; workflow: string; status: string; orderDate: string };
 export type DeliveryChallan = { id: string; dcNo: string; customerId: string; warehouseId: string; status: string; challanDate: string };
 export type ChallanLineView = { dcLineId: string; dcNo: string; productId: string; productName: string; warehouseId?: string; qty: number; unitPrice: number; unitCost: number; discountAmt: number; priceLower?: number; priceUpper?: number };
+export type SoLineView = { id: string; productId: string; productName: string; qty: number; qtyPending: number; unitPrice: number };
 
 export type WarehouseStock = { warehouseId: string; qty: number };
 export type StockRow = { productId: string; warehouseId: string; qty: number; value: number };
@@ -219,6 +220,8 @@ export const endpoints = {
   consolidate:      (b: unknown) => api.post("/api/sales/consolidate", b),
   openChallanLines: (customerId: string) => api.get<ChallanLineView[]>(`/api/sales/challans/open/lines?customerId=${customerId}`),
   salesOrders:  () => api.get<SalesOrder[]>("/api/sales/orders"),
+  orderLines:   (soId: string) => api.get<SoLineView[]>(`/api/sales/orders/${soId}/lines`),
+  fulfillOrder: (soId: string, b: unknown) => api.post<SalesOrder>(`/api/sales/orders/${soId}/fulfill`, b),
   openChallans: () => api.get<DeliveryChallan[]>("/api/sales/challans/open"),
   allChallans:  () => api.get<DeliveryChallan[]>("/api/sales/challans"),
   invoiceBlob:  async (soId: string): Promise<Blob> => {

@@ -159,13 +159,18 @@ public class SalesService {
         BigDecimal soTransport = req.transportAndLifting() != null ? req.transportAndLifting() : BigDecimal.ZERO;
         so.setTransportAndLifting(soTransport);
         int ln = 1;
+        boolean anyPending = false, anyDelivered = false;
         for (var a : req.allocations()) {
+            boolean backordered = a.warehouseId() == null;
+            anyPending   |= backordered;
+            anyDelivered |= !backordered;
             SoLine sl = new SoLine();
             sl.setSo(so);
             sl.setProductId(a.productId());
             sl.setQty(a.qty());
             sl.setUnitPrice(a.unitPrice());
             sl.setDiscountAmt(a.discountAmt() != null ? a.discountAmt() : BigDecimal.ZERO);
+            sl.setQtyPending(backordered ? a.qty() : BigDecimal.ZERO);
             sl.setPriceOverrideBy(req.priceOverrideBy());
             sl.setLineNo(ln++);
             so.getLines().add(sl);
@@ -173,27 +178,98 @@ public class SalesService {
         orders.save(so);
 
         Map<UUID, List<SalesDtos.Allocation>> byWarehouse = req.allocations().stream()
+            .filter(a -> a.warehouseId() != null)
             .collect(Collectors.groupingBy(SalesDtos.Allocation::warehouseId));
 
         List<UUID> challanIds = new ArrayList<>();
         BigDecimal totalCost = BigDecimal.ZERO;
-        BigDecimal totalValue = BigDecimal.ZERO;
 
         for (var entry : byWarehouse.entrySet()) {
             DeliveryChallan dc = buildAndDeliver(so.getId(), shopId, req.customerId(), salespersonId,
                 entry.getKey(), entry.getValue(), req.discountBy());
             challanIds.add(dc.getId());
             for (DcLine dl : dc.getLines()) {
-                totalCost  = totalCost.add(dl.getQty().multiply(dl.getUnitCost()));
-                totalValue = totalValue.add(lineNet(dl.getQty(), dl.getUnitPrice(), dl.getDiscountAmt()));
+                totalCost = totalCost.add(dl.getQty().multiply(dl.getUnitCost()));
             }
         }
 
-        totalValue = totalValue.add(soTransport);
-        so.setStatus("DELIVERED");
+        BigDecimal totalValue = orderValue.add(soTransport);
+        so.setStatus(!anyPending ? "DELIVERED" : anyDelivered ? "PARTIALLY_DELIVERED" : "PENDING");
         postSale(so, totalValue, totalCost);
 
         return new SalesDtos.OrderResult(so.getId(), so.getSoNo(), challanIds, totalValue, totalCost);
+    }
+
+    /** All lines of a sales order — surfaced for the orders list / fulfillment screen. */
+    @Transactional(readOnly = true)
+    public List<SalesDtos.SoLineView> orderLines(UUID soId) {
+        SalesOrder so = orders.findById(soId)
+            .orElseThrow(() -> new ApiException("Sales order not found"));
+        Set<UUID> pids = so.getLines().stream().map(SoLine::getProductId).collect(Collectors.toSet());
+        Map<UUID, String> productNames = new HashMap<>();
+        products.findAllById(pids).forEach(p -> productNames.put(p.getId(),
+            p.getFullName() != null ? p.getFullName() : p.getName()));
+        return so.getLines().stream()
+            .map(sl -> new SalesDtos.SoLineView(sl.getId(), sl.getProductId(),
+                productNames.getOrDefault(sl.getProductId(), "—"),
+                sl.getQty(), sl.getQtyPending(), sl.getUnitPrice()))
+            .toList();
+    }
+
+    /**
+     * Fulfil part or all of an order's outstanding (backordered) lines now that stock
+     * exists. Deducts FIFO stock per chosen warehouse, creates a delivery challan per
+     * warehouse, and posts COGS only (revenue was already posted at order creation).
+     */
+    @Transactional
+    public SalesOrder fulfillOrder(UUID soId, SalesDtos.FulfillRequest req) {
+        if (req.lines() == null || req.lines().isEmpty())
+            throw new ApiException("Select at least one line to fulfil");
+
+        SalesOrder so = orders.findById(soId)
+            .orElseThrow(() -> new ApiException("Sales order not found"));
+        Map<UUID, SoLine> byId = so.getLines().stream()
+            .collect(Collectors.toMap(SoLine::getId, sl -> sl));
+
+        Map<UUID, List<SalesDtos.Allocation>> byWarehouse = new LinkedHashMap<>();
+        Map<UUID, BigDecimal> fulfilledBySoLine = new LinkedHashMap<>();
+        for (var fl : req.lines()) {
+            SoLine sl = byId.get(fl.soLineId());
+            if (sl == null) throw new ApiException("Line does not belong to this order");
+            if (fl.warehouseId() == null) throw new ApiException("Choose a warehouse to fulfil " + sl.getProductId());
+            if (fl.qty() == null || fl.qty().signum() <= 0) throw new ApiException("Quantity to fulfil must be positive");
+            if (fl.qty().compareTo(sl.getQtyPending()) > 0)
+                throw new ApiException("Cannot fulfil more than the pending quantity for this line");
+
+            BigDecimal disc = sl.getQty().signum() == 0 ? BigDecimal.ZERO
+                : sl.getDiscountAmt().multiply(fl.qty()).divide(sl.getQty(), 2, RoundingMode.HALF_UP);
+            var alloc = new SalesDtos.Allocation(sl.getProductId(), fl.warehouseId(), fl.qty(), sl.getUnitPrice(), disc);
+            byWarehouse.computeIfAbsent(fl.warehouseId(), k -> new ArrayList<>()).add(alloc);
+            fulfilledBySoLine.merge(fl.soLineId(), fl.qty(), BigDecimal::add);
+        }
+
+        for (var entry : byWarehouse.entrySet()) {
+            DeliveryChallan dc = buildAndDeliver(so.getId(), so.getShopId(), so.getCustomerId(),
+                so.getSalespersonId(), entry.getKey(), entry.getValue(), so.getDiscountBy());
+            BigDecimal cost = dc.getLines().stream()
+                .map(l -> l.getQty().multiply(l.getUnitCost()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            if (cost.signum() > 0) {
+                accounting.post(dc.getChallanDate(), "Fulfillment " + dc.getDcNo(),
+                    "SALES_DELIVERY", dc.getId(),
+                    List.of(Leg.debit("5000", cost), Leg.credit("1200", cost)));
+            }
+        }
+
+        for (var e : fulfilledBySoLine.entrySet()) {
+            SoLine sl = byId.get(e.getKey());
+            sl.setQtyPending(sl.getQtyPending().subtract(e.getValue()));
+        }
+
+        boolean anyPending = so.getLines().stream().anyMatch(sl -> sl.getQtyPending().signum() > 0);
+        boolean allPending = so.getLines().stream().allMatch(sl -> sl.getQtyPending().compareTo(sl.getQty()) == 0);
+        so.setStatus(!anyPending ? "DELIVERED" : allPending ? "PENDING" : "PARTIALLY_DELIVERED");
+        return orders.save(so);
     }
 
     // ===================================================================
@@ -957,9 +1033,11 @@ public class SalesService {
         if (p.getPriceUpper() != null && price.compareTo(p.getPriceUpper()) > 0) {
             breach = true; why.append("above upper limit ").append(p.getPriceUpper()).append("; ");
         }
-        BigDecimal avail = inventory.available(productId, warehouseId);
-        if (avail.signum() == 0)
-            throw new ApiException("No stock of " + p.getName() + " in the selected warehouse");
+        if (warehouseId != null) {
+            BigDecimal avail = inventory.available(productId, warehouseId);
+            if (avail.signum() == 0)
+                throw new ApiException("No stock of " + p.getName() + " in the selected warehouse");
+        }
 
         if (breach && (overrideBy == null || overrideBy.isBlank()))
             throw new ApiException("Price " + price + " out of band (" + why +

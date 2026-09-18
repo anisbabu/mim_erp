@@ -41,4 +41,12 @@ public class SalesDtos {
         BigDecimal priceLower, BigDecimal priceUpper) {}
 
     public record OrderResult(UUID soId, String soNo, List<UUID> challanIds, BigDecimal totalValue, BigDecimal totalCost) {}
+
+    /** Fulfil part or all of one backordered line, from one warehouse. */
+    public record FulfillLine(UUID soLineId, UUID warehouseId, BigDecimal qty) {}
+    public record FulfillRequest(List<FulfillLine> lines) {}
+
+    /** One sales-order line surfaced for the orders list / fulfillment screen. */
+    public record SoLineView(UUID id, UUID productId, String productName,
+        BigDecimal qty, BigDecimal qtyPending, BigDecimal unitPrice) {}
 }

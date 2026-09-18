@@ -118,7 +118,7 @@ export default function NewSalePage() {
     if (!shopId)      { setMsg({ kind: "err", text: "Select a shop." }); return; }
     if (!customerId)  { setMsg({ kind: "err", text: "Select a customer." }); return; }
     if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: "Select a salesperson." }); return; }
-    const validLines = lines.filter((l) => l.productId && l.warehouseId && Number(l.qty) > 0);
+    const validLines = lines.filter((l) => l.productId && Number(l.qty) > 0);
     const sumGross = validLines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
     let assigned = 0;
     const allocations = validLines.map((l, i) => {
@@ -130,7 +130,7 @@ export default function NewSalePage() {
           : Math.round((totalDiscount * lineGross / sumGross) * 100) / 100
         : 0;
       if (!isLast) assigned += lineDisc;
-      return { productId: l.productId, warehouseId: l.warehouseId, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
+      return { productId: l.productId, warehouseId: l.warehouseId || null, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
     });
     if (!allocations.length) { setMsg({ kind: "err", text: "Add at least one line with qty." }); return; }
     if (anyOutOfBand && !overrideBy.trim()) {
@@ -277,6 +277,7 @@ export default function NewSalePage() {
                       <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
                         {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
                         {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                        {!l.warehouseId && l.productId && Number(l.qty) > 0 ? "will be backordered" : ""}
                       </div>
                     </td>
                     <td className="text-right align-top">
@@ -354,6 +355,7 @@ export default function NewSalePage() {
                   <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
                     {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
                     {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                    {!l.warehouseId && l.productId && Number(l.qty) > 0 ? "will be backordered" : ""}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">

@@ -33,6 +33,18 @@ public class SalesController {
     @GetMapping("/orders")
     public java.util.List<SalesOrder> orders() { return service.allOrders(); }
 
+    /** Line items of one order — the orders list has no other way to see them (SalesOrder.lines is @JsonIgnore). */
+    @GetMapping("/orders/{soId}/lines")
+    public java.util.List<SalesDtos.SoLineView> orderLines(@PathVariable UUID soId) {
+        return service.orderLines(soId);
+    }
+
+    /** Fulfil part or all of an order's backordered lines now that stock exists. */
+    @PostMapping("/orders/{soId}/fulfill")
+    public SalesOrder fulfill(@PathVariable UUID soId, @RequestBody SalesDtos.FulfillRequest req) {
+        return service.fulfillOrder(soId, req);
+    }
+
     /** Open (un-consolidated) challans — for the DC_FIRST day-end screen. */
     @GetMapping("/challans/open")
     public java.util.List<DeliveryChallan> openChallans() { return service.openChallans(); }
