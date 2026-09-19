@@ -402,7 +402,7 @@ public class SalesService {
     // ===================================================================
     // reads for the UI
     // ===================================================================
-    public java.util.List<SalesOrder> allOrders() { return orders.findAll(); }
+    public java.util.List<SalesOrder> allOrders() { return orders.findAllByOrderByOrderDateDescSoNoDesc(); }
 
     public java.util.List<DeliveryChallan> openChallans() {
         return challans.findByStatus("ISSUED");

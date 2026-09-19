@@ -4,9 +4,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID> {
+
+    /** Newest first — for the orders list. */
+    List<SalesOrder> findAllByOrderByOrderDateDescSoNoDesc();
 
     /** Outstanding (unpaid credit) exposure for a customer — used by the credit check. */
     @Query("""
