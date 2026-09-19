@@ -26,6 +26,8 @@ public class SalesOrder {
     private String creditOverrideBy;  // audit: who authorised an over-limit credit sale
     private String discountBy;        // audit: who authorised the discount
     private BigDecimal transportAndLifting = BigDecimal.ZERO;
+    @Column(name = "delivery_address") private String deliveryAddress;  // overrides customer address for this order only
+    @Column(name = "delivery_mobile")  private String deliveryMobile;
 
     @JsonIgnore
     @OneToMany(mappedBy = "so", cascade = CascadeType.ALL, orphanRemoval = true)

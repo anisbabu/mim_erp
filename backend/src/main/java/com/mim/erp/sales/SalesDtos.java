@@ -16,7 +16,9 @@ public class SalesDtos {
         String creditOverrideBy,                            // set when over limit, authorised
         String priceOverrideBy,                             // set when out-of-band price, authorised
         String discountBy,                                  // set when any line has a discount, authorised
-        BigDecimal transportAndLifting
+        BigDecimal transportAndLifting,
+        String deliveryAddress,                             // overrides customer address for this order only
+        String deliveryMobile
     ) {}
 
     /** DC_FIRST: issue one challan now (single warehouse). */

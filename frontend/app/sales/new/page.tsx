@@ -21,6 +21,8 @@ export default function NewSalePage() {
   const [salespeople, setSalespeople] = useState<UserView[]>([]);
 
   const [customerId, setCustomerId]     = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryMobile, setDeliveryMobile]   = useState("");
   const [salespersonId, setSalespersonId] = useState("");
   const [localShopId, setLocalShopId]   = useState("");
   const [paymentMode, setPaymentMode]   = useState<"CASH" | "CREDIT">("CASH");
@@ -147,10 +149,12 @@ export default function NewSalePage() {
         priceOverrideBy:     anyOutOfBand ? overrideBy : null,
         discountBy:          anyDiscount  ? discountBy : null,
         transportAndLifting: totalTransport || null,
+        deliveryAddress:     deliveryAddress.trim() || null,
+        deliveryMobile:      deliveryMobile.trim() || null,
       });
       const margin = (res.totalValue - res.totalCost).toFixed(2);
       setMsg({ kind: "ok", text: `Sale ${res.soNo} created · ${res.challanIds.length} challan(s) · margin ${margin}` });
-      setDiscount(""); setTransport("");
+      setDiscount(""); setTransport(""); setDeliveryAddress(""); setDeliveryMobile("");
       if (panelProductId) {
         const s = await endpoints.availability(panelProductId);
         setStockPanel(s);
@@ -214,6 +218,16 @@ export default function NewSalePage() {
           <label>Customer</label>
           <SearchSelect options={customerOpts} value={customerId}
             onChange={setCustomerId} placeholder="Search name or mobile…" />
+        </div>
+        <div className="field">
+          <label>Delivery address</label>
+          <input className="inp" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)}
+            placeholder="Leave blank to use customer's address" />
+        </div>
+        <div className="field">
+          <label>Delivery mobile</label>
+          <input className="inp" value={deliveryMobile} onChange={(e) => setDeliveryMobile(e.target.value)}
+            placeholder="Leave blank to use customer's mobile" />
         </div>
         {needsSalesperson && (
           <div className="field">

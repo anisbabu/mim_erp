@@ -158,6 +158,8 @@ public class SalesService {
         so.setDiscountBy(req.discountBy());
         BigDecimal soTransport = req.transportAndLifting() != null ? req.transportAndLifting() : BigDecimal.ZERO;
         so.setTransportAndLifting(soTransport);
+        so.setDeliveryAddress(blankToNull(req.deliveryAddress()));
+        so.setDeliveryMobile(blankToNull(req.deliveryMobile()));
         int ln = 1;
         boolean anyPending = false, anyDelivered = false;
         for (var a : req.allocations()) {
@@ -420,12 +422,10 @@ public class SalesService {
 
         var custOpt = customers.findById(so.getCustomerId());
         String customerName = custOpt.map(Customer::getName).orElse("—");
-        String customerContact = custOpt.map(c -> {
-            StringBuilder sb = new StringBuilder();
-            if (c.getMobile() != null) sb.append(c.getMobile());
-            if (c.getAddress() != null) { if (!sb.isEmpty()) sb.append(" · "); sb.append(c.getAddress()); }
-            return sb.toString();
-        }).orElse("");
+        DeliveryInfo delivery = resolveDelivery(so, custOpt.orElse(null));
+        String customerContact = (delivery.mobile() != null ? delivery.mobile() : "") +
+            (delivery.mobile() != null && delivery.address() != null ? " · " : "") +
+            (delivery.address() != null ? delivery.address() : "");
 
         Set<UUID> pids = so.getLines().stream().map(SoLine::getProductId).collect(Collectors.toSet());
         Map<UUID, String> productNames = new HashMap<>();
@@ -557,10 +557,13 @@ public class SalesService {
         List<DeliveryChallan> dcList = challans.findBySoIdWithLines(soId);
         if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
 
-        String customerName = customers.findById(so.getCustomerId())
-            .map(c -> { StringBuilder sb = new StringBuilder(c.getName());
-                if (c.getMobile() != null) sb.append("  ·  ").append(c.getMobile());
-                return sb.toString(); }).orElse("—");
+        var custOpt = customers.findById(so.getCustomerId());
+        DeliveryInfo delivery = resolveDelivery(so, custOpt.orElse(null));
+        String customerName = custOpt.map(c -> {
+            StringBuilder sb = new StringBuilder(c.getName());
+            if (delivery.mobile() != null) sb.append("  ·  ").append(delivery.mobile());
+            return sb.toString();
+        }).orElse("—");
 
         // collect all product ids
         Set<UUID> pids = dcList.stream()
@@ -617,6 +620,7 @@ public class SalesService {
             }));
             meta.addCell(metaBlock(labelFont, valueFont, new String[][]{
                 {"Customer",   customerName},
+                {"Deliver to", delivery.address() != null ? delivery.address() : ""},
             }));
             doc.add(meta);
 
@@ -686,10 +690,14 @@ public class SalesService {
         DeliveryChallan dc = challans.findByIdWithLines(dcId)
             .orElseThrow(() -> new ApiException("Challan not found"));
 
-        String customerName = customers.findById(dc.getCustomerId())
-            .map(c -> { StringBuilder sb = new StringBuilder(c.getName());
-                if (c.getMobile() != null) sb.append("  ·  ").append(c.getMobile());
-                return sb.toString(); }).orElse("—");
+        SalesOrder dcSo = dc.getSoId() != null ? orders.findById(dc.getSoId()).orElse(null) : null;
+        var custOpt = customers.findById(dc.getCustomerId());
+        DeliveryInfo delivery = resolveDelivery(dcSo, custOpt.orElse(null));
+        String customerName = custOpt.map(c -> {
+            StringBuilder sb = new StringBuilder(c.getName());
+            if (delivery.mobile() != null) sb.append("  ·  ").append(delivery.mobile());
+            return sb.toString();
+        }).orElse("—");
 
         String warehouseName = dc.getWarehouseId() == null ? "—"
             : warehouses.findById(dc.getWarehouseId()).map(Warehouse::getName).orElse("—");
@@ -732,6 +740,7 @@ public class SalesService {
             meta.addCell(metaBlock(labelFont, valueFont, new String[][]{
                 {"Customer",   customerName},
                 {"Warehouse",  warehouseName},
+                {"Deliver to", delivery.address() != null ? delivery.address() : ""},
             }));
             doc.add(meta);
 
@@ -828,6 +837,14 @@ public class SalesService {
         Map<UUID, String> warehouseNames = new HashMap<>();
         warehouses.findAllById(wids).forEach(w -> warehouseNames.put(w.getId(), w.getName()));
 
+        var custOpt = customers.findById(so.getCustomerId());
+        DeliveryInfo delivery = resolveDelivery(so, custOpt.orElse(null));
+        String customerName = custOpt.map(c -> {
+            StringBuilder sb = new StringBuilder(c.getName());
+            if (delivery.mobile() != null) sb.append("  ·  ").append(delivery.mobile());
+            return sb.toString();
+        }).orElse("—");
+
         try {
             Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -887,6 +904,15 @@ public class SalesService {
                     {"Warehouse", whName},
                 }));
                 doc.add(meta);
+
+                PdfPTable custMeta = new PdfPTable(1);
+                custMeta.setWidthPercentage(100);
+                custMeta.setSpacingAfter(12);
+                custMeta.addCell(metaBlock(labelFont, valueFont, new String[][]{
+                    {"Customer",   customerName},
+                    {"Deliver to", delivery.address() != null ? delivery.address() : ""},
+                }));
+                doc.add(custMeta);
 
                 // product table
                 PdfPTable tbl = new PdfPTable(3);
@@ -1059,6 +1085,18 @@ public class SalesService {
                 " + " + newValue + " = " + projected + " > limit " + c.getCreditLimit() +
                 " — manager override required");
         }
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    /** Delivery contact for a document: the order's override, else the customer's own. */
+    private record DeliveryInfo(String mobile, String address) {}
+    private DeliveryInfo resolveDelivery(SalesOrder so, Customer c) {
+        String mobile  = (so != null && so.getDeliveryMobile()  != null) ? so.getDeliveryMobile()  : (c != null ? c.getMobile()  : null);
+        String address = (so != null && so.getDeliveryAddress() != null) ? so.getDeliveryAddress() : (c != null ? c.getAddress() : null);
+        return new DeliveryInfo(mobile, address);
     }
 
     /** Net line value = qty × unitPrice − flat discount amount. */
