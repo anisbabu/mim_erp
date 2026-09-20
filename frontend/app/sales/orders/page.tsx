@@ -179,6 +179,7 @@ export default function SalesOrdersPage() {
               const wtBusy  = busy === wtKey;
               const dcBusy  = busy === dcKey;
               const invBusy = busy === invKey;
+              const notYetFulfilled = o.status === "PENDING"; // SO_FIRST order with zero challans so far
               return (
                   <Fragment key={o.id}>
                     <tr className="border-t border-line">
@@ -200,15 +201,18 @@ export default function SalesOrdersPage() {
                         <div className="flex flex-wrap items-center gap-6">
                           <div className="flex items-center gap-2">
                             <span className="text-[12px] text-[#6b6960] w-[110px]">Dispatch token</span>
-                            <button className="btn-ghost btn-sm" disabled={wtBusy} title="Print dispatch token"
+                            <button className="btn-ghost btn-sm" disabled={wtBusy || notYetFulfilled}
+                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Print dispatch token"}
                                     onClick={() => openDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey)}>
                               {wtBusy ? "…" : "🖨"}
                             </button>
-                            <button className="btn-ghost btn-sm" disabled={wtBusy} title="Download dispatch token"
+                            <button className="btn-ghost btn-sm" disabled={wtBusy || notYetFulfilled}
+                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Download dispatch token"}
                                     onClick={() => downloadDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey, `dispatch-${o.soNo}.pdf`)}>
                               ↓
                             </button>
-                            <button className="btn btn-sm" disabled={wtBusy} title="Share dispatch token"
+                            <button className="btn btn-sm" disabled={wtBusy || notYetFulfilled}
+                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Share dispatch token"}
                                     onClick={() => shareDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey, `dispatch-${o.soNo}.pdf`, `Dispatch Token ${o.soNo}`)}>
                               ↗
                             </button>
@@ -216,15 +220,18 @@ export default function SalesOrdersPage() {
 
                           <div className="flex items-center gap-2">
                             <span className="text-[12px] text-[#6b6960] w-[70px]">Challan</span>
-                            <button className="btn-ghost btn-sm" disabled={dcBusy} title="Print challan"
+                            <button className="btn-ghost btn-sm" disabled={dcBusy || notYetFulfilled}
+                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Print challan"}
                                     onClick={() => openDoc(() => endpoints.orderChallanBlob(o.id), dcKey)}>
                               {dcBusy ? "…" : "🖨"}
                             </button>
-                            <button className="btn-ghost btn-sm" disabled={dcBusy} title="Download challan"
+                            <button className="btn-ghost btn-sm" disabled={dcBusy || notYetFulfilled}
+                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Download challan"}
                                     onClick={() => downloadDoc(() => endpoints.orderChallanBlob(o.id), dcKey, `challan-${o.soNo}.pdf`)}>
                               ↓
                             </button>
-                            <button className="btn btn-sm" disabled={dcBusy} title="Share challan"
+                            <button className="btn btn-sm" disabled={dcBusy || notYetFulfilled}
+                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Share challan"}
                                     onClick={() => shareDoc(() => endpoints.orderChallanBlob(o.id), dcKey, `challan-${o.soNo}.pdf`, `Challan ${o.soNo}`)}>
                               ↗
                             </button>
