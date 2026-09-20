@@ -51,4 +51,9 @@ public class SalesDtos {
     /** One sales-order line surfaced for the orders list / fulfillment screen. */
     public record SoLineView(UUID id, UUID productId, String productName,
         BigDecimal qty, BigDecimal qtyPending, BigDecimal unitPrice) {}
+
+    /** One pickup (delivery challan) under an order, for the pickup-history view. */
+    public record PickupLine(UUID productId, String productName, BigDecimal qty) {}
+    public record PickupView(UUID dcId, String dcNo, java.time.LocalDate date,
+        String warehouseName, List<PickupLine> lines) {}
 }

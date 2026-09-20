@@ -1,6 +1,6 @@
 "use client";
 import { Fragment, useEffect, useState, useMemo } from "react";
-import { endpoints, fmtDate, type SalesOrder, type Customer, type SoLineView, type Warehouse, type WarehouseStock } from "@/lib/api";
+import { endpoints, fmtDate, type SalesOrder, type Customer, type SoLineView, type Warehouse, type WarehouseStock, type PickupView } from "@/lib/api";
 import { beep } from "@/lib/beep";
 
 const PAGE_SIZE = 20;
@@ -21,6 +21,10 @@ export default function SalesOrdersPage() {
   const [fulfillDraft, setFulfillDraft] = useState<Record<string, FulfillDraft>>({});
   const [fulfillBusy, setFulfillBusy] = useState(false);
   const [fulfillErr, setFulfillErr] = useState<string | null>(null);
+
+  const [pickupsOpenId, setPickupsOpenId] = useState<string | null>(null);
+  const [pickups, setPickups] = useState<Record<string, PickupView[]>>({});
+  const [pickupsErr, setPickupsErr] = useState<string | null>(null);
 
   useEffect(() => {
     endpoints.salesOrders().then(setOrders).catch(() => {});
@@ -84,6 +88,20 @@ export default function SalesOrdersPage() {
       setFulfillErr(e.message);
     } finally {
       setFulfillBusy(false);
+    }
+  }
+
+  async function togglePickups(soId: string) {
+    if (pickupsOpenId === soId) { setPickupsOpenId(null); return; }
+    setPickupsOpenId(soId);
+    setPickupsErr(null);
+    if (!pickups[soId]) {
+      try {
+        const list = await endpoints.orderPickups(soId);
+        setPickups((m) => ({ ...m, [soId]: list }));
+      } catch (e: any) {
+        setPickupsErr(e.message);
+      }
     }
   }
 
@@ -261,9 +279,62 @@ export default function SalesOrdersPage() {
                               </button>
                             </div>
                           )}
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[12px] text-[#6b6960] w-[60px]">Pickups</span>
+                            <button className="btn-ghost btn-sm" onClick={() => togglePickups(o.id)}>
+                              {pickupsOpenId === o.id ? "Close" : "History"}
+                            </button>
+                          </div>
                         </div>
                       </td>
                     </tr>
+
+                    {pickupsOpenId === o.id && (
+                      <tr className="bg-[#faf9f6] border-t border-line">
+                        <td colSpan={5} className="py-3">
+                          {!pickups[o.id] && !pickupsErr && (
+                            <div className="text-[12px] text-[#6b6960]">Loading pickups…</div>
+                          )}
+                          {pickupsErr && (
+                            <div className="text-[12px]" style={{ color: "#9a2b22" }}>{pickupsErr}</div>
+                          )}
+                          {pickups[o.id] && pickups[o.id].length === 0 && (
+                            <div className="text-[12px] text-[#6b6960]">No pickups yet.</div>
+                          )}
+                          {pickups[o.id] && pickups[o.id].length > 0 && (
+                            <div className="flex flex-col gap-2">
+                              {pickups[o.id].map((p, i) => {
+                                const pKey = p.dcId + "pk";
+                                const pBusy = busy === pKey;
+                                const itemsText = p.lines.map((l) => `${l.productName} × ${l.qty}`).join(", ");
+                                return (
+                                  <div key={p.dcId} className="flex flex-wrap items-center gap-3">
+                                    <span className="text-[12px] text-[#6b6960] w-[20px]">#{i + 1}</span>
+                                    <span className="font-mono text-[13px]">{p.dcNo}</span>
+                                    <span className="text-[12px] text-[#6b6960]">{fmtDate(p.date)}</span>
+                                    <span className="text-[12px] text-[#6b6960]">{p.warehouseName}</span>
+                                    <span className="text-[13px]">{itemsText}</span>
+                                    <button className="btn-ghost btn-sm" disabled={pBusy} title="Print this pickup's challan"
+                                            onClick={() => openDoc(() => endpoints.challanBlob(p.dcId), pKey)}>
+                                      {pBusy ? "…" : "🖨"}
+                                    </button>
+                                    <button className="btn-ghost btn-sm" disabled={pBusy} title="Download this pickup's challan"
+                                            onClick={() => downloadDoc(() => endpoints.challanBlob(p.dcId), pKey, `${p.dcNo}.pdf`)}>
+                                      ↓
+                                    </button>
+                                    <button className="btn btn-sm" disabled={pBusy} title="Share this pickup's challan"
+                                            onClick={() => shareDoc(() => endpoints.challanBlob(p.dcId), pKey, `${p.dcNo}.pdf`, `Challan ${p.dcNo}`)}>
+                                      ↗
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
 
                     {fulfillOpenId === o.id && (
                       <tr className="bg-[#faf9f6] border-t border-line">

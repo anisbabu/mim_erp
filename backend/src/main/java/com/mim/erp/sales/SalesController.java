@@ -45,6 +45,12 @@ public class SalesController {
         return service.fulfillOrder(soId, req);
     }
 
+    /** Every pickup (delivery challan) issued under an order — for the pickup-history view. */
+    @GetMapping("/orders/{soId}/pickups")
+    public java.util.List<SalesDtos.PickupView> orderPickups(@PathVariable UUID soId) {
+        return service.orderPickups(soId);
+    }
+
     /** Open (un-consolidated) challans — for the DC_FIRST day-end screen. */
     @GetMapping("/challans/open")
     public java.util.List<DeliveryChallan> openChallans() { return service.openChallans(); }

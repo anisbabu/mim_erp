@@ -218,6 +218,37 @@ public class SalesService {
             .toList();
     }
 
+    /** Every pickup (delivery challan) issued under an order, chronologically — for the pickup-history view. */
+    @Transactional(readOnly = true)
+    public List<SalesDtos.PickupView> orderPickups(UUID soId) {
+        List<DeliveryChallan> dcs = challans.findBySoIdWithLines(soId);
+
+        Set<UUID> pids = dcs.stream().flatMap(dc -> dc.getLines().stream().map(DcLine::getProductId))
+            .collect(Collectors.toSet());
+        Map<UUID, String> productNames = new HashMap<>();
+        products.findAllById(pids).forEach(p -> productNames.put(p.getId(),
+            p.getFullName() != null ? p.getFullName() : p.getName()));
+
+        Set<UUID> wids = dcs.stream().map(DeliveryChallan::getWarehouseId)
+            .filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        Map<UUID, String> warehouseNames = new HashMap<>();
+        warehouses.findAllById(wids).forEach(w -> warehouseNames.put(w.getId(), w.getName()));
+
+        return dcs.stream()
+            .sorted(Comparator.comparing(DeliveryChallan::getChallanDate).thenComparing(DeliveryChallan::getDcNo))
+            .map(dc -> {
+                Map<UUID, BigDecimal> qtyByProduct = new LinkedHashMap<>();
+                for (DcLine l : dc.getLines())
+                    qtyByProduct.merge(l.getProductId(), l.getQty(), BigDecimal::add);
+                List<SalesDtos.PickupLine> lines = qtyByProduct.entrySet().stream()
+                    .map(e -> new SalesDtos.PickupLine(e.getKey(), productNames.getOrDefault(e.getKey(), "—"), e.getValue()))
+                    .toList();
+                String whName = dc.getWarehouseId() != null ? warehouseNames.getOrDefault(dc.getWarehouseId(), "—") : "—";
+                return new SalesDtos.PickupView(dc.getId(), dc.getDcNo(), dc.getChallanDate(), whName, lines);
+            })
+            .toList();
+    }
+
     /**
      * Fulfil part or all of an order's outstanding (backordered) lines now that stock
      * exists. Deducts FIFO stock per chosen warehouse, creates a delivery challan per
