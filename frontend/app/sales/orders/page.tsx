@@ -201,16 +201,16 @@ export default function SalesOrdersPage() {
               return (
                   <Fragment key={o.id}>
                     <tr className="border-t border-line">
-                      <td className="font-mono text-[13px]">{o.soNo}</td>
-                      <td>
+                      <td className="font-mono text-[13px] text-center">{o.soNo}</td>
+                      <td className="text-center">
                         <div>{cust?.name ?? "—"}</div>
                         {cust?.mobile && (
                             <div className="text-[12px] text-[#6b6960]">{cust.mobile}</div>
                         )}
                       </td>
-                      <td className="text-xs">{o.workflow}</td>
-                      <td>{fmtDate(o.orderDate)}</td>
-                      <td>{o.status}</td>
+                      <td className="text-xs text-center">{o.workflow}</td>
+                      <td className="text-center">{fmtDate(o.orderDate)}</td>
+                      <td className="text-center">{o.status}</td>
                     </tr>
 
                     {/* Document actions row — separate section below the order's data row */}
