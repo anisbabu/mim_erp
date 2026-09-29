@@ -25,4 +25,6 @@ public class Product {
     private String color;
     private String fullName;
     private boolean active = true;
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private java.time.OffsetDateTime createdAt;
 }

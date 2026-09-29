@@ -24,7 +24,7 @@ public class MasterController {
     }
 
     // ---- reads ----
-    @GetMapping("/products")   public List<Product>   products()   { return products.findAll(); }
+    @GetMapping("/products")   public List<Product>   products()   { return products.findAllByOrderByCreatedAtDesc(); }
     @GetMapping("/warehouses") public List<Warehouse> warehouses() { return warehouses.findAll(); }
     @GetMapping("/suppliers")  public List<Supplier>  suppliers()  { return suppliers.findAll(); }
     @GetMapping("/shops")      public List<Shop>      shops()      { return shops.findAll(); }
