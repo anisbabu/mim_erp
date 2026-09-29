@@ -5,15 +5,12 @@ import lombok.Getter;
 import lombok.Setter;
 import java.util.UUID;
 
-@Entity @Table(name = "supplier")
+@Entity @Table(name = "supplier_group")
 @Getter @Setter
-public class Supplier {
+public class SupplierGroup {
     @Id @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     private String code;
     private String name;
     private String nameBn;
-    private String mobile;
-    private String address;
-    private UUID groupId;
 }

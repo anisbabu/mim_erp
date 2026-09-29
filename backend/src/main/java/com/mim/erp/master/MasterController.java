@@ -13,26 +13,30 @@ public class MasterController {
     private final ProductRepository products;
     private final WarehouseRepository warehouses;
     private final SupplierRepository suppliers;
+    private final SupplierGroupRepository supplierGroups;
     private final ShopRepository shops;
     private final CustomerRepository customers;
 
     public MasterController(ProductRepository products, WarehouseRepository warehouses,
-                            SupplierRepository suppliers, ShopRepository shops,
-                            CustomerRepository customers) {
+                            SupplierRepository suppliers, SupplierGroupRepository supplierGroups,
+                            ShopRepository shops, CustomerRepository customers) {
         this.products = products; this.warehouses = warehouses;
-        this.suppliers = suppliers; this.shops = shops; this.customers = customers;
+        this.suppliers = suppliers; this.supplierGroups = supplierGroups;
+        this.shops = shops; this.customers = customers;
     }
 
     // ---- reads ----
     @GetMapping("/products")   public List<Product>   products()   { return products.findAllByOrderByCreatedAtDesc(); }
     @GetMapping("/warehouses") public List<Warehouse> warehouses() { return warehouses.findAll(); }
     @GetMapping("/suppliers")  public List<Supplier>  suppliers()  { return suppliers.findAll(); }
+    @GetMapping("/supplier-groups") public List<SupplierGroup> supplierGroups() { return supplierGroups.findAll(); }
     @GetMapping("/shops")      public List<Shop>      shops()      { return shops.findAll(); }
     @GetMapping("/customers")  public List<Customer>  customers()  { return customers.findAll(); }
 
     // ---- create ----
     @PostMapping("/products")  public Product   saveProduct(@RequestBody Product p)   { return products.save(p); }
     @PostMapping("/suppliers") public Supplier  saveSupplier(@RequestBody Supplier s) { return suppliers.save(s); }
+    @PostMapping("/supplier-groups") public SupplierGroup saveSupplierGroup(@RequestBody SupplierGroup g) { return supplierGroups.save(g); }
     @PostMapping("/customers") public Customer  saveCustomer(@RequestBody Customer c) {
         if ("PARTY".equals(c.getType()) && c.getCreditLimit() == null)
             throw new ApiException("Party customers need a credit limit");
@@ -83,8 +87,15 @@ public class MasterController {
     public Supplier updateSupplier(@PathVariable UUID id, @RequestBody Supplier in) {
         Supplier s = suppliers.findById(id).orElseThrow(() -> new ApiException("Supplier not found"));
         s.setCode(in.getCode()); s.setName(in.getName()); s.setNameBn(in.getNameBn());
-        s.setMobile(in.getMobile()); s.setAddress(in.getAddress());
+        s.setMobile(in.getMobile()); s.setAddress(in.getAddress()); s.setGroupId(in.getGroupId());
         return suppliers.save(s);
+    }
+
+    @PutMapping("/supplier-groups/{id}")
+    public SupplierGroup updateSupplierGroup(@PathVariable UUID id, @RequestBody SupplierGroup in) {
+        SupplierGroup g = supplierGroups.findById(id).orElseThrow(() -> new ApiException("Supplier group not found"));
+        g.setCode(in.getCode()); g.setName(in.getName()); g.setNameBn(in.getNameBn());
+        return supplierGroups.save(g);
     }
 
     @PutMapping("/customers/{id}")
@@ -114,6 +125,9 @@ public class MasterController {
 
     @DeleteMapping("/suppliers/{id}")
     public void deleteSupplier(@PathVariable UUID id) { guardedDelete(() -> suppliers.deleteById(id), "supplier"); }
+
+    @DeleteMapping("/supplier-groups/{id}")
+    public void deleteSupplierGroup(@PathVariable UUID id) { guardedDelete(() -> supplierGroups.deleteById(id), "supplier group"); }
 
     @DeleteMapping("/customers/{id}")
     public void deleteCustomer(@PathVariable UUID id) { guardedDelete(() -> customers.deleteById(id), "customer"); }

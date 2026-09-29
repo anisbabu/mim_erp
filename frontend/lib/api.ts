@@ -72,7 +72,8 @@ export type Product = {
   supplierId?: string; category?: string; color?: string; fullName?: string; active?: boolean;
 };
 export type Warehouse = { id: string; code: string; name: string; nameBn?: string; branch?: string; address?: string };
-export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string };
+export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string; groupId?: string };
+export type SupplierGroup = { id: string; code: string; name: string; nameBn?: string };
 export type Shop      = {
   id: string; code: string; name: string; nameBn?: string; primaryLine: string;
   mobile?: string; location?: string; monthlyTarget?: number; pettyCashFloat?: number;
@@ -173,20 +174,24 @@ export const endpoints = {
   products:   () => api.get<Product[]>("/api/master/products"),
   warehouses: () => api.get<Warehouse[]>("/api/master/warehouses"),
   suppliers:  () => api.get<Supplier[]>("/api/master/suppliers"),
+  supplierGroups: () => api.get<SupplierGroup[]>("/api/master/supplier-groups"),
   shops:      () => api.get<Shop[]>("/api/master/shops"),
   customers:  () => api.get<Customer[]>("/api/master/customers"),
   saveProduct:   (b: Partial<Product>)   => api.post<Product>("/api/master/products", b),
   saveSupplier:  (b: Partial<Supplier>)  => api.post<Supplier>("/api/master/suppliers", b),
+  createSupplierGroup: (b: Partial<SupplierGroup>) => api.post<SupplierGroup>("/api/master/supplier-groups", b),
   saveCustomer:  (b: Partial<Customer>)  => api.post<Customer>("/api/master/customers", b),
   saveWarehouse: (b: Partial<Warehouse>) => api.post<Warehouse>("/api/master/warehouses", b),
   saveShop:      (b: Partial<Shop>)      => api.post<Shop>("/api/master/shops", b),
   updateProduct:   (id: string, b: Partial<Product>)   => api.put<Product>(`/api/master/products/${id}`, b),
   updateSupplier:  (id: string, b: Partial<Supplier>)  => api.put<Supplier>(`/api/master/suppliers/${id}`, b),
+  updateSupplierGroup: (id: string, b: Partial<SupplierGroup>) => api.put<SupplierGroup>(`/api/master/supplier-groups/${id}`, b),
   updateCustomer:  (id: string, b: Partial<Customer>)  => api.put<Customer>(`/api/master/customers/${id}`, b),
   updateWarehouse: (id: string, b: Partial<Warehouse>) => api.put<Warehouse>(`/api/master/warehouses/${id}`, b),
   updateShop:      (id: string, b: Partial<Shop>)      => api.put<Shop>(`/api/master/shops/${id}`, b),
   deleteProduct:   (id: string) => api.del(`/api/master/products/${id}`),
   deleteSupplier:  (id: string) => api.del(`/api/master/suppliers/${id}`),
+  deleteSupplierGroup: (id: string) => api.del(`/api/master/supplier-groups/${id}`),
   deleteCustomer:  (id: string) => api.del(`/api/master/customers/${id}`),
   deleteWarehouse: (id: string) => api.del(`/api/master/warehouses/${id}`),
   deleteShop:      (id: string) => api.del(`/api/master/shops/${id}`),
