@@ -5,6 +5,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/master")
@@ -35,7 +37,22 @@ public class MasterController {
 
     // ---- create ----
     @PostMapping("/products")  public Product   saveProduct(@RequestBody Product p)   { return products.save(p); }
-    @PostMapping("/suppliers") public Supplier  saveSupplier(@RequestBody Supplier s) { return suppliers.save(s); }
+    @PostMapping("/suppliers")
+    public Supplier saveSupplier(@RequestBody Supplier s) {
+        if (s.getCode() == null || s.getCode().isBlank()) s.setCode(nextSupplierCode());
+        return suppliers.save(s);
+    }
+
+    private static final Pattern SUPPLIER_CODE = Pattern.compile("^SUP-(\\d+)$");
+    private String nextSupplierCode() {
+        int max = 0;
+        for (Supplier s : suppliers.findAll()) {
+            if (s.getCode() == null) continue;
+            Matcher m = SUPPLIER_CODE.matcher(s.getCode());
+            if (m.matches()) max = Math.max(max, Integer.parseInt(m.group(1)));
+        }
+        return String.format("SUP-%04d", max + 1);
+    }
     @PostMapping("/supplier-groups") public SupplierGroup saveSupplierGroup(@RequestBody SupplierGroup g) { return supplierGroups.save(g); }
     @PostMapping("/customers") public Customer  saveCustomer(@RequestBody Customer c) {
         if ("PARTY".equals(c.getType()) && c.getCreditLimit() == null)
