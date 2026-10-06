@@ -1,0 +1,27 @@
+-- Bangla names for supplier groups seeded in V25
+UPDATE supplier_group SET name_bn = 'হার্ডওয়্যার সাপ্লায়ার' WHERE code = 'SG-01';
+UPDATE supplier_group SET name_bn = 'বিবিধ পাওনাদার' WHERE code = 'SG-02';
+UPDATE supplier_group SET name_bn = 'অন্যান্য সাপ্লায়ার' WHERE code = 'SG-03';
+UPDATE supplier_group SET name_bn = 'আহমেদ উড ক্রাফটস লিঃ (নতুন)' WHERE code = 'SG-04';
+UPDATE supplier_group SET name_bn = 'আকিজ পার্টিকেল বোর্ড মিলস লিঃ' WHERE code = 'SG-05';
+UPDATE supplier_group SET name_bn = 'অ্যাম্বার্স বোর্ডস মিলস লিঃ' WHERE code = 'SG-06';
+UPDATE supplier_group SET name_bn = 'আশিক প্লাইউড ইন্ডাস্ট্রিজ' WHERE code = 'SG-07';
+UPDATE supplier_group SET name_bn = 'আজাদ প্লাই লিঃ' WHERE code = 'SG-08';
+UPDATE supplier_group SET name_bn = 'বেঙ্গল প্লাইউড কোম্পানি (২০২৩)' WHERE code = 'SG-09';
+UPDATE supplier_group SET name_bn = 'সিটি প্লাইউড ইন্ডাস্ট্রিজ' WHERE code = 'SG-10';
+UPDATE supplier_group SET name_bn = 'আহমেদ উড ক্রাফটস লিঃ (বন্ধ)' WHERE code = 'SG-11';
+UPDATE supplier_group SET name_bn = 'লিরা ডোরস লিঃ (২০২৩)' WHERE code = 'SG-12';
+UPDATE supplier_group SET name_bn = 'এম অ্যান্ড বি প্লাইউড ইন্ডাস্ট্রিজ' WHERE code = 'SG-13';
+UPDATE supplier_group SET name_bn = 'এম অ্যান্ড বি প্লাইউড ইন্ডাস্ট্রিজ (২০২৪)' WHERE code = 'SG-14';
+UPDATE supplier_group SET name_bn = 'এমআরএস ইন্ডাস্ট্রিজ লিঃ' WHERE code = 'SG-15';
+UPDATE supplier_group SET name_bn = 'মায়া পার্টিকেল মিলস (প্রাঃ) লিঃ' WHERE code = 'SG-16';
+UPDATE supplier_group SET name_bn = 'মেঘনা পিভিসি শিট কোম্পানি' WHERE code = 'SG-17';
+UPDATE supplier_group SET name_bn = 'ন্যাশনাল পলিমার ইন্ডাস্ট্রিজ লিঃ' WHERE code = 'SG-18';
+UPDATE supplier_group SET name_bn = 'ওরিয়েন্টাল ইকো উডস লিঃ' WHERE code = 'SG-19';
+UPDATE supplier_group SET name_bn = 'স্মার্ট ইকো উড' WHERE code = 'SG-20';
+UPDATE supplier_group SET name_bn = 'স্টার পার্টিকেল বোর্ড লিঃ' WHERE code = 'SG-21';
+UPDATE supplier_group SET name_bn = 'স্টার পাইপ অ্যান্ড প্লাস্টিকস লিঃ (পিভিসি)' WHERE code = 'SG-22';
+UPDATE supplier_group SET name_bn = 'সুপার বোর্ড লিঃ বিডি' WHERE code = 'SG-23';
+UPDATE supplier_group SET name_bn = 'ইউনিক উড ক্রাফটস অ্যান্ড প্লাস্টিক ইন্ডাস্ট্রিজ' WHERE code = 'SG-24';
+UPDATE supplier_group SET name_bn = 'ভিনিয়ার ল্যাব (ক্রয়)' WHERE code = 'SG-25';
+UPDATE supplier_group SET name_bn = 'উডল্যান্ড প্লাইউড মিলস লিঃ' WHERE code = 'SG-26';
