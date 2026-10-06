@@ -3,7 +3,7 @@ import { Fragment, useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type SalesOrder, type Customer, type SoLineView, type Warehouse, type WarehouseStock, type PickupView } from "@/lib/api";
 import { beep } from "@/lib/beep";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
 
 type FulfillDraft = { warehouseId: string; qty: string };
 
