@@ -22,7 +22,7 @@ public class UserService {
 
     @Transactional
     public AppUser create(String username, String password, String fullName,
-                          String role, Set<UUID> shopIds) {
+                          String mobile, String role, Set<UUID> shopIds) {
         if (username == null || username.isBlank())
             throw new ApiException("Username is required");
         if (password == null || password.length() < 6)
@@ -50,13 +50,14 @@ public class UserService {
         u.setUsername(username);
         u.setPasswordHash(encoder.encode(password));
         u.setFullName(fullName);
+        u.setMobile(mobile);
         u.setRole(role);
         u.setShopIds(shops);
         return users.save(u);
     }
 
     @Transactional
-    public AppUser update(UUID id, String username, String password, String fullName, String role, Set<UUID> shopIds, Boolean active) {
+    public AppUser update(UUID id, String username, String password, String fullName, String mobile, String role, Set<UUID> shopIds, Boolean active) {
         AppUser u = users.findById(id)
             .orElseThrow(() -> new ApiException("User not found"));
 
@@ -84,6 +85,7 @@ public class UserService {
         else if (password != null && !password.isEmpty())
             throw new ApiException("Password must be at least 6 characters");
         if (fullName != null) u.setFullName(fullName);
+        if (mobile != null) u.setMobile(mobile);
         u.setRole(role);
         u.setShopIds(shops);
         if (active != null) u.setActive(active);

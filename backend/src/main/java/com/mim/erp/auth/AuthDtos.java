@@ -8,8 +8,8 @@ public class AuthDtos {
     public record LoginResponse(String token, String username, String fullName,
                                 String role, Set<UUID> shopIds) {}
     public record CreateUserRequest(String username, String password, String fullName,
-                                    String role, Set<UUID> shopIds) {}
-    public record UserView(UUID id, String username, String fullName, String role,
+                                    String mobile, String role, Set<UUID> shopIds) {}
+    public record UserView(UUID id, String username, String fullName, String mobile, String role,
                            boolean active, Set<UUID> shopIds) {}
-    public record UpdateUserRequest(String username, String password, String fullName, String role, Set<UUID> shopIds, Boolean active) {}
+    public record UpdateUserRequest(String username, String password, String fullName, String mobile, String role, Set<UUID> shopIds, Boolean active) {}
 }

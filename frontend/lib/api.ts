@@ -167,7 +167,7 @@ export type ChequeExtension = {
 
 export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
 export type Me = { token?: string; username: string; fullName?: string; role: Role; shopIds: string[] };
-export type UserView = { id: string; username: string; fullName?: string; role: Role; active: boolean; shopIds: string[] };
+export type UserView = { id: string; username: string; fullName?: string; mobile?: string; role: Role; active: boolean; shopIds: string[] };
 
 export const endpoints = {
   // master
@@ -297,7 +297,7 @@ export const endpoints = {
   me:    () => api.get<Me>("/api/auth/me"),
   users: () => api.get<UserView[]>("/api/users"),
   createUser: (b: unknown) => api.post<UserView>("/api/users", b),
-  updateUser: (id: string, b: { username?: string; password?: string; fullName?: string; role: string; shopIds: string[]; active?: boolean }) =>
+  updateUser: (id: string, b: { username?: string; password?: string; fullName?: string; mobile?: string; role: string; shopIds: string[]; active?: boolean }) =>
     api.put<UserView>(`/api/users/${id}`, b),
 
   // employees / payroll master

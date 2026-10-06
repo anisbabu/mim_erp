@@ -15,6 +15,7 @@ public class AppUser {
     private String username;
     private String passwordHash;
     private String fullName;
+    private String mobile;
     private String role;            // SALESPERSON | MANAGER | ACCOUNTANT | ADMIN
     private boolean active = true;
 

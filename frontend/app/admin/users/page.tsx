@@ -12,6 +12,7 @@ export default function UsersPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [mobile, setMobile] = useState("");
   const [role, setRole] = useState<Role>("SALESPERSON");
   const [shopIds, setShopIds] = useState<string[]>([]);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -22,6 +23,7 @@ export default function UsersPage() {
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editFullName, setEditFullName] = useState("");
+  const [editMobile, setEditMobile] = useState("");
   const [editRole, setEditRole] = useState<Role>("SALESPERSON");
   const [editShopIds, setEditShopIds] = useState<string[]>([]);
   const [editActive, setEditActive] = useState(true);
@@ -56,6 +58,7 @@ export default function UsersPage() {
     setEditUsername(u.username);
     setEditPassword("");
     setEditFullName(u.fullName ?? "");
+    setEditMobile(u.mobile ?? "");
     setEditRole(u.role);
     setEditShopIds([...u.shopIds]);
     setEditActive(u.active);
@@ -66,6 +69,7 @@ export default function UsersPage() {
     setEditUser(null);
     setEditMsg(null);
   }
+
 
   async function submit() {
     setMsg(null);
@@ -81,11 +85,11 @@ export default function UsersPage() {
     setBusy(true);
     try {
       await endpoints.createUser({
-        username: username.trim(), password, fullName, role,
+        username: username.trim(), password, fullName, mobile, role,
         shopIds: bindsShops ? shopIds : [],
       });
       setMsg({ kind: "ok", text: `User ${username} created.` });
-      setUsername(""); setPassword(""); setFullName(""); setShopIds([]);
+      setUsername(""); setPassword(""); setFullName(""); setMobile(""); setShopIds([]);
       load();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
   }
@@ -105,6 +109,7 @@ export default function UsersPage() {
         username: editUsername.trim() || undefined,
         password: editPassword || undefined,
         fullName: editFullName,
+        mobile: editMobile,
         role: editRole,
         shopIds: editBindsShops ? editShopIds : [],
         active: editActive,
@@ -136,6 +141,10 @@ export default function UsersPage() {
           <div>
             <label className="text-xs text-[#6b6960]">Full name</label>
             <input className="inp mt-1" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs text-[#6b6960]">Mobile</label>
+            <input className="inp mt-1" value={mobile} onChange={(e) => setMobile(e.target.value)} />
           </div>
           <div>
             <label className="text-xs text-[#6b6960]">Password</label>
@@ -203,6 +212,10 @@ export default function UsersPage() {
               <input className="inp mt-1" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} />
             </div>
             <div>
+              <label className="text-xs text-[#6b6960]">Mobile</label>
+              <input className="inp mt-1" value={editMobile} onChange={(e) => setEditMobile(e.target.value)} />
+            </div>
+            <div>
               <label className="text-xs text-[#6b6960]">New password <span className="text-[#aaa]">(leave blank to keep)</span></label>
               <input className="inp mt-1" type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="••••••" />
             </div>
@@ -263,12 +276,13 @@ export default function UsersPage() {
       <div className="border border-line rounded-xl bg-white overflow-hidden">
         <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Shops</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Username</th><th>Name</th><th>Mobile</th><th>Role</th><th>Shops</th><th>Status</th><th></th></tr></thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className={editUser?.id === u.id ? "bg-teal-50" : ""}>
                 <td className="font-mono text-[13px]">{u.username}</td>
                 <td>{u.fullName ?? "—"}</td>
+                <td className="text-[13px]">{u.mobile ?? "—"}</td>
                 <td className="text-xs">{u.role}</td>
                 <td className="text-[13px]">
                   {u.shopIds.length === 0
