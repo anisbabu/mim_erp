@@ -22,6 +22,7 @@ public class Product {
     private BigDecimal taxRate;     // nullable: tax-aware, inactive
     @Column(name = "supplier_id") private UUID supplierId;
     private String category;
+    private String edgingSize;      // set instead of thicknessMm when category is EDGING
     private String color;
     private String fullName;
     private boolean active = true;

@@ -4,8 +4,14 @@ import { endpoints, type Product, type Supplier } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
 
-const CATEGORIES  = ["MDF", "PLY", "Melamine", "HPL", "Acrylic Sheet", "Formica", "PVC"];
+const CATEGORIES  = ["MDF", "PLY", "MELAMINE", "HPL", "ACRYLIC SHEET", "FORMICA", "PVC", "EDGING", "LOOSE VENEER"];
 const THICKNESSES = [6, 12, 13, 16.3, 18, 19, 25];
+const EDGING_SIZES = [
+  ".5X19", ".5X22", ".5X29", ".5X38",
+  "1X19", "1X22", "1X29", "1X38",
+  "2X19", "2X22", "2X29", "2X38",
+];
+const VENEER_THICKNESSES = [2.5, 4, 6];
 const COLORS = [
   "ASH", "Amble teak", "American Cherry", "BT", "BT Apple", "BT Crown Elite",
   "BT Shady grain", "BT- Lime", "Beech", "Black Chapeli", "Brown Gorjan",
@@ -19,15 +25,17 @@ const COLORS = [
 ];
 const HW_UNITS   = ["PCS", "SET", "KG", "MTR", "BOX", "ROLL", "PAIR", "DOZ"];
 const CAT_CODE: Record<string, string> = {
-  "MDF": "M", "PLY": "P", "Melamine": "ML", "HPL": "H",
-  "Acrylic Sheet": "A", "Formica": "F", "PVC": "PV",
+  "MDF": "M", "PLY": "P", "MELAMINE": "ML", "HPL": "H",
+  "ACRYLIC SHEET": "A", "FORMICA": "F", "PVC": "PV",
 };
 
 function genBoardSku(
-  f: { thicknessMm?: number; name?: string; category?: string; color?: string; supplierId?: string },
+  f: { thicknessMm?: number; edgingSize?: string; name?: string; category?: string; color?: string; supplierId?: string },
   suppliers: { id: string; name: string }[],
 ): string {
-  const th  = f.thicknessMm ? String(Math.round(f.thicknessMm)) : "";
+  const th  = f.category === "EDGING"
+    ? (f.edgingSize ?? "")
+    : (f.thicknessMm ? String(Math.round(f.thicknessMm)) : "");
   const n   = f.name?.trim()[0]?.toUpperCase() ?? "";
   const c   = CAT_CODE[f.category ?? ""] ?? "";
   const col = f.color?.trim()[0]?.toUpperCase() ?? "";
@@ -45,14 +53,17 @@ function genHardwareSku(
 }
 
 function genFullName(
-  f: { type?: string; thicknessMm?: number; name?: string; category?: string; color?: string; supplierId?: string },
+  f: { type?: string; thicknessMm?: number; edgingSize?: string; name?: string; category?: string; color?: string; supplierId?: string },
   suppliers: { id: string; name: string }[],
 ): string {
   if (f.type === "BOARD") {
     const supWord = suppliers.find((s) => s.id === f.supplierId)?.name?.trim().split(/\s+/)[0];
     const supPart = supWord ? `(${supWord})` : "";
+    const thicknessPart = f.category === "EDGING"
+      ? (f.edgingSize ?? "")
+      : (f.thicknessMm != null ? `${f.thicknessMm}MM` : "");
     return [
-      f.thicknessMm != null ? `${f.thicknessMm}MM` : "",
+      thicknessPart,
       f.name?.trim() ?? "",
       f.category?.trim() ?? "",
       f.color?.trim() ?? "",
@@ -84,35 +95,54 @@ export default function ProductsPage() {
       ? genBoardSku(f, suppliers)
       : genHardwareSku(f, suppliers);
     if (sku) setF((prev) => ({ ...prev, sku }));
-  }, [f.thicknessMm, f.name, f.category, f.color, f.supplierId, f.type, manualSku, suppliers]);
+  }, [f.thicknessMm, f.edgingSize, f.name, f.category, f.color, f.supplierId, f.type, manualSku, suppliers]);
 
   // Auto-generate full name
   useEffect(() => {
     const fn = genFullName(f, suppliers);
     setF((prev) => ({ ...prev, fullName: fn || undefined }));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [f.type, f.thicknessMm, f.name, f.category, f.color, f.supplierId, suppliers]);
+  }, [f.type, f.thicknessMm, f.edgingSize, f.name, f.category, f.color, f.supplierId, suppliers]);
 
   function reset() { setF({ type: "BOARD", unit: "PCS" }); setEditId(null); setManualSku(false); }
 
   function handleType(type: "BOARD" | "HARDWARE") {
-    setF({ type, unit: type === "BOARD" ? "PCS" : undefined, thicknessMm: undefined });
+    setF({ type, unit: type === "BOARD" ? "PCS" : undefined, thicknessMm: undefined, edgingSize: undefined });
+  }
+
+  function unitForCategory(category?: string) {
+    if (category === "EDGING") return "FEET";
+    if (category === "LOOSE VENEER") return "FEET";
+    return "PCS";
+  }
+
+  function handleCategory(category: string) {
+    setF((prev) => ({
+      ...prev, category: category || undefined, thicknessMm: undefined, edgingSize: undefined,
+      unit: prev.type === "BOARD" ? unitForCategory(category) : prev.unit,
+    }));
   }
 
   async function save() {
     setMsg(null);
     const isBoard = f.type === "BOARD";
+    const isEdging = isBoard && f.category === "EDGING";
     const missing: string[] = [];
     if (!f.name)                        missing.push(t("Name"));
     if (!f.nameBn)                      missing.push(t("Name (Bangla)"));
-    if (isBoard && !f.thicknessMm)      missing.push(t("Thickness"));
+    if (isEdging && !f.edgingSize)      missing.push(t("Thickness"));
+    if (isBoard && !isEdging && !f.thicknessMm) missing.push(t("Thickness"));
     if (isBoard && !f.category)         missing.push(t("Category"));
     if (isBoard && !f.supplierId)       missing.push(t("Supplier"));
     if (!f.unit)                        missing.push(t("Unit"));
     if (!f.priceLower)                  missing.push(t("Price (low)"));
     if (!f.priceUpper)                  missing.push(t("Price (high)"));
     if (missing.length) { setMsg({ kind: "err", text: `${t("Required")}: ${missing.join(", ")}` }); return; }
-    const body = { ...f, thicknessMm: isBoard ? f.thicknessMm : undefined };
+    const body = {
+      ...f,
+      thicknessMm: isBoard && !isEdging ? f.thicknessMm : undefined,
+      edgingSize: isEdging ? f.edgingSize : undefined,
+    };
     try {
       if (editId) await endpoints.updateProduct(editId, body);
       else        await endpoints.saveProduct(body);
@@ -151,24 +181,41 @@ export default function ProductsPage() {
                 <option value="BOARD">{t("Board")}</option>
                 <option value="HARDWARE">{t("Hardware")}</option>
               </select></div>
-            <div className="field"><label>{t("Thickness")} <R /></label>
-              <div className="flex items-center gap-2">
-                <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined })}>
-                  <option value="">— {t("Select")} —</option>
-                  {THICKNESSES.map((v) => <option key={v} value={v}>{v}</option>)}
-                </select>
-                <span className="text-sm font-semibold muted">MM</span>
-              </div></div>
-            <div className="field"><label>{t("Name")} <R /></label>
-              <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
-            {/* row 2 */}
-            <div className="field"><label>{t("Name (Bangla)")} <R /></label>
-              <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
             <div className="field"><label>{t("Category")} <R /></label>
-              <select className="inp" value={f.category ?? ""} onChange={(e) => setF({ ...f, category: e.target.value || undefined })}>
+              <select className="inp" value={f.category ?? ""} onChange={(e) => handleCategory(e.target.value)}>
                 <option value="">— {t("Select")} —</option>
                 {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select></div>
+            {f.category === "EDGING" ? (
+              <div className="field"><label>{t("Thickness")} <R /></label>
+                <select className="inp" value={f.edgingSize ?? ""} onChange={(e) => setF({ ...f, edgingSize: e.target.value || undefined })}>
+                  <option value="">— {t("Select")} —</option>
+                  {EDGING_SIZES.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select></div>
+            ) : f.category === "LOOSE VENEER" ? (
+              <div className="field"><label>{t("Thickness")} <R /></label>
+                <div className="flex items-center gap-2">
+                  <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined })}>
+                    <option value="">— {t("Select")} —</option>
+                    {VENEER_THICKNESSES.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  <span className="text-sm font-semibold muted">INCH</span>
+                </div></div>
+            ) : (
+              <div className="field"><label>{t("Thickness")} <R /></label>
+                <div className="flex items-center gap-2">
+                  <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined })}>
+                    <option value="">— {t("Select")} —</option>
+                    {THICKNESSES.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  <span className="text-sm font-semibold muted">MM</span>
+                </div></div>
+            )}
+            {/* row 2 */}
+            <div className="field"><label>{t("Name")} <R /></label>
+              <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
+            <div className="field"><label>{t("Name (Bangla)")} <R /></label>
+              <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
             <div className="field"><label>{t("Color")}</label>
               <select className="inp" value={f.color ?? ""} onChange={(e) => setF({ ...f, color: e.target.value || undefined })}>
                 <option value="">— {t("Select")} —</option>
@@ -176,7 +223,7 @@ export default function ProductsPage() {
               </select></div>
             {/* row 3 */}
             <div className="field"><label>{t("Unit")}</label>
-              <input className="inp" value="PCS" disabled /></div>
+              <input className="inp" value={f.unit ?? unitForCategory(f.category)} disabled /></div>
             <div className="field"><label>{t("Supplier")} <R /></label>
               <select className="inp" value={f.supplierId ?? ""} onChange={(e) => setF({ ...f, supplierId: e.target.value || undefined })}>
                 <option value="">— {t("Select")} —</option>
@@ -204,11 +251,16 @@ export default function ProductsPage() {
                 <option value="BOARD">{t("Board")}</option>
                 <option value="HARDWARE">{t("Hardware")}</option>
               </select></div>
+            <div className="field"><label>{t("Category")}</label>
+              <select className="inp" value={f.category ?? ""} onChange={(e) => handleCategory(e.target.value)}>
+                <option value="">— {t("Select")} —</option>
+                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select></div>
             <div className="field"><label>{t("Name")} <R /></label>
               <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
+            {/* row 2 */}
             <div className="field"><label>{t("Name (Bangla)")} <R /></label>
               <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
-            {/* row 2 */}
             <div className="field"><label>{t("Supplier")}</label>
               <select className="inp" value={f.supplierId ?? ""} onChange={(e) => setF({ ...f, supplierId: e.target.value || undefined })}>
                 <option value="">— {t("None")} —</option>
@@ -266,7 +318,7 @@ export default function ProductsPage() {
                 <td className="muted text-sm">{p.category ?? "—"}</td>
                 <td className="muted text-sm">{p.color ?? "—"}</td>
                 <td className="muted text-sm">{suppliers.find((s) => s.id === p.supplierId)?.name ?? "—"}</td>
-                <td className="num">{p.thicknessMm ?? "—"}</td>
+                <td className="num">{p.edgingSize ?? p.thicknessMm ?? "—"}</td>
                 <td className="text-sm muted">{p.unit ?? "—"}</td>
                 <td className="num">{p.priceLower ?? "—"}–{p.priceUpper ?? "—"}</td>
                 <td className="text-right whitespace-nowrap">
