@@ -38,6 +38,7 @@ export default function SuppliersPage() {
   function reset() { setF({}); setEditId(null); }
   const groupById = useMemo(() => Object.fromEntries(groups.map((g) => [g.id, g])), [groups]);
   const groupName = (id?: string) => (id && groupById[id] ? dn(groupById[id]) : "—");
+  const groupsAsc = useMemo(() => [...groups].sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true })), [groups]);
 
   function resetGroup() { setGf({ code: "", name: "", nameBn: "" }); setEditGroupId(null); }
   async function addGroup() {
@@ -109,17 +110,17 @@ export default function SuppliersPage() {
           </div>
         </div>
         <div className="form-grid cols-3">
+          <div className="field"><label>{t("Group")}</label>
+            <select className="inp" value={f.groupId ?? ""} onChange={(e) => setF({ ...f, groupId: e.target.value || undefined })}>
+              <option value="">—</option>
+              {groupsAsc.map((g) => <option key={g.id} value={g.id}>{dn(g)}</option>)}
+            </select></div>
           <div className="field"><label>{t("Code")}</label>
             <input className="inp" placeholder={editId ? "" : t("Auto if blank")} value={f.code ?? ""} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>
           <div className="field"><label>{t("Name")}</label>
             <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
           <div className="field"><label>{t("Name (Bangla)")}</label>
             <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
-          <div className="field"><label>{t("Group")}</label>
-            <select className="inp" value={f.groupId ?? ""} onChange={(e) => setF({ ...f, groupId: e.target.value || undefined })}>
-              <option value="">—</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{dn(g)}</option>)}
-            </select></div>
           <div className="field"><label>{t("Mobile")}</label>
             <input className="inp" value={f.mobile ?? ""} onChange={(e) => setF({ ...f, mobile: e.target.value })} /></div>
           <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Address")}</label>
