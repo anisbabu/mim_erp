@@ -4,14 +4,40 @@ import { endpoints, type Product, type Supplier } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
 
-const CATEGORIES  = ["MDF", "PLY", "MELAMINE", "HPL", "ACRYLIC SHEET", "FORMICA", "PVC", "EDGING", "LOOSE VENEER"];
-const THICKNESSES = [6, 12, 13, 16.3, 18, 19, 25];
+const CATEGORIES  = ["MDF", "PLY", "MELAMINE", "HPL", "ACRYLIC SHEET", "FORMICA", "PVC", "EDGING", "LOOSE VENEER", "VENEER", "ELEGANT"];
+const THICKNESSES = [6, 12, 16.3, 18, 19, 25];
+const PLY_THICKNESSES = [2, 3, 4, 6, 8, 10, 12, 15, 16, 16.3, 18, 19, 25, 36];
+const PVC_THICKNESSES = [1.75, 2.75, 3.75, 4.75, 7.5, 12, 18, 25];
+const MDF_THICKNESSES = [3, 6, 9, 12, 18, 25];
+const MELAMINE_THICKNESSES = [3, 6, 9, 12, 16, 18, 25];
+const VENEER_BOARD_THICKNESSES = [12, 18];
+const FORMICA_THICKNESSES = [0.4, 0.5, 0.7];
+const CATEGORY_THICKNESSES: Record<string, number[]> = {
+  "PLY": PLY_THICKNESSES,
+  "PVC": PVC_THICKNESSES,
+  "MDF": MDF_THICKNESSES,
+  "MELAMINE": MELAMINE_THICKNESSES,
+  "VENEER": VENEER_BOARD_THICKNESSES,
+  "FORMICA": FORMICA_THICKNESSES,
+};
+function thicknessOptionsFor(category?: string): number[] {
+  return (category && CATEGORY_THICKNESSES[category]) || THICKNESSES;
+}
+const SIDE_APPLICABLE_THICKNESSES: Record<string, number[]> = {
+  "PLY": [12, 18, 19],
+  "MDF": [12, 18],
+  "VENEER": [12, 18],
+};
 const EDGING_SIZES = [
   ".5X19", ".5X22", ".5X29", ".5X38",
   "1X19", "1X22", "1X29", "1X38",
   "2X19", "2X22", "2X29", "2X38",
 ];
 const VENEER_THICKNESSES = [2.5, 4, 6];
+const SIDES = [
+  { value: "O/S", label: "ONE SIDE" },
+  { value: "B/S", label: "BOTH SIDE" },
+];
 const COLORS = [
   "ASH", "Amble teak", "American Cherry", "BT", "BT Apple", "BT Crown Elite",
   "BT Shady grain", "BT- Lime", "Beech", "Black Chapeli", "Brown Gorjan",
@@ -167,6 +193,12 @@ export default function ProductsPage() {
   }, [q, rows]);
 
   const isBoard = f.type === "BOARD";
+  const sideApplicable = !!(f.category && SIDE_APPLICABLE_THICKNESSES[f.category]?.includes(f.thicknessMm as number));
+
+  useEffect(() => {
+    if (!sideApplicable && f.side) setF((prev) => ({ ...prev, side: undefined }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sideApplicable]);
 
   return (
     <div>
@@ -206,7 +238,7 @@ export default function ProductsPage() {
                 <div className="flex items-center gap-2">
                   <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined })}>
                     <option value="">— {t("Select")} —</option>
-                    {THICKNESSES.map((v) => <option key={v} value={v}>{v}</option>)}
+                    {thicknessOptionsFor(f.category).map((v) => <option key={v} value={v}>{v}</option>)}
                   </select>
                   <span className="text-sm font-semibold muted">MM</span>
                 </div></div>
@@ -221,6 +253,13 @@ export default function ProductsPage() {
                 <option value="">— {t("Select")} —</option>
                 {COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select></div>
+            {sideApplicable && (
+              <div className="field"><label>{t("One Side/Both Side")}</label>
+                <select className="inp" value={f.side ?? ""} onChange={(e) => setF({ ...f, side: e.target.value || undefined })}>
+                  <option value="">— {t("Select")} —</option>
+                  {SIDES.map((s) => <option key={s.value} value={s.value}>{s.value} ({s.label})</option>)}
+                </select></div>
+            )}
             {/* row 3 */}
             <div className="field"><label>{t("Unit")}</label>
               <input className="inp" value={f.unit ?? unitForCategory(f.category)} disabled /></div>
@@ -302,7 +341,7 @@ export default function ProductsPage() {
         <table className="tbl">
           <thead><tr>
             <th>{t("Name")}</th><th>{t("Full Name")}</th><th>{t("Type")}</th>
-            <th>{t("Category")}</th><th>{t("Color")}</th><th>{t("Supplier")}</th>
+            <th>{t("Category")}</th><th>{t("Color")}</th><th>{t("Side")}</th><th>{t("Supplier")}</th>
             <th className="text-right">{t("Thickness")}</th>
             <th>{t("Unit")}</th>
             <th className="text-right">{t("Price band")}</th>
@@ -317,6 +356,7 @@ export default function ProductsPage() {
                 <td className="text-xs">{p.type === "BOARD" ? t("Board") : t("Hardware")}</td>
                 <td className="muted text-sm">{p.category ?? "—"}</td>
                 <td className="muted text-sm">{p.color ?? "—"}</td>
+                <td className="muted text-sm">{p.side ?? "—"}</td>
                 <td className="muted text-sm">{suppliers.find((s) => s.id === p.supplierId)?.name ?? "—"}</td>
                 <td className="num">{p.edgingSize ?? p.thicknessMm ?? "—"}</td>
                 <td className="text-sm muted">{p.unit ?? "—"}</td>

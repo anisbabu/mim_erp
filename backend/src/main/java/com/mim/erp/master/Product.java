@@ -24,6 +24,7 @@ public class Product {
     private String category;
     private String edgingSize;      // set instead of thicknessMm when category is EDGING
     private String color;
+    private String side;            // O/S | B/S (one side / both side lamination)
     private String fullName;
     private boolean active = true;
     @Column(name = "created_at", insertable = false, updatable = false)
