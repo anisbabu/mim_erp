@@ -34,6 +34,65 @@ const EDGING_SIZES = [
   "2X19", "2X22", "2X29", "2X38",
 ];
 const VENEER_THICKNESSES = [2.5, 4, 6];
+const MELAMINE_COLORS = [
+  "ALBINO OAK", "ALVINO OAK", "AMBER OAK", "AMBER SILK", "AMBER SPECIAL TEAK",
+  "AMBER TEAK", "AMERICAN TEAK", "AMERICAN WALNUT", "ANATUR", "ANATURE", "ANTIC",
+  "ANTIC EMBER GLOSSY", "ANTIC EMBER MAT", "ARCTIC IVORY GLOSSY", "ARCTIC IVORY LBA",
+  "ARCTIC IVORY MAT", "ARIT", "ARKANSAS", "ARTIFACT", "AURORA GLOW GLOSSY",
+  "AURORA GLOW MAT", "BASALT ROCK GLOSSY", "BEECH", "BLACK", "BLACK AMBUSH",
+  "BLACK OAK", "BLACK OAK 734", "BLACK WENGE", "BLACK WOOD", "BLUE", "BRAWON CARPET",
+  "BURMA TEAK", "CANADIAN TEAK", "CARAMEL", "CARTOON-2", "CATANIA OAK", "CEDER",
+  "CHEERY", "CHERRY", "CHESSNUT", "CHINA WALNUT", "CHINESE TEAK", "CHOCOLATIC",
+  "CHOCOLETIC", "CLASSIC WOOD GLOSSY", "CLASSIC WOOD MAT", "CLOUDY CAMRIC",
+  "COAST LINE", "COST LINE", "CRAFT CANVAS", "CROWN OAK", "CRYSTAL MARBLE",
+  "CTG TAEK", "CTG TEAK", "DALIYA", "DARK OAK", "DARK WALNUT", "DEEP CHEERY",
+  "DEEP CHERRY", "DEEP WALNUT", "EBONY", "ECLIPSE MATTE GLOSSY", "ECLIPSE MATTE MAT",
+  "ELEGANCE OAK", "FEBRIC", "FOZIL OAK", "FROZEN STONE", "GARNET GRAIN GLOSSY",
+  "GARNET GRAIN MAT", "GOLD WOOD", "GOLDEN FLOWER", "GOLDEN FLOWRRY",
+  "GOLDEN FOLLWARY", "GOLDEN OAK", "GOLDEN TEAK", "GOLDEN WOOD", "GRAPHITE",
+  "GRAPHITE MAT", "GREEN", "GREY", "GREY GLOSSY", "GREY MARBLE", "GREY MAT",
+  "HAVANA OAK", "IMPERIAL TEAK GLOSSY", "JAPANESE SILK", "JAPANIC SLIK",
+  "JET BLACK GLOSSY", "KANADIAN PAINE", "KHAN TEAK", "LIGHT CHERRY", "LIGHT WOOD",
+  "LUNAR FROST GLOSSY", "LUNAR FROST LBA", "MAPEL", "MAPLE", "MARBLE",
+  "MAXCICAN OAK", "MAXICAN OAK", "MEHAGONI", "MEHOGONI", "MEHOGONY", "MEHOGUNI",
+  "METALIC", "METALLIC", "MIDNIGHT BLACK GLOSSY", "MIDNIGHT BLACK LBA",
+  "MIDNIGHT BLACK MAT", "MILKWAY MAT", "MILKYWAY GLOSSY", "MILKYWAY MAT",
+  "MIOST TEAK", "MOIST TEAK", "MONUMENT OAK", "NEBULA MIST GLOSSY",
+  "NEBULA MIST MAT", "NEW TEAK", "NIJARIAN TEAK", "NIZERIAN TEAK",
+  "NORDIC BIRCH GLOSSY", "OAK", "OAK PATCH", "ORANGE", "ORANGE CIRCLE", "P.GREEN",
+  "PAPAI", "PAROT GREEN", "PARROT GREEN", "PEARL MARBLE GREY", "PEARL WHITE",
+  "PEOGOUT MARBLE-4", "PEUEOT MARBLE-4", "PINK WAVE", "PINK/GOLAPI", "PLY BLACK",
+  "PREMIUM TEAK", "PROME TAEK", "PROME TEAK", "PROME TEAK 3D", "PROVATI -36",
+  "PURPLE", "PURPLE PEARL", "QUEEN FOLLOWRY", "QUEEN FOLLWORY", "RED",
+  "RED ARTIFACT", "RED MARBLE", "RED OAK", "RED OAK CROWN", "REGULAR WHITE GLOSSY",
+  "REGULAR WHITE MAT", "ROCKY OAK", "ROSE WOOD", "ROYAL CROWN", "SANI TEAK",
+  "SANTANA OAK", "SHADI TEAK", "SHADY TEAK", "SHAN TAEK", "SHAN TEAK", "SHANI WOOD",
+  "SHINE WOOD", "SHOYKAT", "SILK", "SILK LINE", "SILKY BLACK", "SILKY BROWN",
+  "SILVER GREY", "SILVER LINE", "SILVER OAK", "SMOKE", "SOIKAT", "SOLAR FLARE GLOSSY",
+  "SOLAR FLARE MAT", "SOLIA OAK CLAY", "SONALI", "SONOMA OAK", "SONOMA OAK MAT",
+  "SPACE BLACK GLOSSY", "SPACE BLACK MAT", "SPACE GREY GLOSSY", "SPACE GREY LBA",
+  "SPACE GREY MAT", "SPAIDER", "SPANISH OAK", "SPECIAL TEAK", "STARLIGHT GLOSSY",
+  "STARLIGHT MAT", "SUBORNO", "SUN T/BROWN CARPET", "SUPER", "SUPER OAK",
+  "SWICH SILK", "TEAK SPECIAL", "TECTONIC CLAY LBA", "WALNUT", "WENGE", "WHITE",
+  "WHITE 22", "WHITE BEECH", "WHITE CAMBRICK", "WHITE CASTLE", "WHITE CEDAR",
+  "WHITE CEDER", "WHITE GLOSSY", "WHITE MARBLE", "WHITE MAT", "WHITE OAK",
+  "WHITE TEAK", "WHITE WALNUT", "WILLOW", "WOOD BLACK", "WOOD GRAIN WHITE",
+  "WOODEN RING", "YELLOW", "ZEBRA LINE", "ZEN TEAK",
+];
+const PLY_COLORS = [
+  "ACRYLIC", "ARTIFICIAL", "ARTIFICIYAL", "ASH", "BEECH", "BROWN", "BURL",
+  "BURMATEAK", "BURMA TEAK LINE", "CHAPELI", "CHAPILI", "COMMERCIAL", "CROWNTEAK",
+  "EBONI", "EBONY", "ENGINEERING", "FORMICA", "GARJON", "GOLD", "GP", "MARINE",
+  "NUT", "OAK", "RETARDANT", "RICON", "RO", "ROYAL", "ROYALE", "SAPELLI",
+  "SHATARING", "SHUTERING", "SHUTTERING", "ST", "TEAK", "WALLNUT", "WENGE",
+];
+const CATEGORY_COLORS: Record<string, string[]> = {
+  "MELAMINE": MELAMINE_COLORS,
+  "PLY": PLY_COLORS,
+};
+function colorOptionsFor(category?: string): string[] {
+  return (category && CATEGORY_COLORS[category]) || COLORS;
+}
 const SIDES = [
   { value: "O/S", label: "ONE SIDE" },
   { value: "B/S", label: "BOTH SIDE" },
@@ -145,6 +204,7 @@ export default function ProductsPage() {
   function handleCategory(category: string) {
     setF((prev) => ({
       ...prev, category: category || undefined, thicknessMm: undefined, edgingSize: undefined,
+      color: undefined,
       unit: prev.type === "BOARD" ? unitForCategory(category) : prev.unit,
     }));
   }
@@ -251,7 +311,7 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Color")}</label>
               <select className="inp" value={f.color ?? ""} onChange={(e) => setF({ ...f, color: e.target.value || undefined })}>
                 <option value="">— {t("Select")} —</option>
-                {COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                {colorOptionsFor(f.category).map((c) => <option key={c} value={c}>{c}</option>)}
               </select></div>
             {sideApplicable && (
               <div className="field"><label>{t("One Side/Both Side")}</label>
