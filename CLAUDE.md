@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Backend
 ```bash
 cd backend
-mvn spring-boot:run          # dev server on :8080
+mvn spring-boot:run          # dev server on :8082
 mvn clean install            # build + test
 mvn test                     # tests only
 ```
@@ -62,4 +62,4 @@ Default admin: `admin` / `admin123`
 - Brand color: teal (`#0f766e` / `bg-brand`).
 
 ### API proxy
-`next.config.js` rewrites `/api/*` → `http://localhost:8080/api/*` in dev. No CORS headers needed from frontend.
+`next.config.js` rewrites `/api/*` → `http://localhost:8082/api/*` in dev. No CORS headers needed from frontend.
