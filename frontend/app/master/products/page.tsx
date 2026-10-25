@@ -86,9 +86,30 @@ const PLY_COLORS = [
   "NUT", "OAK", "RETARDANT", "RICON", "RO", "ROYAL", "ROYALE", "SAPELLI",
   "SHATARING", "SHUTERING", "SHUTTERING", "ST", "TEAK", "WALLNUT", "WENGE",
 ];
+const MDF_COLORS = [
+  "ALBINIO", "ALVINO OAK", "ANATUR", "ANTIC", "BEECH", "BEECH VENEER", "BLACK",
+  "BLUE", "BURMA TEAK", "CHAMP", "CHOCOLATIC", "CROWN OAK", "CTG TEAK",
+  "DEEP CHERRY", "GRAPHITE", "GREY", "HAVANA OAK", "LIGHT CHERRY", "MAPLE",
+  "MEHOGONY", "OAK", "ORANGE", "PARROT GREEN", "PROME TEAK", "RED", "RED OAK",
+  "REGEL OAK", "SHAN TEAK", "SUPER OAK", "WALNUT", "WHITE", "YELLOW",
+];
+const PVC_COLORS = [
+  "ANTIC", "BEECH", "BLACK", "BLUE", "BROWN", "BURMA TEAK", "CHASTNUT", "CHERRY",
+  "COFFEE", "CROWN", "ECO", "GOLD", "GOLDEN TEAK", "GREEN", "GREY", "HAVANA OAK",
+  "LUMBER", "MAHOGANY", "MAPLE", "MEHOGONY", "NATURAL", "ORANGE", "PINK",
+  "PREMIUM", "PROME TEAK", "RED", "ROYAL", "SHAN TEAK", "TOUCH WOOD", "WALNUT",
+  "WHITE", "WOOD", "WOODEN",
+];
+const FORMICA_COLORS = [
+  "ALVINO OAK", "BEECH", "BLACK", "BURMA TEAK", "GRAPHITE", "GREY", "HAVANA OAK",
+  "MILK WHITE", "PROME TEAK", "RED", "SHAN TEAK", "WHITE", "WHITE SUEDE",
+];
 const CATEGORY_COLORS: Record<string, string[]> = {
   "MELAMINE": MELAMINE_COLORS,
   "PLY": PLY_COLORS,
+  "MDF": MDF_COLORS,
+  "PVC": PVC_COLORS,
+  "FORMICA": FORMICA_COLORS,
 };
 function colorOptionsFor(category?: string): string[] {
   return (category && CATEGORY_COLORS[category]) || COLORS;
@@ -168,6 +189,7 @@ export default function ProductsPage() {
   const [editId, setEditId]     = useState<string | null>(null);
   const [manualSku, setManualSku] = useState(false);
   const [q, setQ]               = useState("");
+  const [page, setPage]         = useState(1);
   const [msg, setMsg]           = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const load = () => endpoints.products().then(setRows).catch(() => {});
@@ -251,6 +273,12 @@ export default function ProductsPage() {
     return rows.filter((p) =>
       [p.sku, p.name, p.nameBn, p.category].filter(Boolean).some((v) => v!.toLowerCase().includes(s)));
   }, [q, rows]);
+
+  useEffect(() => { setPage(1); }, [q]);
+
+  const PAGE_SIZE = 7;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const isBoard = f.type === "BOARD";
   const sideApplicable = !!(f.category && SIDE_APPLICABLE_THICKNESSES[f.category]?.includes(f.thicknessMm as number));
@@ -408,7 +436,7 @@ export default function ProductsPage() {
             <th className="text-right">{t("Actions")}</th>
           </tr></thead>
           <tbody>
-            {filtered.map((p) => (
+            {pageItems.map((p) => (
               <tr key={p.id}>
                 <td><div className="font-medium">{dn(p)}</div>
                   {p.sku && <div className="font-mono text-[11px] muted">{p.sku}</div>}</td>
@@ -430,6 +458,20 @@ export default function ProductsPage() {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 text-sm text-[#6b6960]">
+          <span>{filtered.length} products · page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <button className="btn-ghost px-3 py-1"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}>← Prev</button>
+            <button className="btn-ghost px-3 py-1"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}>Next →</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
