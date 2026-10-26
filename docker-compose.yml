@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    container_name: mim-postgres
+    environment:
+      POSTGRES_DB: mim_erpdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${MIM_PG_PASSWORD}
+    ports:
+      - "5440:5432"
+    volumes:
+      - mim_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mim_erpdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mim_pgdata:
