@@ -3,10 +3,26 @@ server:
 
 spring:
   datasource:
-    # DB_URL wins if set; otherwise assembled from Render database parts (host/port/name).
-    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:merry_erp}}
+    # Active database: Docker Postgres (docker-compose.yml, container mim-postgres, host port 5440).
+    # Password comes from MIM_PG_PASSWORD (.env, see .env.example).
+    url: ${DB_URL:jdbc:postgresql://localhost:5440/mim_erpdb}
     username: ${DB_USER:postgres}
-    password: ${DB_PASS:sys123}
+    password: ${MIM_PG_PASSWORD:change-me}
+
+    # --- Previous setups (disabled) ---
+    # Neon (cloud Postgres). Set DB_URL / DB_USER / DB_PASS in the environment
+    # (jdbc:postgresql://<neon-host>/neondb?sslmode=require); keep credentials out of this file.
+    #
+    # Older local database (offline dev):
+    #   DB_URL=jdbc:postgresql://localhost:5432/merry_erp
+    #   DB_USER=postgres
+    #   DB_PASS=sys123
+    #   (local PostgreSQL 18, D:\Program Files\PostgreSQL\18, port 5432, database merry_erp)
+    #
+    # DB_URL wins if set; otherwise assembled from Render database parts (host/port/name).
+    # url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:merry_erp}}
+    # username: ${DB_USER:postgres}
+    # password: ${DB_PASS:sys123}
   jpa:
     hibernate:
       ddl-auto: validate          # schema owned by Flyway, JPA only validates
