@@ -20,8 +20,12 @@ const CATEGORY_THICKNESSES: Record<string, number[]> = {
   "VENEER": VENEER_BOARD_THICKNESSES,
   "FORMICA": FORMICA_THICKNESSES,
 };
-function thicknessOptionsFor(category?: string): number[] {
-  return (category && CATEGORY_THICKNESSES[category]) || THICKNESSES;
+function thicknessOptionsFor(category?: string, current?: number): number[] {
+  const opts = (category && CATEGORY_THICKNESSES[category]) || THICKNESSES;
+  // keep a saved value (e.g. imported) selectable even if it isn't in the category list
+  return current != null && !opts.includes(Number(current))
+    ? [...opts, Number(current)].sort((a, b) => a - b)
+    : opts;
 }
 const SIDE_APPLICABLE_THICKNESSES: Record<string, number[]> = {
   "PLY": [12, 18, 19],
@@ -315,18 +319,22 @@ export default function ProductsPage() {
             ) : f.category === "LOOSE VENEER" ? (
               <div className="field"><label>{t("Thickness")} <R /></label>
                 <div className="flex items-center gap-2">
-                  <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined })}>
+                  <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined, thicknessLabel: undefined })}>
                     <option value="">— {t("Select")} —</option>
-                    {VENEER_THICKNESSES.map((v) => <option key={v} value={v}>{v}</option>)}
+                    {(f.thicknessMm != null && !VENEER_THICKNESSES.includes(Number(f.thicknessMm))
+                      ? [...VENEER_THICKNESSES, Number(f.thicknessMm)].sort((a, b) => a - b)
+                      : VENEER_THICKNESSES).map((v) => (
+                      <option key={v} value={v}>{f.thicknessLabel && v === Number(f.thicknessMm) ? f.thicknessLabel : v}</option>))}
                   </select>
                   <span className="text-sm font-semibold muted">INCH</span>
                 </div></div>
             ) : (
               <div className="field"><label>{t("Thickness")} <R /></label>
                 <div className="flex items-center gap-2">
-                  <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined })}>
+                  <select className="inp flex-1" value={f.thicknessMm ?? ""} onChange={(e) => setF({ ...f, thicknessMm: e.target.value ? Number(e.target.value) : undefined, thicknessLabel: undefined })}>
                     <option value="">— {t("Select")} —</option>
-                    {thicknessOptionsFor(f.category).map((v) => <option key={v} value={v}>{v}</option>)}
+                    {thicknessOptionsFor(f.category, f.thicknessMm).map((v) => (
+                      <option key={v} value={v}>{f.thicknessLabel && v === Number(f.thicknessMm) ? f.thicknessLabel : v}</option>))}
                   </select>
                   <span className="text-sm font-semibold muted">MM</span>
                 </div></div>
@@ -369,6 +377,9 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Full Name")} (auto)</label>
               <input className="inp" value={f.fullName ?? ""}
                 onChange={(e) => setF((prev) => ({ ...prev, fullName: e.target.value || undefined }))} /></div>
+            <div className="field"><label>{t("Comments")}</label>
+              <input className="inp" value={f.comments ?? ""}
+                onChange={(e) => setF((prev) => ({ ...prev, comments: e.target.value || undefined }))} /></div>
           </div>
         ) : (
           <div className="form-grid cols-3">
@@ -411,6 +422,9 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Full Name")} (auto)</label>
               <input className="inp" value={f.fullName ?? ""}
                 onChange={(e) => setF((prev) => ({ ...prev, fullName: e.target.value || undefined }))} /></div>
+            <div className="field"><label>{t("Comments")}</label>
+              <input className="inp" value={f.comments ?? ""}
+                onChange={(e) => setF((prev) => ({ ...prev, comments: e.target.value || undefined }))} /></div>
           </div>
         )}
 
@@ -433,6 +447,7 @@ export default function ProductsPage() {
             <th className="text-right">{t("Thickness")}</th>
             <th>{t("Unit")}</th>
             <th className="text-right">{t("Price band")}</th>
+            <th>{t("Comments")}</th>
             <th className="text-right">{t("Actions")}</th>
           </tr></thead>
           <tbody>
@@ -446,9 +461,10 @@ export default function ProductsPage() {
                 <td className="muted text-sm">{p.color ?? "—"}</td>
                 <td className="muted text-sm">{p.side ?? "—"}</td>
                 <td className="muted text-sm">{suppliers.find((s) => s.id === p.supplierId)?.name ?? "—"}</td>
-                <td className="num">{p.edgingSize ?? p.thicknessMm ?? "—"}</td>
+                <td className="num">{p.edgingSize ?? p.thicknessLabel ?? p.thicknessMm ?? "—"}</td>
                 <td className="text-sm muted">{p.unit ?? "—"}</td>
                 <td className="num">{p.priceLower ?? "—"}–{p.priceUpper ?? "—"}</td>
+                <td className="text-sm muted">{p.comments ?? "—"}</td>
                 <td className="text-right whitespace-nowrap">
                   <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(p)}><EditIcon /></button>
                   <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(p.id)}><TrashIcon /></button>

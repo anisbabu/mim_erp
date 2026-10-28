@@ -92,12 +92,13 @@ public class MasterController {
     public Product updateProduct(@PathVariable UUID id, @RequestBody Product in) {
         Product p = products.findById(id).orElseThrow(() -> new ApiException("Product not found"));
         p.setSku(in.getSku()); p.setName(in.getName()); p.setNameBn(in.getNameBn()); p.setType(in.getType());
-        p.setThicknessMm(in.getThicknessMm()); p.setUnit(in.getUnit());
+        p.setThicknessMm(in.getThicknessMm()); p.setThicknessLabel(in.getThicknessLabel()); p.setUnit(in.getUnit());
         p.setPriceLower(in.getPriceLower()); p.setPriceUpper(in.getPriceUpper());
         p.setSupplierId(in.getSupplierId()); p.setCategory(in.getCategory()); p.setColor(in.getColor());
         p.setSide(in.getSide());
         p.setEdgingSize(in.getEdgingSize());
         p.setFullName(in.getFullName());
+        p.setComments(in.getComments());
         p.setActive(in.isActive());
         return products.save(p);
     }

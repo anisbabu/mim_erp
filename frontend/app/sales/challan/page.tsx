@@ -44,7 +44,7 @@ export default function ChallanPage() {
   const productOpts: Option[] = useMemo(
     () => products.map((p) => {
       const supplierName = p.supplierId ? supplierById[p.supplierId]?.name : undefined;
-      const thickness = p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined;
+      const thickness = p.thicknessLabel ?? (p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined);
       const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
       return { value: p.id, label: p.fullName || p.name, sublabel: sub };
     }),

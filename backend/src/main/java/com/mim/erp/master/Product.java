@@ -16,6 +16,7 @@ public class Product {
     private String nameBn;
     private String type;            // BOARD | HARDWARE
     private BigDecimal thicknessMm; // null for hardware
+    private String thicknessLabel;  // display text when a number can't express it (2/3, 19X1)
     private String unit;
     private BigDecimal priceLower;  // selling price band (fixed, management-set)
     private BigDecimal priceUpper;
@@ -26,6 +27,7 @@ public class Product {
     private String color;
     private String side;            // O/S | B/S (one side / both side lamination)
     private String fullName;
+    private String comments;
     private boolean active = true;
     @Column(name = "created_at", insertable = false, updatable = false)
     private java.time.OffsetDateTime createdAt;
