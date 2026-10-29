@@ -69,7 +69,7 @@ export const api = {
 export type Product = {
   id: string; sku: string; name: string; nameBn?: string; type: "BOARD" | "HARDWARE";
   thicknessMm?: number; thicknessLabel?: string; unit?: string; priceLower?: number; priceUpper?: number;
-  supplierId?: string; category?: string; edgingSize?: string; color?: string; side?: string; fullName?: string; comments?: string; active?: boolean;
+  supplierId?: string; category?: string; productGroup?: string; supplierTag?: string; edgingSize?: string; color?: string; side?: string; fullName?: string; comments?: string; active?: boolean;
 };
 export type Warehouse = { id: string; code: string; name: string; nameBn?: string; branch?: string; address?: string };
 export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string; groupId?: string };

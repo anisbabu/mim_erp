@@ -23,6 +23,8 @@ public class Product {
     private BigDecimal taxRate;     // nullable: tax-aware, inactive
     @Column(name = "supplier_id") private UUID supplierId;
     private String category;
+    private String productGroup;    // stock group from old system, e.g. A.R HANDLE
+    private String supplierTag;     // supplier/brand as written in the old system, e.g. AHMED, CHINA
     private String edgingSize;      // set instead of thicknessMm when category is EDGING
     private String color;
     private String side;            // O/S | B/S (one side / both side lamination)

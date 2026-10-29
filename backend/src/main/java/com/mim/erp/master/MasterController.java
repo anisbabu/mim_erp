@@ -95,6 +95,8 @@ public class MasterController {
         p.setThicknessMm(in.getThicknessMm()); p.setThicknessLabel(in.getThicknessLabel()); p.setUnit(in.getUnit());
         p.setPriceLower(in.getPriceLower()); p.setPriceUpper(in.getPriceUpper());
         p.setSupplierId(in.getSupplierId()); p.setCategory(in.getCategory()); p.setColor(in.getColor());
+        p.setProductGroup(in.getProductGroup());
+        p.setSupplierTag(in.getSupplierTag());
         p.setSide(in.getSide());
         p.setEdgingSize(in.getEdgingSize());
         p.setFullName(in.getFullName());

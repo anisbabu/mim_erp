@@ -4,7 +4,7 @@ import { endpoints, type Product, type Supplier } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
 
-const CATEGORIES  = ["MDF", "PLY", "MELAMINE", "HPL", "ACRYLIC SHEET", "FORMICA", "PVC", "EDGING", "LOOSE VENEER", "VENEER", "ELEGANT"];
+const CATEGORIES  = ["MDF", "PLY", "MELAMINE", "HPL", "ACRYLIC SHEET", "FORMICA", "PVC", "EDGING","PLAIN BOARD", "LOOSE VENEER", "VENEER", "ELEGANT","WPC"];
 const THICKNESSES = [6, 12, 16.3, 18, 19, 25];
 const PLY_THICKNESSES = [2, 3, 4, 6, 8, 10, 12, 15, 16, 16.3, 18, 19, 25, 36];
 const PVC_THICKNESSES = [1.75, 2.75, 3.75, 4.75, 7.5, 12, 18, 25];
@@ -271,12 +271,15 @@ export default function ProductsPage() {
 
   function edit(p: Product) { setF(p); setEditId(p.id); setManualSku(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
 
+  const supplierName = useMemo(() => new Map(suppliers.map((s) => [s.id, s.name])), [suppliers]);
+
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return rows;
     return rows.filter((p) =>
-      [p.sku, p.name, p.nameBn, p.category].filter(Boolean).some((v) => v!.toLowerCase().includes(s)));
-  }, [q, rows]);
+      [p.sku, p.name, p.nameBn, p.category, p.productGroup, p.supplierTag, supplierName.get(p.supplierId ?? "")]
+        .filter(Boolean).some((v) => v!.toLowerCase().includes(s)));
+  }, [q, rows, supplierName]);
 
   useEffect(() => { setPage(1); }, [q]);
 
@@ -380,6 +383,12 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Comments")}</label>
               <input className="inp" value={f.comments ?? ""}
                 onChange={(e) => setF((prev) => ({ ...prev, comments: e.target.value || undefined }))} /></div>
+            <div className="field"><label>{t("Product Group")}</label>
+              <input className="inp" value={f.productGroup ?? ""}
+                onChange={(e) => setF((prev) => ({ ...prev, productGroup: e.target.value || undefined }))} /></div>
+            <div className="field"><label>{t("Supplier Tag")}</label>
+              <input className="inp" value={f.supplierTag ?? ""}
+                onChange={(e) => setF((prev) => ({ ...prev, supplierTag: e.target.value || undefined }))} /></div>
           </div>
         ) : (
           <div className="form-grid cols-3">
@@ -425,6 +434,12 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Comments")}</label>
               <input className="inp" value={f.comments ?? ""}
                 onChange={(e) => setF((prev) => ({ ...prev, comments: e.target.value || undefined }))} /></div>
+            <div className="field"><label>{t("Product Group")}</label>
+              <input className="inp" value={f.productGroup ?? ""}
+                onChange={(e) => setF((prev) => ({ ...prev, productGroup: e.target.value || undefined }))} /></div>
+            <div className="field"><label>{t("Supplier Tag")}</label>
+              <input className="inp" value={f.supplierTag ?? ""}
+                onChange={(e) => setF((prev) => ({ ...prev, supplierTag: e.target.value || undefined }))} /></div>
           </div>
         )}
 
@@ -442,8 +457,8 @@ export default function ProductsPage() {
       <div className="card table-wrap">
         <table className="tbl">
           <thead><tr>
-            <th>{t("Name")}</th><th>{t("Full Name")}</th><th>{t("Type")}</th>
-            <th>{t("Category")}</th><th>{t("Color")}</th><th>{t("Side")}</th><th>{t("Supplier")}</th>
+            <th>{t("Name")}</th><th>{t("Supplier")}</th><th>{t("Full Name")}</th><th>{t("Type")}</th>
+            <th>{t("Category")}</th><th>{t("Product Group")}</th><th>{t("Color")}</th><th>{t("Side")}</th>
             <th className="text-right">{t("Thickness")}</th>
             <th>{t("Unit")}</th>
             <th className="text-right">{t("Price band")}</th>
@@ -455,12 +470,14 @@ export default function ProductsPage() {
               <tr key={p.id}>
                 <td><div className="font-medium">{dn(p)}</div>
                   {p.sku && <div className="font-mono text-[11px] muted">{p.sku}</div>}</td>
+                <td className="text-sm">{supplierName.get(p.supplierId ?? "") ?? "—"}
+                  {p.supplierTag && <div className="text-[11px] muted">{p.supplierTag}</div>}</td>
                 <td className="text-sm">{p.fullName ?? "—"}</td>
                 <td className="text-xs">{p.type === "BOARD" ? t("Board") : t("Hardware")}</td>
                 <td className="muted text-sm">{p.category ?? "—"}</td>
+                <td className="muted text-sm">{p.productGroup ?? "—"}</td>
                 <td className="muted text-sm">{p.color ?? "—"}</td>
                 <td className="muted text-sm">{p.side ?? "—"}</td>
-                <td className="muted text-sm">{suppliers.find((s) => s.id === p.supplierId)?.name ?? "—"}</td>
                 <td className="num">{p.edgingSize ?? p.thicknessLabel ?? p.thicknessMm ?? "—"}</td>
                 <td className="text-sm muted">{p.unit ?? "—"}</td>
                 <td className="num">{p.priceLower ?? "—"}–{p.priceUpper ?? "—"}</td>
