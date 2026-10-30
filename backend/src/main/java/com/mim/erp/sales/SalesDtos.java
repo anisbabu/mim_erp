@@ -6,8 +6,23 @@ import java.util.UUID;
 
 public class SalesDtos {
 
-    /** One allocation: take `qty` of a product FROM a specific warehouse. discountAmt is a flat line discount (null = 0). */
-    public record Allocation(UUID productId, UUID warehouseId, BigDecimal qty, BigDecimal unitPrice, BigDecimal discountAmt) {}
+    /**
+     * One allocation: take `qty` of a product FROM a specific warehouse. discountAmt is a flat line discount (null = 0).
+     * qtyNow (sales orders only): how much the customer takes today; the rest stays pending.
+     * null = all of it when a warehouse is set, none when it isn't.
+     */
+    public record Allocation(UUID productId, UUID warehouseId, BigDecimal qty, BigDecimal unitPrice,
+                             BigDecimal discountAmt, BigDecimal qtyNow) {
+        public Allocation(UUID productId, UUID warehouseId, BigDecimal qty, BigDecimal unitPrice, BigDecimal discountAmt) {
+            this(productId, warehouseId, qty, unitPrice, discountAmt, null);
+        }
+
+        /** Quantity delivered at order time. */
+        public BigDecimal deliverNow() {
+            if (warehouseId == null) return BigDecimal.ZERO;
+            return qtyNow != null ? qtyNow : qty;
+        }
+    }
 
     /** SO_FIRST: create order, then system splits into per-warehouse challans. */
     public record CreateOrderRequest(

@@ -140,7 +140,8 @@ public class PurchaseService {
         for (GrnLine gl : saved.getLines()) {
             PoLine poLine = poLines.findById(gl.getPoLineId()).orElseThrow();
             inventory.addLayer(gl.getReceivedProductId(), req.warehouseId(), gl.getId(),
-                gl.getQtyReceived(), poLine.getUnitPrice(), saved.getReceiptDate());
+                gl.getQtyReceived(), poLine.getUnitPrice(), saved.getReceiptDate(),
+                saved.getReceiptDate(), "GRN", saved.getId());
         }
 
         // auto-close PO if fully received

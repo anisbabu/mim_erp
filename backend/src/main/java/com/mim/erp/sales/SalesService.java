@@ -162,25 +162,34 @@ public class SalesService {
         so.setDeliveryMobile(blankToNull(req.deliveryMobile()));
         int ln = 1;
         boolean anyPending = false, anyDelivered = false;
+        // the part taken today is delivered from its warehouse; the rest stays pending on the same line
+        List<SalesDtos.Allocation> deliverNow = new ArrayList<>();
         for (var a : req.allocations()) {
-            boolean backordered = a.warehouseId() == null;
-            anyPending   |= backordered;
-            anyDelivered |= !backordered;
+            BigDecimal now = a.deliverNow();
+            if (now.signum() < 0 || now.compareTo(a.qty()) > 0)
+                throw new ApiException("Take-now quantity must be between 0 and the ordered quantity");
+            BigDecimal pending = a.qty().subtract(now);
+            anyPending   |= pending.signum() > 0;
+            anyDelivered |= now.signum() > 0;
+            if (now.signum() > 0) {
+                BigDecimal disc = a.discountAmt() == null || now.compareTo(a.qty()) == 0 ? a.discountAmt()
+                    : a.discountAmt().multiply(now).divide(a.qty(), 2, RoundingMode.HALF_UP);
+                deliverNow.add(new SalesDtos.Allocation(a.productId(), a.warehouseId(), now, a.unitPrice(), disc));
+            }
             SoLine sl = new SoLine();
             sl.setSo(so);
             sl.setProductId(a.productId());
             sl.setQty(a.qty());
             sl.setUnitPrice(a.unitPrice());
             sl.setDiscountAmt(a.discountAmt() != null ? a.discountAmt() : BigDecimal.ZERO);
-            sl.setQtyPending(backordered ? a.qty() : BigDecimal.ZERO);
+            sl.setQtyPending(pending);
             sl.setPriceOverrideBy(req.priceOverrideBy());
             sl.setLineNo(ln++);
             so.getLines().add(sl);
         }
         orders.save(so);
 
-        Map<UUID, List<SalesDtos.Allocation>> byWarehouse = req.allocations().stream()
-            .filter(a -> a.warehouseId() != null)
+        Map<UUID, List<SalesDtos.Allocation>> byWarehouse = deliverNow.stream()
             .collect(Collectors.groupingBy(SalesDtos.Allocation::warehouseId));
 
         List<UUID> challanIds = new ArrayList<>();
@@ -1034,10 +1043,11 @@ public class SalesService {
         dc.setWarehouseId(warehouseId);
         dc.setChallanDate(LocalDate.now());
         dc.setDiscountBy(discountBy);
+        dc = challans.save(dc);   // id first, so stock movements can reference the challan
 
         for (var a : allocs) {
             BigDecimal totalDisc = a.discountAmt() != null ? a.discountAmt() : BigDecimal.ZERO;
-            var consumptions = inventory.consumeFifo(a.productId(), warehouseId, a.qty());
+            var consumptions = inventory.consumeFifo(a.productId(), warehouseId, a.qty(), "SALE", dc.getId());
             BigDecimal discAssigned = BigDecimal.ZERO;
             for (int ci = 0; ci < consumptions.size(); ci++) {
                 var c = consumptions.get(ci);

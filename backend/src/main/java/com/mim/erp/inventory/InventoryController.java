@@ -5,6 +5,7 @@ import com.lowagie.text.pdf.*;
 import com.mim.erp.common.ApiException;
 import com.mim.erp.master.ProductRepository;
 import com.mim.erp.master.WarehouseRepository;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,13 +24,51 @@ public class InventoryController {
     private final StockLayerRepository layers;
     private final ProductRepository products;
     private final WarehouseRepository warehouses;
+    private final StockReportService reports;
+    private final OpeningStockService opening;
 
     public InventoryController(StockLayerRepository layers,
                                ProductRepository products,
-                               WarehouseRepository warehouses) {
+                               WarehouseRepository warehouses,
+                               StockReportService reports,
+                               OpeningStockService opening) {
         this.layers = layers;
         this.products = products;
         this.warehouses = warehouses;
+        this.reports = reports;
+        this.opening = opening;
+    }
+
+    /** Per product: on hand, committed to customers (sold, not picked up), available, on order. */
+    @GetMapping("/status")
+    public List<StockReportService.StatusRow> status() {
+        return reports.status();
+    }
+
+    /** Customers still waiting for a product (open sales-order lines with pending qty). */
+    @GetMapping("/committed")
+    public List<StockReportService.CommittedRow> committed(@RequestParam UUID productId) {
+        return reports.committed(productId);
+    }
+
+    /** Opening / inward / outward / closing per product for a period; optional single warehouse. */
+    @GetMapping("/stock-summary")
+    public List<StockReportService.SummaryRow> stockSummary(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                                            @RequestParam(required = false) UUID warehouseId) {
+        if (from.isAfter(to)) throw new ApiException("'from' must not be after 'to'");
+        return reports.summary(from, to, warehouseId);
+    }
+
+    /**
+     * One-time opening-stock load from the old system (CSV body:
+     * product_name,warehouse_name,qty,unit_cost). dryRun=true only validates.
+     */
+    @PostMapping(value = "/opening-import", consumes = {"text/csv", "text/plain"})
+    public OpeningStockService.ImportResult openingImport(@RequestBody String csv,
+                                                          @RequestParam(defaultValue = "true") boolean dryRun,
+                                                          @RequestParam(defaultValue = "2026-11-01") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate cutOver) {
+        return opening.importCsv(csv, cutOver, dryRun);
     }
 
     /** Per-warehouse availability for a product — drives the sales-order stock picker. */

@@ -136,6 +136,13 @@ export type PickupView = { dcId: string; dcNo: string; date: string; warehouseNa
 export type WarehouseStock = { warehouseId: string; qty: number };
 export type StockRow = { productId: string; warehouseId: string; qty: number; value: number };
 export type SupplierStockRow = { supplierId: string; productId: string; qty: number; value: number };
+export type StockStatusRow = { productId: string; onHand: number; committed: number; available: number; onOrder: number; value: number };
+export type CommittedRow = { soId: string; soNo: string; orderDate: string; customerId: string; customerName: string; qtyPending: number };
+export type StockSummaryRow = {
+  productId: string; productGroup: string | null;
+  openingQty: number; openingValue: number; inwardQty: number; inwardValue: number;
+  outwardQty: number; outwardValue: number; closingQty: number; closingValue: number;
+};
 export type VarianceRow = {
   productId: string; warehouseId: string | null;
   minCost: number; maxCost: number; avgCost: number; qtyOnHand: number;
@@ -209,6 +216,10 @@ export const endpoints = {
     api.get<WarehouseStock[]>(`/api/inventory/availability?productId=${productId}`),
   stockOverview:    () => api.get<StockRow[]>("/api/inventory/overview"),
   stockBySupplier:  () => api.get<SupplierStockRow[]>("/api/inventory/overview/by-supplier"),
+  stockStatus:      () => api.get<StockStatusRow[]>("/api/inventory/status"),
+  committed:        (productId: string) => api.get<CommittedRow[]>(`/api/inventory/committed?productId=${productId}`),
+  stockSummary:     (from: string, to: string, warehouseId?: string) =>
+    api.get<StockSummaryRow[]>(`/api/inventory/stock-summary?from=${from}&to=${to}${warehouseId ? `&warehouseId=${warehouseId}` : ""}`),
   stockReportPdf: async (): Promise<Blob> => {
     const token = loadToken();
     const res = await fetch(`${BASE}/api/inventory/stock-report`, {

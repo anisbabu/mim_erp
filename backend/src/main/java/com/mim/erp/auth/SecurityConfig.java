@@ -52,6 +52,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/purchase/**").hasAnyRole("MANAGER", "ADMIN")
                 // stock adjustments + variance report
                 .requestMatchers("/api/inventory/adjustments/**").hasAnyRole("MANAGER", "ADMIN")
+                .requestMatchers("/api/inventory/opening-import").hasRole("ADMIN")
                 .requestMatchers("/api/inventory/price-variance").hasAnyRole("MANAGER", "ACCOUNTANT", "ADMIN")
                 // sales floor
                 .requestMatchers("/api/sales/**").hasAnyRole("SALESPERSON", "MANAGER", "ADMIN")

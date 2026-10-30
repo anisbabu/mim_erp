@@ -2,13 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView,
+  endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView, type CommittedRow,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 
-type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
+// takeNow: qty the customer picks up today ("" = all of it); the rest stays pending on the order
+type Line = { productId: string; warehouseId: string; qty: string; takeNow: string; unitPrice: string };
+
+const takeNowQty = (l: Line) => (l.takeNow === "" ? Number(l.qty) || 0 : Number(l.takeNow) || 0);
 
 export default function NewSalePage() {
   const { user, activeShopId } = useAuth();
@@ -26,7 +29,7 @@ export default function NewSalePage() {
   const [salespersonId, setSalespersonId] = useState("");
   const [localShopId, setLocalShopId]   = useState("");
   const [paymentMode, setPaymentMode]   = useState<"CASH" | "CREDIT">("CASH");
-  const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "", discountAmt: "" }]);
+  const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", takeNow: "", unitPrice: "" }]);
   const [overrideBy, setOverrideBy] = useState("");
   const [discountBy, setDiscountBy] = useState("");
   const [discount, setDiscount]     = useState("");
@@ -38,6 +41,7 @@ export default function NewSalePage() {
   const [panelProductId, setPanelProductId] = useState("");
   const [panelLineIndex, setPanelLineIndex] = useState<number | null>(null);
   const [stockByProduct, setStockByProduct] = useState<Record<string, WarehouseStock[]>>({});
+  const [committedByProduct, setCommittedByProduct] = useState<Record<string, CommittedRow[]>>({});
 
   useEffect(() => {
     endpoints.products().then(setProducts).catch(() => {});
@@ -77,6 +81,9 @@ export default function NewSalePage() {
     if (!productId) return;
     setPanelProductId(productId);
     setPanelLineIndex(i);
+    endpoints.committed(productId)
+      .then((c) => setCommittedByProduct((m) => ({ ...m, [productId]: c })))
+      .catch(() => {});
     try {
       const s = await endpoints.availability(productId);
       setStockPanel(s);
@@ -94,7 +101,7 @@ export default function NewSalePage() {
   function update(i: number, patch: Partial<Line>) {
     setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   }
-  const addLine    = () => setLines((ls) => [...ls, { productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
+  const addLine    = () => setLines((ls) => [...ls, { productId: "", warehouseId: "", qty: "", takeNow: "", unitPrice: "" }]);
   const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
   function bandState(l: Line): "ok" | "out" | "none" {
@@ -115,6 +122,20 @@ export default function NewSalePage() {
 
   const shopId = activeShopId || localShopId;
 
+  const pendingWarnings = useMemo(() => {
+    const wantByProduct: Record<string, number> = {};
+    for (const l of lines) if (l.productId && l.warehouseId) wantByProduct[l.productId] = (wantByProduct[l.productId] ?? 0) + takeNowQty(l);
+    return Object.entries(wantByProduct).flatMap(([pid, want]) => {
+      const waiting = committedByProduct[pid] ?? [];
+      if (!waiting.length || want <= 0) return [];
+      const onHand = (stockByProduct[pid] ?? []).reduce((s, x) => s + Number(x.qty), 0);
+      const committed = waiting.reduce((s, x) => s + Number(x.qtyPending), 0);
+      if (onHand - committed >= want) return [];
+      const p = productById[pid];
+      return [{ pid, name: p?.fullName || p?.name || pid, onHand, committed, want, waiting }];
+    });
+  }, [lines, committedByProduct, stockByProduct, productById]);
+
   async function submit() {
     setMsg(null);
     if (!shopId)      { setMsg({ kind: "err", text: "Select a shop." }); return; }
@@ -132,9 +153,13 @@ export default function NewSalePage() {
           : Math.round((totalDiscount * lineGross / sumGross) * 100) / 100
         : 0;
       if (!isLast) assigned += lineDisc;
-      return { productId: l.productId, warehouseId: l.warehouseId || null, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
+      return { productId: l.productId, warehouseId: l.warehouseId || null, qty: Number(l.qty),
+               qtyNow: l.warehouseId ? takeNowQty(l) : null, unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
     });
     if (!allocations.length) { setMsg({ kind: "err", text: "Add at least one line with qty." }); return; }
+    if (validLines.some((l) => takeNowQty(l) < 0 || takeNowQty(l) > Number(l.qty))) {
+      setMsg({ kind: "err", text: "Take now must be between 0 and the ordered qty." }); return;
+    }
     if (anyOutOfBand && !overrideBy.trim()) {
       setMsg({ kind: "err", text: "A price is out of band — enter the authoriser name to override." }); return;
     }
@@ -256,6 +281,7 @@ export default function NewSalePage() {
                 <th>Product</th>
                 <th style={{ width: 150 }}>Warehouse</th>
                 <th className="text-right" style={{ width: 90 }}>Qty</th>
+                <th className="text-right" style={{ width: 90 }} title="How much the customer takes today; the rest stays pending">Take now</th>
                 <th className="text-right" style={{ width: 110 }}>Unit price</th>
                 <th className="text-right" style={{ width: 120 }}>Gross total</th>
                 <th style={{ width: 40 }}></th>
@@ -291,7 +317,7 @@ export default function NewSalePage() {
                       <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
                         {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
                         {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
-                        {!l.warehouseId && l.productId && Number(l.qty) > 0 ? "will be backordered" : ""}
+                        {!l.warehouseId && l.productId && Number(l.qty) > 0 ? "all pending (no warehouse)" : ""}
                       </div>
                     </td>
                     <td className="text-right align-top">
@@ -299,6 +325,15 @@ export default function NewSalePage() {
                         type="number" min={0} value={l.qty}
                         onChange={(e) => update(i, { qty: e.target.value })} />
                       <div className="h-4 mt-1" />
+                    </td>
+                    <td className="text-right align-top">
+                      <input className="inp text-right tabular-nums" style={{ width: 75, marginLeft: "auto" }}
+                        type="number" min={0} value={l.warehouseId ? l.takeNow : ""} placeholder={l.warehouseId ? l.qty : "0"}
+                        disabled={!l.warehouseId}
+                        onChange={(e) => update(i, { takeNow: e.target.value })} />
+                      <div className="text-[11px] mt-1 h-4 leading-4 whitespace-nowrap" style={{ color: "#b4690e" }}>
+                        {l.warehouseId && Number(l.qty) - takeNowQty(l) > 0 ? `${Number(l.qty) - takeNowQty(l)} pending` : ""}
+                      </div>
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums"
@@ -369,7 +404,7 @@ export default function NewSalePage() {
                   <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
                     {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
                     {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
-                    {!l.warehouseId && l.productId && Number(l.qty) > 0 ? "will be backordered" : ""}
+                    {!l.warehouseId && l.productId && Number(l.qty) > 0 ? "all pending (no warehouse)" : ""}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -377,6 +412,15 @@ export default function NewSalePage() {
                     <label className="text-xs muted block mb-1">Qty</label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
                       value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className="text-xs muted block mb-1">Take now</label>
+                    <input className="inp text-right tabular-nums w-full" type="number" min={0}
+                      value={l.warehouseId ? l.takeNow : ""} placeholder={l.warehouseId ? l.qty : "0"} disabled={!l.warehouseId}
+                      onChange={(e) => update(i, { takeNow: e.target.value })} />
+                    <div className="text-[11px] mt-0.5 h-4 leading-4" style={{ color: "#b4690e" }}>
+                      {l.warehouseId && Number(l.qty) - takeNowQty(l) > 0 ? `${Number(l.qty) - takeNowQty(l)} pending` : ""}
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs muted block mb-1">Unit price</label>
@@ -444,6 +488,18 @@ export default function NewSalePage() {
           <input className="inp mt-1" style={{ maxWidth: 320 }}
             placeholder="Manager / authority name"
             value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)} />
+        </div>
+      )}
+
+      {pendingWarnings.length > 0 && (
+        <div className="mb-4 text-sm rounded-lg px-4 py-3" style={{ background: "#fdf3e1", color: "#7a4a06" }}>
+          {pendingWarnings.map((w) => (
+            <div key={w.pid} className="mb-1 last:mb-0">
+              ⚠ <b>{w.name}</b>: on hand {w.onHand}, already sold but not picked up {w.committed}
+              {" "}(waiting: {w.waiting.map((c) => `${c.customerName} ${Number(c.qtyPending)} (${c.soNo})`).join(", ")}).
+              {" "}Taking {w.want} now may leave them short. You can still sell, at your own risk.
+            </div>
+          ))}
         </div>
       )}
 

@@ -47,12 +47,16 @@ public class StockAdjustmentService {
         adj.setQty(qty);
         adj.setReason(reason);
         adj.setAdjDate(LocalDate.now());
+        // validate the type before saving, then save so movements and journals carry the id
+        if (!List.of("DAMAGE", "COUNT", "TRANSFER").contains(type))
+            throw new ApiException("Unknown adjustment type: " + type);
+        adj = repo.save(adj);
 
         switch (type) {
             case "DAMAGE", "COUNT" -> {
                 if (fromWarehouseId == null)
                     throw new ApiException("Select the warehouse to adjust from");
-                var consumed = inventory.consumeFifo(productId, fromWarehouseId, qty);
+                var consumed = inventory.consumeFifo(productId, fromWarehouseId, qty, type, adj.getId());
                 BigDecimal cost = consumed.stream().map(c -> c.cost())
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
                 accounting.post(adj.getAdjDate(),
@@ -65,15 +69,16 @@ public class StockAdjustmentService {
                 if (fromWarehouseId.equals(toWarehouseId))
                     throw new ApiException("Source and destination warehouses must differ");
                 // consume from source, recreate layers in destination at same cost+date
-                var consumed = inventory.consumeFifo(productId, fromWarehouseId, qty);
+                var consumed = inventory.consumeFifo(productId, fromWarehouseId, qty, "TRANSFER_OUT", adj.getId());
                 for (var c : consumed) {
                     inventory.addLayer(productId, toWarehouseId, null,
-                        c.qty(), c.unitCost(), c.receivedDate());
+                        c.qty(), c.unitCost(), c.receivedDate(),
+                        adj.getAdjDate(), "TRANSFER_IN", adj.getId());
                 }
                 // no journal entry: inventory value unchanged, just relocated
             }
             default -> throw new ApiException("Unknown adjustment type: " + type);
         }
-        return repo.save(adj);
+        return adj;
     }
 }
