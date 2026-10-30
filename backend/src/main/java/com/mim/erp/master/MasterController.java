@@ -60,12 +60,20 @@ public class MasterController {
         return customers.save(c);
     }
     @PostMapping("/warehouses") public Warehouse saveWarehouse(@RequestBody Warehouse w) { return warehouses.save(w); }
-    @PostMapping("/shops")      public Shop      saveShop(@RequestBody Shop s)           { return shops.save(s); }
+    @PostMapping("/shops")      public Shop      saveShop(@RequestBody Shop s)           { checkShopAmounts(s); return shops.save(s); }
+
+    private static void checkShopAmounts(Shop s) {
+        if (s.getMonthlyTarget() != null && s.getMonthlyTarget().signum() < 0)
+            throw new ApiException("Monthly target cannot be negative");
+        if (s.getPettyCashFloat() != null && s.getPettyCashFloat().signum() < 0)
+            throw new ApiException("Petty cash float cannot be negative");
+    }
 
     // ---- update ----
     @PutMapping("/shops/{id}")
     public Shop updateShop(@PathVariable UUID id, @RequestBody Shop in) {
         Shop s = shops.findById(id).orElseThrow(() -> new ApiException("Shop not found"));
+        checkShopAmounts(in);
         s.setCode(in.getCode());
         s.setName(in.getName());
         s.setNameBn(in.getNameBn());

@@ -63,6 +63,7 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Primary line": { en: "Primary line", bn: "প্রধান পণ্যধারা" },
   "Monthly target": { en: "Monthly target", bn: "মাসিক লক্ষ্য" },
   "Petty cash float": { en: "Petty cash float", bn: "খুচরা নগদ তহবিল" },
+  "Monthly target and petty cash float cannot be negative.": { en: "Monthly target and petty cash float cannot be negative.", bn: "মাসিক লক্ষ্য ও খুচরা নগদ তহবিল ঋণাত্মক হতে পারে না।" },
   "Board": { en: "Board", bn: "বোর্ড" },
   "Hardware": { en: "Hardware", bn: "হার্ডওয়্যার" },
   "Confirm delete?": { en: "Confirm delete?", bn: "মুছে ফেলা নিশ্চিত?" },

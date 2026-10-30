@@ -23,6 +23,9 @@ export default function ShopsPage() {
   async function save() {
     setMsg(null);
     if (!f.code || !f.name) { setMsg({ kind: "err", text: "Code and name are required." }); return; }
+    if ((f.monthlyTarget ?? 0) < 0 || (f.pettyCashFloat ?? 0) < 0) {
+      setMsg({ kind: "err", text: t("Monthly target and petty cash float cannot be negative.") }); return;
+    }
     try {
       if (editId) await endpoints.updateShop(editId, f);
       else await endpoints.saveShop(f);
@@ -60,9 +63,9 @@ export default function ShopsPage() {
           <div className="field"><label>{t("Location")}</label>
             <input className="inp" value={f.location ?? ""} onChange={(e) => setF({ ...f, location: e.target.value })} /></div>
           <div className="field"><label>{t("Monthly target")}</label>
-            <input className="inp num" type="number" value={f.monthlyTarget ?? ""} onChange={(e) => setF({ ...f, monthlyTarget: Number(e.target.value) })} /></div>
+            <input className="inp num" type="number" min={0} value={f.monthlyTarget ?? ""} onChange={(e) => setF({ ...f, monthlyTarget: Number(e.target.value) })} /></div>
           <div className="field"><label>{t("Petty cash float")}</label>
-            <input className="inp num" type="number" value={f.pettyCashFloat ?? ""} onChange={(e) => setF({ ...f, pettyCashFloat: Number(e.target.value) })} /></div>
+            <input className="inp num" type="number" min={0} value={f.pettyCashFloat ?? ""} onChange={(e) => setF({ ...f, pettyCashFloat: Number(e.target.value) })} /></div>
         </div>
         <div className="mt-4 flex items-center gap-2">
           <button className="btn" onClick={save}>{editId ? t("Update") : t("Add")}</button>
