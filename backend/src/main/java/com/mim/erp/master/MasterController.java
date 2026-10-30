@@ -4,6 +4,7 @@ import com.mim.erp.common.ApiException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -59,8 +60,10 @@ public class MasterController {
             throw new ApiException("Party customers need a credit limit");
         return customers.save(c);
     }
-    @PostMapping("/warehouses") public Warehouse saveWarehouse(@RequestBody Warehouse w) { return warehouses.save(w); }
+    @PostMapping("/warehouses") public Warehouse saveWarehouse(@RequestBody Warehouse w) { w.setName(upper(w.getName())); return warehouses.save(w); }
     @PostMapping("/shops")      public Shop      saveShop(@RequestBody Shop s)           { checkShopAmounts(s); return shops.save(s); }
+
+    private static String upper(String s) { return s == null ? null : s.trim().toUpperCase(Locale.ROOT); }
 
     private static void checkShopAmounts(Shop s) {
         if (s.getMonthlyTarget() != null && s.getMonthlyTarget().signum() < 0)
@@ -90,7 +93,7 @@ public class MasterController {
     public Warehouse updateWarehouse(@PathVariable UUID id, @RequestBody Warehouse in) {
         Warehouse w = warehouses.findById(id).orElseThrow(() -> new ApiException("Warehouse not found"));
         w.setCode(in.getCode());
-        w.setName(in.getName());
+        w.setName(upper(in.getName()));
         w.setNameBn(in.getNameBn());
         w.setAddress(in.getAddress());
         return warehouses.save(w);

@@ -46,7 +46,7 @@ export default function WarehousesPage() {
           <div className="field"><label>{t("Code")}</label>
             <input className="inp" value={f.code ?? ""} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>
           <div className="field"><label>{t("Name")}</label>
-            <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
+            <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value.toUpperCase() })} /></div>
           <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Name (Bangla)")}</label>
             <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
           <div className="field" style={{ gridColumn: "span 2" }}><label>Branch</label>
