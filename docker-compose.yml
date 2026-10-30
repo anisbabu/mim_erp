@@ -17,5 +17,39 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build: ./backend
+    container_name: mim-backend
+    environment:
+      # fixed here on purpose: shell/user DB_URL values (e.g. an old Neon URL) must not leak in
+      DB_URL: jdbc:postgresql://db:5432/mim_erpdb
+      DB_USER: postgres
+      MIM_PG_PASSWORD: ${MIM_PG_PASSWORD}
+      PORT: "8082"
+      CORS_ORIGINS: http://localhost:3001,http://localhost:3000
+      # business dates (LocalDate.now) must follow Bangladesh time, not the container's UTC
+      TZ: Asia/Dhaka
+      JAVA_TOOL_OPTIONS: -Xmx512m -Duser.timezone=Asia/Dhaka
+    ports:
+      - "8082:8082"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8082
+    container_name: mim-frontend
+    environment:
+      BACKEND_URL: http://backend:8082
+    ports:
+      - "3001:3000"     # host 3000 is used by other local apps
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   mim_pgdata:

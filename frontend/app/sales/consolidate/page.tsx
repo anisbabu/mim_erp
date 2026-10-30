@@ -48,7 +48,7 @@ export default function ConsolidatePage() {
 
   async function selectCustomer(cid: string) {
     setCustomerId(cid);
-    setLines([]); setEdits([]); setMsg(null);
+    setLines([]); setEdits({}); setMsg(null);
     if (!cid) return;
     setLinesLoading(true);
     try {
