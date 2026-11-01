@@ -155,7 +155,9 @@ public class LedgerService {
     @Transactional
     public Account updateLedger(UUID id, Account in) {
         Account a = accounts.findById(id).orElseThrow(() -> new ApiException("Ledger not found"));
-        a.setName(in.getName()); a.setNameBn(in.getNameBn());
+        a.setName(in.getName());
+        // a blank Bangla name on edit means "not touched" — keep the stored one
+        if (in.getNameBn() != null && !in.getNameBn().isBlank()) a.setNameBn(in.getNameBn().trim());
         if (in.getGroupId() != null) {
             AccountGroup g = groups.findById(in.getGroupId()).orElseThrow(() -> new ApiException("Group not found"));
             a.setGroupId(g.getId()); a.setType(g.getNature());
