@@ -84,7 +84,7 @@ public class MasterController {
         checkShopAmounts(in);
         s.setCode(in.getCode());
         s.setName(in.getName());
-        s.setNameBn(in.getNameBn());
+        s.setNameBn(keepBn(in.getNameBn(), s.getNameBn()));
         s.setPrimaryLine(in.getPrimaryLine());
         s.setAddress(in.getAddress());
         s.setMobile(in.getMobile());
@@ -99,7 +99,7 @@ public class MasterController {
         Warehouse w = warehouses.findById(id).orElseThrow(() -> new ApiException("Warehouse not found"));
         w.setCode(in.getCode());
         w.setName(upper(in.getName()));
-        w.setNameBn(in.getNameBn());
+        w.setNameBn(keepBn(in.getNameBn(), w.getNameBn()));
         w.setAddress(in.getAddress());
         return warehouses.save(w);
     }
@@ -124,7 +124,7 @@ public class MasterController {
     @PutMapping("/suppliers/{id}")
     public Supplier updateSupplier(@PathVariable UUID id, @RequestBody Supplier in) {
         Supplier s = suppliers.findById(id).orElseThrow(() -> new ApiException("Supplier not found"));
-        s.setCode(in.getCode()); s.setName(in.getName()); s.setNameBn(in.getNameBn());
+        s.setCode(in.getCode()); s.setName(in.getName()); s.setNameBn(keepBn(in.getNameBn(), s.getNameBn()));
         s.setMobile(in.getMobile()); s.setAddress(in.getAddress()); s.setGroupId(in.getGroupId());
         return suppliers.save(s);
     }
