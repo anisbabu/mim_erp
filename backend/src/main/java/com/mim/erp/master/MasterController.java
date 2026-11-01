@@ -132,7 +132,7 @@ public class MasterController {
     @PutMapping("/supplier-groups/{id}")
     public SupplierGroup updateSupplierGroup(@PathVariable UUID id, @RequestBody SupplierGroup in) {
         SupplierGroup g = supplierGroups.findById(id).orElseThrow(() -> new ApiException("Supplier group not found"));
-        g.setCode(in.getCode()); g.setName(in.getName()); g.setNameBn(in.getNameBn());
+        g.setCode(in.getCode()); g.setName(in.getName()); g.setNameBn(keepBn(in.getNameBn(), g.getNameBn()));
         return supplierGroups.save(g);
     }
 
