@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/lib/i18n";
 
 export type Option = { value: string; label: string; sublabel?: string };
 
 // Searchable dropdown ("select to search"). Keyboard + click, filters as you type.
 // Dropdown is portalled to document.body so it is never clipped by overflow:auto parents.
 export default function SearchSelect({
-  options, value, onChange, placeholder = "Search…", disabled, className,
+  options, value, onChange, placeholder: placeholderProp, disabled, className,
 }: {
   options: Option[];
   value: string;
@@ -17,6 +18,8 @@ export default function SearchSelect({
   disabled?: boolean;
   className?: string;
 }) {
+  const { t } = useI18n();
+  const placeholder = placeholderProp ?? t("Search…");
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [hi, setHi] = useState(0);
@@ -84,7 +87,7 @@ export default function SearchSelect({
               }} />
           </div>
           <div style={{ maxHeight: 240, overflowY: "auto" }}>
-            {filtered.length === 0 && <div className="px-3 py-2 text-sm muted">No matches</div>}
+            {filtered.length === 0 && <div className="px-3 py-2 text-sm muted">{t("No matches")}</div>}
             {filtered.map((o, i) => (
               <button key={o.value} type="button" onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}
                 className={`w-full text-left px-3 py-2 text-sm transition-colors ${

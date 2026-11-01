@@ -24,15 +24,15 @@ export default function PoDetailsPage() {
     ]).then(([d, ps]) => {
       setData(d);
       setProducts(Object.fromEntries(ps.map((p) => [p.id, p])));
-    }).catch((e) => setErr(e?.message || "Failed to load purchase order"))
+    }).catch((e) => setErr(e?.message || t("Failed to load purchase order")))
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return <div className="muted">Loading…</div>;
+  if (loading) return <div className="muted">{t("Loading…")}</div>;
   if (err) return (
     <div>
       <div className="note note-err mb-4">{err}</div>
-      <Link className="btn-ghost btn-sm" href="/purchase/orders">← Back</Link>
+      <Link className="btn-ghost btn-sm" href="/purchase/orders">{t("← Back")}</Link>
     </div>
   );
   if (!data) return null;
@@ -41,37 +41,37 @@ export default function PoDetailsPage() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <h1 className="page-title">Purchase order</h1>
+          <h1 className="page-title">{t("Purchase order")}</h1>
           <span className="text-xs px-2 py-0.5 rounded-full font-mono"
             style={{ background: "var(--chip-other-bg)", color: "var(--chip-other-fg)" }}>{data.poNo}</span>
         </div>
-        <Link href="/purchase/orders" className="btn-ghost btn-sm">← Back to list</Link>
+        <Link href="/purchase/orders" className="btn-ghost btn-sm">{t("← Back to list")}</Link>
       </div>
 
       <div className="card p-5 mb-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
-          <div><span className="muted">Supplier:</span> <span className="font-medium">{data.supplierName}</span></div>
-          <div><span className="muted">Date:</span> <span>{fmtDate(data.orderDate)}</span></div>
-          <div><span className="muted">Status:</span>{" "}
+          <div><span className="muted">{t("Supplier")}:</span> <span className="font-medium">{data.supplierName}</span></div>
+          <div><span className="muted">{t("Date")}:</span> <span>{fmtDate(data.orderDate)}</span></div>
+          <div><span className="muted">{t("Status")}:</span>{" "}
             <span className="text-xs px-2 py-0.5 rounded-full"
               style={{ background: data.status === "OPEN" ? "var(--chip-open-bg)" : "var(--chip-other-bg)",
-                       color:      data.status === "OPEN" ? "var(--chip-open-fg)" : "var(--chip-other-fg)" }}>{data.status}</span>
+                       color:      data.status === "OPEN" ? "var(--chip-open-fg)" : "var(--chip-other-fg)" }}>{t(data.status)}</span>
           </div>
-          {data.note && <div className="sm:col-span-2"><span className="muted">Note:</span> {data.note}</div>}
+          {data.note && <div className="sm:col-span-2"><span className="muted">{t("Note")}:</span> {data.note}</div>}
         </div>
       </div>
 
       <div className="card table-wrap mb-4">
         <table className="tbl">
           <thead><tr>
-            <th>Product</th>
-            <th className="text-right">Qty ordered</th>
-            <th className="text-right">Qty balance</th>
-            <th className="text-right">Unit price</th>
-            <th className="text-right">Line total</th>
+            <th>{t("Product")}</th>
+            <th className="text-right">{t("Qty ordered")}</th>
+            <th className="text-right">{t("Qty balance")}</th>
+            <th className="text-right">{t("Unit price")}</th>
+            <th className="text-right">{t("Line total")}</th>
           </tr></thead>
           <tbody>
-            {data.lines.length === 0 && <tr><td colSpan={5} className="muted">No lines.</td></tr>}
+            {data.lines.length === 0 && <tr><td colSpan={5} className="muted">{t("No lines.")}</td></tr>}
             {data.lines.map((l) => {
               const p = products[l.productId];
               const name = l.productName || p?.fullName || p?.name || "—";
@@ -83,7 +83,7 @@ export default function PoDetailsPage() {
                     <div className="flex items-center gap-2">
                       {name}
                       {l.freeProduct && (
-                        <span className="chip" style={{ background: "var(--chip-open-bg)", color: "var(--chip-open-fg)" }}>Free</span>
+                        <span className="chip" style={{ background: "var(--chip-open-bg)", color: "var(--chip-open-fg)" }}>{t("Free")}</span>
                       )}
                     </div>
                     {sku && <div className="text-[11px] muted font-mono">{sku}</div>}
@@ -98,7 +98,7 @@ export default function PoDetailsPage() {
           </tbody>
           <tfoot>
             <tr>
-              <td className="text-right font-medium">Total</td>
+              <td className="text-right font-medium">{t("Total")}</td>
               <td className="num font-medium">{data.totalQty}</td>
               <td></td><td></td>
               <td className="num font-medium">{data.totalValue.toFixed(2)}</td>
@@ -109,7 +109,7 @@ export default function PoDetailsPage() {
 
       {data.status === "OPEN" && (
         <Link className="btn inline-flex items-center gap-1.5" href={`/purchase/receive?poId=${id}`}>
-          <ReceiveIcon /> Receive
+          <ReceiveIcon /> {t("Receive")}
         </Link>
       )}
     </div>
