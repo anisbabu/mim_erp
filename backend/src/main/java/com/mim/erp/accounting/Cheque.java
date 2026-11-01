@@ -16,6 +16,7 @@ public class Cheque {
     @Column(name = "payment_id") private UUID paymentId;
     private String chequeNo;
     private String bankName;
+    private String branchName;
     @Column(name = "customer_id") private UUID customerId;
     private BigDecimal amount;
     private LocalDate receiveDate;

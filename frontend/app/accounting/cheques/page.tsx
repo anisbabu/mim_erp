@@ -3,6 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type Customer, type Cheque, type ChequeEvent, type ChequeStatus } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import { BD_BANKS } from "@/lib/banks";
 import ChequeMaturityBoard, {
   type MaturityPick, isOpenCheque, isoDay, daysUntil, urgency,
   STATUS_CHIP, STATUS_LABEL, EVENT_CHIP, EVENT_LABEL,
@@ -38,6 +39,7 @@ export default function ChequesPage() {
   const [amount, setAmount] = useState("");
   const [chequeNo, setChequeNo] = useState("");
   const [bankName, setBankName] = useState("");
+  const [branchName, setBranchName] = useState("");
   const [maturityDate, setMaturityDate] = useState("");
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -71,6 +73,7 @@ export default function ChequesPage() {
   const customerOpts: Option[] = useMemo(
     () => customers.map((c) => ({ value: c.id, label: c.name, sublabel: c.mobile || c.code })),
     [customers]);
+  const bankOpts: Option[] = useMemo(() => BD_BANKS.map((b) => ({ value: b, label: b })), []);
 
   const today = isoDay(0);
   const rows = useMemo(() => {
@@ -96,9 +99,9 @@ export default function ChequesPage() {
     }
     setBusy(true);
     try {
-      await endpoints.recordCheque({ customerId, amount: Number(amount), chequeNo, bankName, maturityDate, note });
+      await endpoints.recordCheque({ customerId, amount: Number(amount), chequeNo, bankName, branchName, maturityDate, note });
       setMsg({ kind: "ok", text: `${t("Cheque recorded")}: ${chequeNo}` });
-      setCustomerId(""); setAmount(""); setChequeNo(""); setBankName(""); setMaturityDate(""); setNote("");
+      setCustomerId(""); setAmount(""); setChequeNo(""); setBankName(""); setBranchName(""); setMaturityDate(""); setNote("");
       load();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
   }
@@ -154,8 +157,11 @@ export default function ChequesPage() {
           <div className="field"><label>{t("Cheque no.")}</label>
             <input className="inp" value={chequeNo} onChange={(e) => setChequeNo(e.target.value)} /></div>
           <div className="field"><label>{t("Bank")}</label>
-            <input className="inp" value={bankName} onChange={(e) => setBankName(e.target.value)} /></div>
-          <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Note (optional)")}</label>
+            <SearchSelect options={bankOpts} value={bankName} onChange={setBankName}
+              placeholder={t("Search bank…")} /></div>
+          <div className="field"><label>{t("Branch")}</label>
+            <input className="inp" value={branchName} onChange={(e) => setBranchName(e.target.value)} /></div>
+          <div className="field"><label>{t("Note (optional)")}</label>
             <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} /></div>
         </div>
         <div className="mt-4 flex items-center gap-2">
@@ -211,7 +217,10 @@ export default function ChequesPage() {
                       <div className="text-[12px] muted">{cu?.mobile ?? ""}</div>
                     </td>
                     <td className="font-mono text-[13px]">{c.chequeNo}</td>
-                    <td>{c.bankName || "—"}</td>
+                    <td>
+                      <div>{c.bankName || "—"}</div>
+                      <div className="text-[12px] muted">{c.branchName ?? ""}</div>
+                    </td>
                     <td className="text-right tabular-nums">{tk(Number(c.amount))}</td>
                     <td className="whitespace-nowrap">{fmtDate(c.receiveDate)}</td>
                     <td><span className={`chip ${STATUS_CHIP[c.status]}`}>{t(STATUS_LABEL[c.status])}</span></td>

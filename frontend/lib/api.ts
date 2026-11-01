@@ -163,7 +163,7 @@ export type TrialRow = { code: string; name: string; type: string; total_debit: 
 
 export type ChequeStatus = "PENDING" | "HOLD" | "CASHED" | "POSTED" | "BOUNCED";
 export type Cheque = {
-  id: string; paymentId?: string; chequeNo: string; bankName?: string; customerId: string;
+  id: string; paymentId?: string; chequeNo: string; bankName?: string; branchName?: string; customerId: string;
   amount: number; receiveDate: string; maturityDate: string;
   status: ChequeStatus; note?: string;
 };

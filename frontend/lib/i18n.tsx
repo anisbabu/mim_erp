@@ -170,6 +170,8 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "cheques": { en: "cheques", bn: "টি চেক" },
   "more": { en: "more", bn: "আরও" },
   "Search name or mobile…": { en: "Search name or mobile…", bn: "নাম বা মোবাইল দিয়ে খুঁজুন…" },
+  "Search bank…": { en: "Search bank…", bn: "ব্যাংক খুঁজুন…" },
+  "Branch": { en: "Branch", bn: "শাখা" },
   "Search customer, mobile, cheque…": { en: "Search customer, mobile, cheque…", bn: "গ্রাহক, মোবাইল, চেক খুঁজুন…" },
   "No cheques recorded yet.": { en: "No cheques recorded yet.", bn: "এখনো কোনো চেক নথিভুক্ত হয়নি।" },
   "No cheques match this filter.": { en: "No cheques match this filter.", bn: "এই ফিল্টারে কোনো চেক নেই।" },

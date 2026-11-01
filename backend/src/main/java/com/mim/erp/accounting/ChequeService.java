@@ -40,7 +40,7 @@ public class ChequeService {
 
     @Transactional
     public Cheque record(UUID customerId, BigDecimal amount, String chequeNo,
-                         String bankName, LocalDate maturityDate, String note) {
+                         String bankName, String branchName, LocalDate maturityDate, String note) {
         if (customerId == null) throw new ApiException("Customer is required");
         if (amount == null || amount.signum() <= 0) throw new ApiException("Amount must be positive");
         if (chequeNo == null || chequeNo.isBlank()) throw new ApiException("Cheque number is required");
@@ -49,6 +49,7 @@ public class ChequeService {
         Cheque c = new Cheque();
         c.setChequeNo(chequeNo.trim());
         c.setBankName(bankName);
+        c.setBranchName(branchName == null || branchName.isBlank() ? null : branchName.trim());
         c.setCustomerId(customerId);
         c.setAmount(amount);
         c.setReceiveDate(LocalDate.now());

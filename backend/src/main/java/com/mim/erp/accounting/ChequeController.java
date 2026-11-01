@@ -15,7 +15,7 @@ public class ChequeController {
     public ChequeController(ChequeService cheques) { this.cheques = cheques; }
 
     public record ChequeRequest(UUID customerId, BigDecimal amount, String chequeNo,
-                                String bankName, LocalDate maturityDate, String note) {}
+                                String bankName, String branchName, LocalDate maturityDate, String note) {}
     public record DateRequest(LocalDate newMaturityDate, String requestedBy, String note) {}
     public record StepRequest(String requestedBy, String note) {}
 
@@ -24,7 +24,7 @@ public class ChequeController {
 
     @PostMapping
     public Cheque record(@RequestBody ChequeRequest r) {
-        return cheques.record(r.customerId(), r.amount(), r.chequeNo(), r.bankName(), r.maturityDate(), r.note());
+        return cheques.record(r.customerId(), r.amount(), r.chequeNo(), r.bankName(), r.branchName(), r.maturityDate(), r.note());
     }
 
     @PostMapping("/{id}/date")
