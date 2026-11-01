@@ -179,8 +179,10 @@ public class ChequeService {
     public Cheque post(UUID id, String depositAccount, String note) {
         Cheque c = get(id);
         require(c, Set.of("CASHED"), "Only a cashed cheque can be posted");
-        String bank = depositAccount == null || depositAccount.isBlank() ? BANK : depositAccount.trim();
-        if (bankAccounts().stream().noneMatch(a -> a.getCode().equals(bank)))
+        List<Account> banks = bankAccounts();   // default deposit bank first
+        String bank = depositAccount == null || depositAccount.isBlank()
+            ? (banks.isEmpty() ? BANK : banks.get(0).getCode()) : depositAccount.trim();
+        if (banks.stream().noneMatch(a -> a.getCode().equals(bank)))
             throw new ApiException("Pick a bank account to deposit into");
         Payment payment = cash.record("IN", "CUSTOMER", c.getCustomerId(), c.getAmount(), "BANK",
             "Cheque " + c.getChequeNo() + (note == null || note.isBlank() ? "" : " — " + note), bank);
@@ -231,11 +233,14 @@ public class ChequeService {
         return c;
     }
 
-    /** Ledgers under the Bank Accounts head — where a cheque can be deposited. */
+    /** Ledgers under the Bank Accounts head — where a cheque can be deposited. Default deposit bank first. */
     public List<Account> bankAccounts() {
-        return groups.findByCode("A-BK")
+        List<Account> list = groups.findByCode("A-BK")
             .map(g -> accounts.findByGroupIdAndActiveTrueOrderByCode(g.getId()))
             .orElseGet(() -> accounts.findByCode(BANK).map(List::of).orElse(List.of()));
+        return list.stream()
+            .sorted(java.util.Comparator.comparing((Account a) -> !a.isDefaultDeposit()))
+            .toList();
     }
 
     public BigDecimal customerBalance(UUID customerId) {

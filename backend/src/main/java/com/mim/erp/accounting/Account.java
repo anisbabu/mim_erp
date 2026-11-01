@@ -19,4 +19,5 @@ public class Account {
     @Column(name = "party_id")   private java.util.UUID partyId;
     private boolean active = true;
     private boolean isSystem = false;
+    private boolean defaultDeposit = false;   // the bank ledger cheques are posted to unless another is picked
 }
