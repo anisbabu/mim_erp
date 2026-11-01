@@ -24,5 +24,9 @@ public class Cheque {
     private String status;         // PENDING | HOLD | CASHED | POSTED | BOUNCED | CANCELLED
     private String depositAccount; // bank ledger code it was posted to
     private String note;
+    private LocalDate reminderForDate;   // maturity date the last WhatsApp reminder was made for
+    private OffsetDateTime reminderSentAt;
+    private String reminderStatus;       // SENT | FAILED | SKIPPED
+    private String reminderError;
     @Column(insertable = false, updatable = false) private OffsetDateTime createdAt;
 }

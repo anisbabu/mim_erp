@@ -1,7 +1,7 @@
 "use client";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
-  endpoints, fmtDate, type Account, type BounceReason, type Customer, type Cheque, type ChequeEvent, type ChequeStatus,
+  endpoints, fmtDate, type Account, type BounceReason, type Customer, type Cheque, type ChequeReminderSettings, type ChequeEvent, type ChequeStatus,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
@@ -94,6 +94,22 @@ export default function ChequesPage() {
 
   function load() {
     endpoints.cheques().then(setCheques).catch(() => {});
+  }
+
+  // WhatsApp maturity reminder (sent automatically 09:00 the day before maturity)
+  const [rem, setRem] = useState<ChequeReminderSettings | null>(null);
+  useEffect(() => { endpoints.chequeReminderSettings().then(setRem).catch(() => {}); }, []);
+  async function saveRem(next: { enabled: boolean; lang: "en" | "bn" }) {
+    try { setRem(await endpoints.saveChequeReminderSettings(next)); }
+    catch (e: any) { setMsg({ kind: "err", text: e.message }); }
+  }
+  async function sendReminder(c: Cheque) {
+    setMsg(null);
+    try {
+      await endpoints.remindCheque(c.id);
+      setMsg({ kind: "ok", text: `${t("WhatsApp reminder sent")}: ${byId.get(c.customerId)?.name ?? ""}` });
+    } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
+    load();
   }
 
   useEffect(() => {
@@ -262,6 +278,24 @@ export default function ChequesPage() {
         {t("Record a customer cheque and follow it to maturity. Accounting is posted only when you post a cashed cheque.")}
       </p>
 
+      {rem && (
+        <div className="card p-4 mb-4 flex flex-wrap items-center gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={rem.enabled} onChange={(e) => saveRem({ enabled: e.target.checked, lang: rem.lang })} />
+            {t("WhatsApp reminder to customer the day before maturity")}
+          </label>
+          <label className="flex items-center gap-2">
+            {t("Message language")}
+            <select className="inp" style={{ width: "auto" }} value={rem.lang}
+              onChange={(e) => saveRem({ enabled: rem.enabled, lang: e.target.value as "en" | "bn" })}>
+              <option value="bn">বাংলা</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          {!rem.configured && <span className="chip chip-hold">{t("WhatsApp not configured on server")}</span>}
+        </div>
+      )}
+
       <div className="card p-5 mb-6">
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Customer")}</label>
@@ -390,6 +424,13 @@ export default function ChequesPage() {
                     <td className="whitespace-nowrap">{fmtDate(c.receiveDate)}</td>
                     <td>
                       <span className={`chip ${STATUS_CHIP[c.status]}`}>{t(STATUS_LABEL[c.status])}</span>
+                      {isOpenCheque(c) && c.reminderStatus && c.reminderForDate === c.maturityDate && (
+                        <div className="text-[12px]" title={c.reminderError ?? ""}>
+                          <span className={`chip ${c.reminderStatus === "SENT" ? "chip-cashed" : "chip-bounced"}`}>
+                            {t(c.reminderStatus === "SENT" ? "Reminder sent" : "Reminder failed")}
+                          </span>
+                        </div>
+                      )}
                       {c.status === "POSTED" && c.depositAccount && (
                         <div className="text-[12px] muted">{bankAccounts.find((a) => a.code === c.depositAccount)?.name ?? c.depositAccount}</div>
                       )}
@@ -398,6 +439,9 @@ export default function ChequesPage() {
                       {ACTIONS_FOR[c.status].map((a) => (
                         <button key={a} className="btn-ghost text-xs mr-1" onClick={() => openAction(c, a)}>{t(ACTION_LABEL[a])}</button>
                       ))}
+                      {(c.status === "PENDING" || c.status === "CASHED") && rem?.configured && (
+                        <button className="btn-ghost text-xs mr-1" onClick={() => sendReminder(c)}>{t("Remind")}</button>
+                      )}
                       {c.status !== "CANCELLED" && (
                         <button className="btn-ghost text-xs mr-1" onClick={() => openReceipt(c.id)}>{t("Receipt")}</button>
                       )}

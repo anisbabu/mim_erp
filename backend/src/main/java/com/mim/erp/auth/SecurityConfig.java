@@ -36,6 +36,9 @@ public class SecurityConfig {
                 // pickers on sales screens), writes remain admin-only
                 .requestMatchers(HttpMethod.GET, "/api/users/**").authenticated()
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
+                // WhatsApp reminder switches + manual send
+                .requestMatchers("/api/accounting/cheques/reminder-settings", "/api/accounting/cheques/*/remind")
+                    .hasAnyRole("MANAGER", "ACCOUNTANT", "ADMIN")
                 // employees / payroll master
                 .requestMatchers("/api/hr/**").hasAnyRole("ADMIN", "ACCOUNTANT")
                 // chart of accounts + financial year

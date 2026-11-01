@@ -46,6 +46,13 @@ mim:
     # HS256 needs a secret of at least 32 bytes. Override in production.
     secret: ${JWT_SECRET:mim-erp-dev-secret-key-change-me-in-production-0123456789}
     expiry-minutes: ${JWT_EXPIRY_MINUTES:480}
+  whatsapp:
+    # Meta WhatsApp Business Cloud API; leave token empty to disable sending
+    token: ${WHATSAPP_TOKEN:}
+    phone-id: ${WHATSAPP_PHONE_ID:}
+    api-version: ${WHATSAPP_API_VERSION:v21.0}
+    template-en: ${WHATSAPP_TEMPLATE_EN:cheque_maturity_reminder_en}
+    template-bn: ${WHATSAPP_TEMPLATE_BN:cheque_maturity_reminder_bn}
   bootstrap:
     # initial admin created on first run if no admin exists
     admin-username: ${ADMIN_USERNAME:admin}

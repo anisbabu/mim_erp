@@ -13,8 +13,12 @@ import java.util.UUID;
 public class ChequeController {
 
     private final ChequeService cheques;
+    private final ChequeReminderService reminders;
 
-    public ChequeController(ChequeService cheques) { this.cheques = cheques; }
+    public ChequeController(ChequeService cheques, ChequeReminderService reminders) {
+        this.cheques = cheques;
+        this.reminders = reminders;
+    }
 
     public record ChequeRequest(UUID customerId, BigDecimal amount, String chequeNo,
                                 String bankName, String branchName, LocalDate maturityDate, String note) {}
@@ -22,6 +26,7 @@ public class ChequeController {
     public record StepRequest(String requestedBy, String note) {}
     public record PostRequest(String depositAccount, String note) {}
     public record BounceRequest(String reason, String note) {}
+    public record ReminderSettingsRequest(boolean enabled, String lang) {}
 
     @GetMapping
     public List<Cheque> list() { return cheques.list(); }
@@ -78,6 +83,17 @@ public class ChequeController {
     public Cheque resubmit(@PathVariable UUID id, @RequestBody DateRequest r) {
         return cheques.resubmit(id, r.newMaturityDate(), r.note());
     }
+
+    @GetMapping("/reminder-settings")
+    public ChequeReminderService.Settings reminderSettings() { return reminders.getSettings(); }
+
+    @PutMapping("/reminder-settings")
+    public ChequeReminderService.Settings saveReminderSettings(@RequestBody ReminderSettingsRequest r) {
+        return reminders.saveSettings(r.enabled(), r.lang());
+    }
+
+    @PostMapping("/{id}/remind")
+    public Cheque remind(@PathVariable UUID id) { return reminders.remind(id); }
 
     @GetMapping("/{id}/history")
     public List<ChequeEvent> history(@PathVariable UUID id) { return cheques.history(id); }

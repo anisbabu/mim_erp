@@ -166,7 +166,9 @@ export type Cheque = {
   id: string; paymentId?: string; chequeNo: string; bankName?: string; branchName?: string; customerId: string;
   amount: number; receiveDate: string; maturityDate: string;
   status: ChequeStatus; note?: string; depositAccount?: string;
+  reminderForDate?: string; reminderSentAt?: string; reminderStatus?: "SENT" | "FAILED" | "SKIPPED"; reminderError?: string;
 };
+export type ChequeReminderSettings = { enabled: boolean; lang: "en" | "bn"; configured: boolean };
 export type BounceReason = "INSUFFICIENT_FUNDS" | "SIGNATURE_MISMATCH" | "OTHER";
 
 export type ChequeEventType = "RECEIVED" | "DATE_CHANGED" | "HOLD" | "RESUMED" | "CASHED" | "POSTED" | "BOUNCED" | "EDITED" | "CANCELLED" | "RESUBMITTED";
@@ -305,6 +307,10 @@ export const endpoints = {
   chequeDate:   (id: string, b: unknown) => api.post<Cheque>(`/api/accounting/cheques/${id}/date`, b),
   chequeStep:   (id: string, step: "hold" | "resume" | "cash" | "post" | "bounce" | "cancel", b: unknown) =>
     api.post<Cheque>(`/api/accounting/cheques/${id}/${step}`, b),
+  chequeReminderSettings: () => api.get<ChequeReminderSettings>("/api/accounting/cheques/reminder-settings"),
+  saveChequeReminderSettings: (b: { enabled: boolean; lang: "en" | "bn" }) =>
+    api.put<ChequeReminderSettings>("/api/accounting/cheques/reminder-settings", b),
+  remindCheque: (id: string) => api.post<Cheque>(`/api/accounting/cheques/${id}/remind`, {}),
   chequeHistory: (id: string) => api.get<ChequeEvent[]>(`/api/accounting/cheques/${id}/history`),
   chequeResubmit: (id: string, b: unknown) => api.post<Cheque>(`/api/accounting/cheques/${id}/resubmit`, b),
   chequeBankAccounts: () => api.get<Account[]>("/api/accounting/cheques/bank-accounts"),
