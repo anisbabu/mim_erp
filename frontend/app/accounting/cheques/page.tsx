@@ -9,12 +9,15 @@ import ChequeMaturityBoard, {
   STATUS_CHIP, STATUS_LABEL, EVENT_CHIP, EVENT_LABEL,
 } from "@/components/ChequeMaturityBoard";
 
-type Action = "date" | "hold" | "resume" | "cash" | "post" | "bounce";
+type Action = "edit" | "date" | "hold" | "resume" | "cash" | "post" | "bounce" | "cancel";
 
 const ACTION_LABEL: Record<Action, string> = {
-  date: "Change date", hold: "Not to submit", resume: "Resume", cash: "Cashed", post: "Post", bounce: "Bounce",
+  edit: "Edit", date: "Change date", hold: "Not to submit", resume: "Resume", cash: "Cashed", post: "Post",
+  bounce: "Bounce", cancel: "Cancel cheque",
 };
 const ACTION_HINT: Record<Action, string> = {
+  edit: "Fix details entered by mistake. Old and new values are kept in the history.",
+  cancel: "Cheque entered by mistake — it is voided, nothing is posted.",
   date: "Customer asked for a different maturity date.",
   hold: "Customer asked not to submit this cheque for now.",
   resume: "Cheque can be submitted again.",
@@ -23,13 +26,14 @@ const ACTION_HINT: Record<Action, string> = {
   bounce: "Cheque was returned unpaid. A posted cheque is reversed.",
 };
 const ACTIONS_FOR: Record<ChequeStatus, Action[]> = {
-  PENDING: ["date", "hold", "cash", "bounce"],
-  HOLD:    ["resume", "date", "bounce"],
-  CASHED:  ["post", "bounce"],
-  POSTED:  ["bounce"],
-  BOUNCED: [],
+  PENDING:   ["edit", "date", "hold", "cash", "bounce", "cancel"],
+  HOLD:      ["edit", "resume", "date", "bounce", "cancel"],
+  CASHED:    ["post", "bounce"],
+  POSTED:    ["bounce"],
+  BOUNCED:   [],
+  CANCELLED: [],
 };
-const STATUS_FILTERS: (ChequeStatus | "ALL")[] = ["ALL", "PENDING", "HOLD", "CASHED", "POSTED", "BOUNCED"];
+const STATUS_FILTERS: (ChequeStatus | "ALL")[] = ["ALL", "PENDING", "HOLD", "CASHED", "POSTED", "BOUNCED", "CANCELLED"];
 
 export default function ChequesPage() {
   const { t } = useI18n();
@@ -55,6 +59,8 @@ export default function ChequesPage() {
   const [actBy, setActBy] = useState("");
   const [actNote, setActNote] = useState("");
   const [actBusy, setActBusy] = useState(false);
+  // edit form, prefilled from the cheque
+  const [ed, setEd] = useState({ customerId: "", amount: "", chequeNo: "", bankName: "", branchName: "", maturityDate: "", note: "" });
 
   // per-cheque history, fetched on demand
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
@@ -90,7 +96,9 @@ export default function ChequesPage() {
       return true;
     });
   }, [cheques, pick, statusFilter, q, byId, today]);
-  const rowsTotal = rows.reduce((s, c) => s + Number(c.amount), 0);
+  // cancelled cheques were never real money — keep them out of the total unless that's what is listed
+  const rowsTotal = rows.reduce((s, c) =>
+    c.status === "CANCELLED" && statusFilter !== "CANCELLED" ? s : s + Number(c.amount), 0);
 
   async function submit() {
     setMsg(null);
@@ -109,6 +117,10 @@ export default function ChequesPage() {
   function openAction(c: Cheque, action: Action) {
     setActing({ id: c.id, action });
     setActDate(""); setActBy(""); setActNote("");
+    if (action === "edit") setEd({
+      customerId: c.customerId, amount: String(c.amount), chequeNo: c.chequeNo, bankName: c.bankName ?? "",
+      branchName: c.branchName ?? "", maturityDate: c.maturityDate, note: c.note ?? "",
+    });
   }
 
   async function submitAction() {
@@ -119,9 +131,14 @@ export default function ChequesPage() {
     if ((action === "date" || action === "hold") && !actBy.trim()) {
       setMsg({ kind: "err", text: t("Requested by is required.") }); return;
     }
+    if (action === "cancel" && !actNote.trim()) { setMsg({ kind: "err", text: t("Reason is required.") }); return; }
+    if (action === "edit" && (!ed.customerId || !(Number(ed.amount) > 0) || !ed.chequeNo.trim() || !ed.maturityDate)) {
+      setMsg({ kind: "err", text: t("Customer, amount, cheque no. and maturity date are required.") }); return;
+    }
     setActBusy(true);
     try {
-      if (action === "date") await endpoints.chequeDate(id, { newMaturityDate: actDate, requestedBy: actBy, note: actNote });
+      if (action === "edit") await endpoints.editCheque(id, { ...ed, amount: Number(ed.amount) });
+      else if (action === "date") await endpoints.chequeDate(id, { newMaturityDate: actDate, requestedBy: actBy, note: actNote });
       else await endpoints.chequeStep(id, action, { requestedBy: actBy, note: actNote });
       setActing(null);
       setHistory((h) => { const n = { ...h }; delete n[id]; return n; }); // refetch on next open
@@ -207,7 +224,7 @@ export default function ChequesPage() {
               const hist = history[c.id];
               return (
                 <Fragment key={c.id}>
-                  <tr>
+                  <tr style={c.status === "CANCELLED" ? { opacity: 0.55 } : undefined}>
                     <td className="whitespace-nowrap">
                       {fmtDate(c.maturityDate)}
                       {u && <span className={`chip ml-2 ${u.cls}`}>{u.label}</span>}
@@ -240,6 +257,31 @@ export default function ChequesPage() {
                         <div className="text-[12px] muted mb-2">
                           <b>{t(ACTION_LABEL[acting.action])}</b> — {t(ACTION_HINT[acting.action])}
                         </div>
+                        {acting.action === "edit" && (
+                          <div className="form-grid cols-4 mb-3">
+                            <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Customer")}</label>
+                              <SearchSelect options={customerOpts} value={ed.customerId}
+                                onChange={(v) => setEd((e) => ({ ...e, customerId: v }))} placeholder={t("Search name or mobile…")} /></div>
+                            <div className="field"><label>{t("Amount")}</label>
+                              <input className="inp num" type="number" min={0} value={ed.amount}
+                                onChange={(e) => setEd((x) => ({ ...x, amount: e.target.value }))} /></div>
+                            <div className="field"><label>{t("Maturity date")}</label>
+                              <input className="inp" type="date" value={ed.maturityDate}
+                                onChange={(e) => setEd((x) => ({ ...x, maturityDate: e.target.value }))} /></div>
+                            <div className="field"><label>{t("Cheque no.")}</label>
+                              <input className="inp" value={ed.chequeNo}
+                                onChange={(e) => setEd((x) => ({ ...x, chequeNo: e.target.value }))} /></div>
+                            <div className="field"><label>{t("Bank")}</label>
+                              <SearchSelect options={bankOpts} value={ed.bankName}
+                                onChange={(v) => setEd((e) => ({ ...e, bankName: v }))} placeholder={t("Search bank…")} /></div>
+                            <div className="field"><label>{t("Branch")}</label>
+                              <input className="inp" value={ed.branchName}
+                                onChange={(e) => setEd((x) => ({ ...x, branchName: e.target.value }))} /></div>
+                            <div className="field"><label>{t("Note (optional)")}</label>
+                              <input className="inp" value={ed.note}
+                                onChange={(e) => setEd((x) => ({ ...x, note: e.target.value }))} /></div>
+                          </div>
+                        )}
                         <div className="flex flex-wrap items-end gap-3">
                           {acting.action === "date" && (
                             <div className="field"><label>{t("New maturity date")}</label>
@@ -249,10 +291,13 @@ export default function ChequesPage() {
                             <div className="field"><label>{t("Requested by")}</label>
                               <input className="inp" placeholder={t("Who asked")} value={actBy} onChange={(e) => setActBy(e.target.value)} /></div>
                           )}
-                          <div className="field flex-1 min-w-[200px]"><label>{t("Note (optional)")}</label>
-                            <input className="inp" value={actNote} onChange={(e) => setActNote(e.target.value)} /></div>
+                          {acting.action !== "edit" && (
+                            <div className="field flex-1 min-w-[200px]">
+                              <label>{acting.action === "cancel" ? t("Reason") : t("Note (optional)")}</label>
+                              <input className="inp" value={actNote} onChange={(e) => setActNote(e.target.value)} /></div>
+                          )}
                           <button className="btn text-xs" disabled={actBusy} onClick={submitAction}>
-                            {actBusy ? t("Saving…") : t(ACTION_LABEL[acting.action])}
+                            {actBusy ? t("Saving…") : acting.action === "edit" ? t("Save changes") : t(ACTION_LABEL[acting.action])}
                           </button>
                           <button className="btn-ghost text-xs" onClick={() => setActing(null)}>{t("Cancel")}</button>
                         </div>
@@ -275,7 +320,8 @@ export default function ChequesPage() {
                                 {h.eventType === "DATE_CHANGED" && (
                                   <span>{fmtDate(h.oldMaturityDate)} → <b>{fmtDate(h.newMaturityDate)}</b></span>
                                 )}
-                                {h.requestedBy && <span className="muted">{t("by")} {h.requestedBy}</span>}
+                                {h.changes && <span>{h.changes}</span>}
+                                {h.requestedBy &&<span className="muted">{t("by")} {h.requestedBy}</span>}
                                 {h.note && <span>· {h.note}</span>}
                                 {h.userName && <span className="muted ml-auto text-[12px]">{h.userName}</span>}
                               </li>

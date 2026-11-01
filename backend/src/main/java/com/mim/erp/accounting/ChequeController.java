@@ -27,6 +27,14 @@ public class ChequeController {
         return cheques.record(r.customerId(), r.amount(), r.chequeNo(), r.bankName(), r.branchName(), r.maturityDate(), r.note());
     }
 
+    @PutMapping("/{id}")
+    public Cheque edit(@PathVariable UUID id, @RequestBody ChequeRequest r) {
+        return cheques.edit(id, r.customerId(), r.amount(), r.chequeNo(), r.bankName(), r.branchName(), r.maturityDate(), r.note());
+    }
+
+    @PostMapping("/{id}/cancel")
+    public Cheque cancel(@PathVariable UUID id, @RequestBody StepRequest r) { return cheques.cancel(id, r.note()); }
+
     @PostMapping("/{id}/date")
     public Cheque changeDate(@PathVariable UUID id, @RequestBody DateRequest r) {
         return cheques.changeDate(id, r.newMaturityDate(), r.requestedBy(), r.note());

@@ -161,17 +161,17 @@ export type BalanceSheet = {
 };
 export type TrialRow = { code: string; name: string; type: string; total_debit: number; total_credit: number };
 
-export type ChequeStatus = "PENDING" | "HOLD" | "CASHED" | "POSTED" | "BOUNCED";
+export type ChequeStatus = "PENDING" | "HOLD" | "CASHED" | "POSTED" | "BOUNCED" | "CANCELLED";
 export type Cheque = {
   id: string; paymentId?: string; chequeNo: string; bankName?: string; branchName?: string; customerId: string;
   amount: number; receiveDate: string; maturityDate: string;
   status: ChequeStatus; note?: string;
 };
 
-export type ChequeEventType = "RECEIVED" | "DATE_CHANGED" | "HOLD" | "RESUMED" | "CASHED" | "POSTED" | "BOUNCED";
+export type ChequeEventType = "RECEIVED" | "DATE_CHANGED" | "HOLD" | "RESUMED" | "CASHED" | "POSTED" | "BOUNCED" | "EDITED" | "CANCELLED";
 export type ChequeEvent = {
   id: string; chequeId: string; eventType: ChequeEventType; eventDate: string;
-  oldMaturityDate?: string; newMaturityDate?: string; requestedBy?: string; note?: string;
+  oldMaturityDate?: string; newMaturityDate?: string; requestedBy?: string; note?: string; changes?: string;
   userName?: string; createdAt: string;
 };
 
@@ -300,8 +300,9 @@ export const endpoints = {
   pettyCash:    (b: unknown) => api.post("/api/accounting/petty-cash", b),
   cheques:      () => api.get<Cheque[]>("/api/accounting/cheques"),
   recordCheque: (b: unknown) => api.post<Cheque>("/api/accounting/cheques", b),
+  editCheque:   (id: string, b: unknown) => api.put<Cheque>(`/api/accounting/cheques/${id}`, b),
   chequeDate:   (id: string, b: unknown) => api.post<Cheque>(`/api/accounting/cheques/${id}/date`, b),
-  chequeStep:   (id: string, step: "hold" | "resume" | "cash" | "post" | "bounce", b: unknown) =>
+  chequeStep:   (id: string, step: "hold" | "resume" | "cash" | "post" | "bounce" | "cancel", b: unknown) =>
     api.post<Cheque>(`/api/accounting/cheques/${id}/${step}`, b),
   chequeHistory: (id: string) => api.get<ChequeEvent[]>(`/api/accounting/cheques/${id}/history`),
 

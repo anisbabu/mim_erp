@@ -35,6 +35,7 @@
   --st-cashed-bg:      #ccfbf1;  --st-cashed-fg:   #115e59;
   --st-posted-bg:      #dcfce7;  --st-posted-fg:   #166534;
   --st-bounced-bg:     #fee2e2;  --st-bounced-fg:  #991b1b;
+  --st-cancelled-bg:   #f1f5f9;  --st-cancelled-fg: #475569;
   --st-overdue-bg:     #fef2f2;  --st-overdue-fg:  #b91c1c;  --st-overdue-bd: #fca5a5;
   --st-today-bg:       #fff7ed;  --st-today-fg:    #c2410c;  --st-today-bd:   #fdba74;
   --st-soon-bg:        #fffbeb;  --st-soon-fg:     #a16207;  --st-soon-bd:    #fcd34d;
@@ -46,6 +47,7 @@ html.dark {
   --st-cashed-bg:      #134e4a;  --st-cashed-fg:   #99f6e4;
   --st-posted-bg:      #064e3b;  --st-posted-fg:   #a7f3d0;
   --st-bounced-bg:     #4c0519;  --st-bounced-fg:  #fecdd3;
+  --st-cancelled-bg:   #334155;  --st-cancelled-fg: #cbd5e1;
   --st-overdue-bg:     #4c0519;  --st-overdue-fg:  #fecdd3;  --st-overdue-bd: #9f1239;
   --st-today-bg:       #431407;  --st-today-fg:    #fed7aa;  --st-today-bd:   #c2410c;
   --st-soon-bg:        #422006;  --st-soon-fg:     #fde68a;  --st-soon-bd:    #a16207;
@@ -233,6 +235,7 @@ html.dark {
   .chip-cashed  { background: var(--st-cashed-bg);  color: var(--st-cashed-fg); }
   .chip-posted  { background: var(--st-posted-bg);  color: var(--st-posted-fg); }
   .chip-bounced { background: var(--st-bounced-bg); color: var(--st-bounced-fg); }
+  .chip-cancelled { background: var(--st-cancelled-bg); color: var(--st-cancelled-fg); }
   .chip-overdue { background: var(--st-overdue-bg); color: var(--st-overdue-fg); }
   .chip-today   { background: var(--st-today-bg);   color: var(--st-today-fg); }
   .chip-soon    { background: var(--st-soon-bg);    color: var(--st-soon-fg); }

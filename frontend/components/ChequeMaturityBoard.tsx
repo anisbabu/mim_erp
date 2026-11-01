@@ -21,17 +21,20 @@ export function daysUntil(iso: string): number {
 
 export const STATUS_CHIP: Record<ChequeStatus, string> = {
   PENDING: "chip-pending", HOLD: "chip-hold", CASHED: "chip-cashed", POSTED: "chip-posted", BOUNCED: "chip-bounced",
+  CANCELLED: "chip-cancelled",
 };
 export const STATUS_LABEL: Record<ChequeStatus, string> = {
-  PENDING: "Pending", HOLD: "On hold", CASHED: "Cashed", POSTED: "Posted", BOUNCED: "Bounced",
+  PENDING: "Pending", HOLD: "On hold", CASHED: "Cashed", POSTED: "Posted", BOUNCED: "Bounced", CANCELLED: "Cancelled",
 };
 export const EVENT_CHIP: Record<ChequeEventType, string> = {
   RECEIVED: "chip-pending", DATE_CHANGED: "chip-soon", HOLD: "chip-hold", RESUMED: "chip-pending",
   CASHED: "chip-cashed", POSTED: "chip-posted", BOUNCED: "chip-bounced",
+  EDITED: "chip-later", CANCELLED: "chip-cancelled",
 };
 export const EVENT_LABEL: Record<ChequeEventType, string> = {
   RECEIVED: "Received", DATE_CHANGED: "Maturity date changed", HOLD: "Requested not to submit",
   RESUMED: "Resumed", CASHED: "Cashed", POSTED: "Posted", BOUNCED: "Bounced",
+  EDITED: "Edited", CANCELLED: "Cancelled",
 };
 
 /** Maturity urgency chip for an open cheque. */

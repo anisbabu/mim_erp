@@ -21,7 +21,7 @@ public class Cheque {
     private BigDecimal amount;
     private LocalDate receiveDate;
     private LocalDate maturityDate;
-    private String status;         // PENDING | HOLD | CASHED | POSTED | BOUNCED
+    private String status;         // PENDING | HOLD | CASHED | POSTED | BOUNCED | CANCELLED
     private String note;
     @Column(insertable = false, updatable = false) private OffsetDateTime createdAt;
 }
