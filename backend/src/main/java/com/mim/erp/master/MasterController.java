@@ -65,6 +65,11 @@ public class MasterController {
 
     private static String upper(String s) { return s == null ? null : s.trim().toUpperCase(Locale.ROOT); }
 
+    /** A blank Bangla name on edit means "not touched" — keep the stored one. */
+    private static String keepBn(String in, String current) {
+        return in == null || in.isBlank() ? current : in.trim();
+    }
+
     private static void checkShopAmounts(Shop s) {
         if (s.getMonthlyTarget() != null && s.getMonthlyTarget().signum() < 0)
             throw new ApiException("Monthly target cannot be negative");
@@ -102,7 +107,7 @@ public class MasterController {
     @PutMapping("/products/{id}")
     public Product updateProduct(@PathVariable UUID id, @RequestBody Product in) {
         Product p = products.findById(id).orElseThrow(() -> new ApiException("Product not found"));
-        p.setSku(in.getSku()); p.setName(in.getName()); p.setNameBn(in.getNameBn()); p.setType(in.getType());
+        p.setSku(in.getSku()); p.setName(in.getName()); p.setNameBn(keepBn(in.getNameBn(), p.getNameBn())); p.setType(in.getType());
         p.setThicknessMm(in.getThicknessMm()); p.setThicknessLabel(in.getThicknessLabel()); p.setUnit(in.getUnit());
         p.setPriceLower(in.getPriceLower()); p.setPriceUpper(in.getPriceUpper());
         p.setSupplierId(in.getSupplierId()); p.setCategory(in.getCategory()); p.setColor(in.getColor());
@@ -134,7 +139,7 @@ public class MasterController {
     @PutMapping("/customers/{id}")
     public Customer updateCustomer(@PathVariable UUID id, @RequestBody Customer in) {
         Customer c = customers.findById(id).orElseThrow(() -> new ApiException("Customer not found"));
-        c.setCode(in.getCode()); c.setName(in.getName()); c.setNameBn(in.getNameBn()); c.setType(in.getType());
+        c.setCode(in.getCode()); c.setName(in.getName()); c.setNameBn(keepBn(in.getNameBn(), c.getNameBn())); c.setType(in.getType());
         c.setMobile(in.getMobile()); c.setAddress(in.getAddress());
         c.setCreditLimit(in.getCreditLimit()); c.setCreditDays(in.getCreditDays());
         c.setDeliveryAddress(in.getDeliveryAddress());
