@@ -119,17 +119,17 @@ public class InventoryController {
         warehouses.findAll().forEach(w -> warehouseNames.put(w.getId(), w.getName()));
 
         try {
-            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
+            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 28.35f, 42.52f);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(doc, out);
             doc.open();
 
-            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20);
-            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
-            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
+            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 8);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Font.NORMAL, Color.WHITE);
+            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
 
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
             co.setAlignment(Element.ALIGN_CENTER);
@@ -140,15 +140,16 @@ public class InventoryController {
             doc.add(title);
 
             Paragraph dateP = new Paragraph("As of " + LocalDate.now(),
-                FontFactory.getFont(FontFactory.HELVETICA, 9));
+                FontFactory.getFont(FontFactory.HELVETICA, 8, Font.NORMAL, new Color(0x55,0x55,0x55)));
             dateP.setAlignment(Element.ALIGN_CENTER);
-            dateP.setSpacingAfter(16);
+            dateP.setSpacingAfter(10);
             doc.add(dateP);
 
             Color teal = new Color(0x0f, 0x76, 0x6e);
             PdfPTable tbl = new PdfPTable(4);
             tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{4f, 2.5f, 2f, 2.5f});
+            tbl.setWidths(new float[]{4.4f, 2.6f, 1.2f, 2.0f});
+            tbl.setHeaderRows(1);
             tbl.setSpacingAfter(8);
 
             String[] heads  = {"Product", "Warehouse", "Qty", "Value (cost)"};
@@ -158,8 +159,8 @@ public class InventoryController {
                 PdfPCell h = new PdfPCell(new Phrase(heads[i], thFont));
                 h.setBackgroundColor(teal);
                 h.setHorizontalAlignment(aligns[i]);
-                h.setPadding(5);
-                if (aligns[i] == Element.ALIGN_RIGHT) h.setPaddingRight(8);
+                h.setPadding(4);
+                if (aligns[i] == Element.ALIGN_RIGHT) h.setPaddingRight(6);
                 tbl.addCell(h);
             }
 
@@ -174,19 +175,19 @@ public class InventoryController {
                 pdfCell(tbl, product,   valueFont, Element.ALIGN_LEFT);
                 pdfCell(tbl, warehouse, valueFont, Element.ALIGN_LEFT);
                 pdfNumCell(tbl, qty.stripTrailingZeros().toPlainString(), valueFont);
-                pdfNumCell(tbl, val.toPlainString(), valueFont);
+                pdfNumCell(tbl, String.format("%,.2f", val), valueFont);
             }
 
             PdfPCell tlabel = new PdfPCell(new Phrase("TOTAL INVENTORY VALUE", labelFont));
             tlabel.setColspan(3);
             tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            tlabel.setPadding(5);
+            tlabel.setPadding(4);
             tbl.addCell(tlabel);
             PdfPCell tval = new PdfPCell(
-                new Phrase(totalValue.setScale(2, RoundingMode.HALF_UP).toPlainString(), totalFont));
+                new Phrase(String.format("%,.2f", totalValue.setScale(2, RoundingMode.HALF_UP)), totalFont));
             tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            tval.setPadding(5);
-            tval.setPaddingRight(8);
+            tval.setPadding(4);
+            tval.setPaddingRight(6);
             tbl.addCell(tval);
 
             doc.add(tbl);
@@ -205,15 +206,15 @@ public class InventoryController {
     private static void pdfCell(PdfPTable t, String text, Font font, int align) {
         PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "", font));
         c.setHorizontalAlignment(align);
-        c.setPadding(5);
+        c.setPadding(3);
         t.addCell(c);
     }
 
     private static void pdfNumCell(PdfPTable t, String text, Font font) {
         PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "", font));
         c.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        c.setPadding(5);
-        c.setPaddingRight(8);
+        c.setPadding(3);
+        c.setPaddingRight(6);
         t.addCell(c);
     }
 }
