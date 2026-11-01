@@ -106,11 +106,11 @@ export default function StockPage() {
   async function downloadPdf() {
     setDownloading(true);
     try {
-      const blob = await endpoints.stockReportPdf();
+      const blob = await endpoints.stockReportPdf(lang);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `stock-on-hand-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `stock-on-hand-${new Date().toISOString().slice(0, 10)}${lang === "bn" ? "-bn" : ""}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: any) { alert(e.message); }

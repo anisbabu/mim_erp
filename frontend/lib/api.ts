@@ -224,9 +224,9 @@ export const endpoints = {
   committed:        (productId: string) => api.get<CommittedRow[]>(`/api/inventory/committed?productId=${productId}`),
   stockSummary:     (from: string, to: string, warehouseId?: string) =>
     api.get<StockSummaryRow[]>(`/api/inventory/stock-summary?from=${from}&to=${to}${warehouseId ? `&warehouseId=${warehouseId}` : ""}`),
-  stockReportPdf: async (): Promise<Blob> => {
+  stockReportPdf: async (lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/inventory/stock-report`, {
+    const res = await fetch(`${BASE}/api/inventory/stock-report?lang=${lang}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error("Failed to generate stock report");

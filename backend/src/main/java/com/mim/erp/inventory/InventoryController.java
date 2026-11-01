@@ -3,6 +3,7 @@ package com.mim.erp.inventory;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
 import com.mim.erp.common.ApiException;
+import com.mim.erp.common.BanglaPdf;
 import com.mim.erp.master.ProductRepository;
 import com.mim.erp.master.WarehouseRepository;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -107,60 +108,73 @@ public class InventoryController {
         return layers.stockBySupplier();
     }
 
-    /** Stock-on-hand report as PDF. */
+    /** Stock-on-hand report as PDF (A4). lang=bn prints Bangla headings and names. */
     @GetMapping(value = "/stock-report", produces = "application/pdf")
-    public ResponseEntity<byte[]> stockReport() {
+    public ResponseEntity<byte[]> stockReport(@RequestParam(defaultValue = "en") String lang) {
+        boolean bn = "bn".equalsIgnoreCase(lang);
         List<StockLayerRepository.StockRow> rows = layers.stockOverview();
 
         Map<UUID, String> productNames = new HashMap<>();
-        products.findAll().forEach(p -> productNames.put(p.getId(), p.getName()));
+        products.findAll().forEach(p -> productNames.put(p.getId(),
+            bn && p.getNameBn() != null && !p.getNameBn().isBlank() ? p.getNameBn() : p.getName()));
 
         Map<UUID, String> warehouseNames = new HashMap<>();
-        warehouses.findAll().forEach(w -> warehouseNames.put(w.getId(), w.getName()));
+        warehouses.findAll().forEach(w -> warehouseNames.put(w.getId(),
+            bn && w.getNameBn() != null && !w.getNameBn().isBlank() ? w.getNameBn() : w.getName()));
 
         try {
             Document doc = new Document(new Rectangle(595f, 842f), 28.35f, 28.35f, 28.35f, 36f); // A4
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            PdfWriter.getInstance(doc, out);
+            PdfWriter writer = PdfWriter.getInstance(doc, out);
             doc.open();
+            PdfContentByte cb = writer.getDirectContent();
+            BanglaPdf.Cache cache = new BanglaPdf.Cache();
+            float pageW = doc.right() - doc.left();
 
             Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
-            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
-            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Color grey = new Color(0x55, 0x55, 0x55);
 
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
             co.setAlignment(Element.ALIGN_CENTER);
             doc.add(co);
 
-            Paragraph title = new Paragraph("STOCK ON HAND", titleFont);
-            title.setAlignment(Element.ALIGN_CENTER);
-            doc.add(title);
+            String titleText = bn ? "মজুদ পণ্য" : "STOCK ON HAND";
+            String dateText  = (bn ? "তারিখ: " : "As of ") + LocalDate.now();
+            if (bn) {
+                Image ti = BanglaPdf.text(cb, cache, titleText, true, 11, Color.BLACK, Element.ALIGN_CENTER, pageW);
+                doc.add(ti);
+                Image di = BanglaPdf.text(cb, cache, dateText, false, 9, grey, Element.ALIGN_CENTER, pageW);
+                di.setSpacingAfter(10);
+                doc.add(di);
+            } else {
+                Paragraph title = new Paragraph(titleText, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11));
+                title.setAlignment(Element.ALIGN_CENTER);
+                doc.add(title);
+                Paragraph dateP = new Paragraph(dateText, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, grey));
+                dateP.setAlignment(Element.ALIGN_CENTER);
+                dateP.setSpacingAfter(10);
+                doc.add(dateP);
+            }
 
-            Paragraph dateP = new Paragraph("As of " + LocalDate.now(),
-                FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, new Color(0x55,0x55,0x55)));
-            dateP.setAlignment(Element.ALIGN_CENTER);
-            dateP.setSpacingAfter(10);
-            doc.add(dateP);
+            float[] ratio = {5.2f, 2.6f, 1.4f, 2.2f};
+            float sum = 0; for (float r : ratio) sum += r;
+            float[] colW = new float[ratio.length];
+            for (int i = 0; i < ratio.length; i++) colW[i] = ratio[i] / sum * pageW;
 
             Color teal = new Color(0x0f, 0x76, 0x6e);
             PdfPTable tbl = new PdfPTable(4);
-            tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{5.2f, 2.6f, 1.4f, 2.2f});
+            tbl.setTotalWidth(colW);
+            tbl.setLockedWidth(true);
             tbl.setHeaderRows(1);
             tbl.setSpacingAfter(8);
 
-            String[] heads  = {"Product", "Warehouse", "Qty", "Value (cost)"};
+            String[] heads  = bn ? new String[]{"পণ্য", "গুদাম", "পরিমাণ", "মূল্য (ক্রয়)"}
+                                 : new String[]{"Product", "Warehouse", "Qty", "Value (cost)"};
             int[]    aligns = {Element.ALIGN_LEFT, Element.ALIGN_LEFT,
                                Element.ALIGN_RIGHT, Element.ALIGN_RIGHT};
             for (int i = 0; i < heads.length; i++) {
-                PdfPCell h = new PdfPCell(new Phrase(heads[i], thFont));
+                PdfPCell h = pdfText(bn, cb, cache, heads[i], true, Color.WHITE, aligns[i], colW[i], 4);
                 h.setBackgroundColor(teal);
-                h.setHorizontalAlignment(aligns[i]);
-                h.setPadding(4);
-                if (aligns[i] == Element.ALIGN_RIGHT) h.setPaddingRight(6);
                 tbl.addCell(h);
             }
 
@@ -172,30 +186,25 @@ public class InventoryController {
                 BigDecimal val   = r.getValue().setScale(2, RoundingMode.HALF_UP);
                 totalValue = totalValue.add(val);
 
-                pdfCell(tbl, product,   valueFont, Element.ALIGN_LEFT);
-                pdfCell(tbl, warehouse, valueFont, Element.ALIGN_LEFT);
-                pdfNumCell(tbl, qty.stripTrailingZeros().toPlainString(), valueFont);
-                pdfNumCell(tbl, String.format("%,.2f", val), valueFont);
+                tbl.addCell(pdfText(bn, cb, cache, product,   false, Color.BLACK, Element.ALIGN_LEFT,  colW[0], 3));
+                tbl.addCell(pdfText(bn, cb, cache, warehouse, false, Color.BLACK, Element.ALIGN_LEFT,  colW[1], 3));
+                tbl.addCell(pdfText(bn, cb, cache, qty.stripTrailingZeros().toPlainString(), false, Color.BLACK, Element.ALIGN_RIGHT, colW[2], 3));
+                tbl.addCell(pdfText(bn, cb, cache, String.format("%,.2f", val), false, Color.BLACK, Element.ALIGN_RIGHT, colW[3], 3));
             }
 
-            PdfPCell tlabel = new PdfPCell(new Phrase("TOTAL INVENTORY VALUE", labelFont));
+            PdfPCell tlabel = pdfText(bn, cb, cache, bn ? "মোট মজুদ মূল্য" : "TOTAL INVENTORY VALUE", true, Color.BLACK,
+                Element.ALIGN_RIGHT, colW[0] + colW[1] + colW[2], 4);
             tlabel.setColspan(3);
-            tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            tlabel.setPadding(4);
             tbl.addCell(tlabel);
-            PdfPCell tval = new PdfPCell(
-                new Phrase(String.format("%,.2f", totalValue.setScale(2, RoundingMode.HALF_UP)), totalFont));
-            tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            tval.setPadding(4);
-            tval.setPaddingRight(6);
-            tbl.addCell(tval);
+            tbl.addCell(pdfText(bn, cb, cache, String.format("%,.2f", totalValue.setScale(2, RoundingMode.HALF_UP)),
+                true, Color.BLACK, Element.ALIGN_RIGHT, colW[3], 4));
 
             doc.add(tbl);
             doc.close();
 
             return ResponseEntity.ok()
                 .header("Content-Disposition",
-                    "attachment; filename=\"stock-on-hand-" + LocalDate.now() + ".pdf\"")
+                    "attachment; filename=\"stock-on-hand-" + LocalDate.now() + (bn ? "-bn" : "") + ".pdf\"")
                 .body(out.toByteArray());
 
         } catch (Exception e) {
@@ -203,18 +212,16 @@ public class InventoryController {
         }
     }
 
-    private static void pdfCell(PdfPTable t, String text, Font font, int align) {
-        PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "", font));
+    /** Table cell: Helvetica for English/digits, shaped vector outlines when the text has Bangla. 9pt, 5pt side padding. */
+    private static PdfPCell pdfText(boolean bn, PdfContentByte cb, BanglaPdf.Cache cache, String text, boolean bold, Color color,
+                                    int align, float colWidth, float padV) {
+        if (bn && BanglaPdf.hasBengali(text))
+            return BanglaPdf.cell(cb, cache, text, bold, 9, color, align, colWidth, padV, 5);
+        PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "",
+            FontFactory.getFont(bold ? FontFactory.HELVETICA_BOLD : FontFactory.HELVETICA, 9, Font.NORMAL, color)));
         c.setHorizontalAlignment(align);
-        c.setPadding(3);
-        t.addCell(c);
-    }
-
-    private static void pdfNumCell(PdfPTable t, String text, Font font) {
-        PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "", font));
-        c.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        c.setPadding(3);
-        c.setPaddingRight(6);
-        t.addCell(c);
+        c.setPaddingTop(padV); c.setPaddingBottom(padV);
+        c.setPaddingLeft(5);   c.setPaddingRight(5);
+        return c;
     }
 }
