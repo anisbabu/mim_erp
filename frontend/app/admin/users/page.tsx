@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 import { endpoints, type UserView, type Shop, type Role } from "@/lib/api";
 import { EditIcon } from "@/components/Icons";
+import { useI18n } from "@/lib/i18n";
 
 export default function UsersPage() {
+  const { t, dn } = useI18n();
+  const roleLabel = (r: string) => t(r[0] + r.slice(1).toLowerCase());
   const [users, setUsers] = useState<UserView[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
 
@@ -74,13 +77,13 @@ export default function UsersPage() {
   async function submit() {
     setMsg(null);
     if (!username.trim() || password.length < 6) {
-      setMsg({ kind: "err", text: "Username required and password at least 6 characters." }); return;
+      setMsg({ kind: "err", text: t("Username required and password at least 6 characters.") }); return;
     }
     if (role === "SALESPERSON" && shopIds.length !== 1) {
-      setMsg({ kind: "err", text: "A salesperson needs exactly one shop." }); return;
+      setMsg({ kind: "err", text: t("A salesperson needs exactly one shop.") }); return;
     }
     if (role === "MANAGER" && shopIds.length === 0) {
-      setMsg({ kind: "err", text: "A manager needs at least one shop." }); return;
+      setMsg({ kind: "err", text: t("A manager needs at least one shop.") }); return;
     }
     setBusy(true);
     try {
@@ -88,7 +91,7 @@ export default function UsersPage() {
         username: username.trim(), password, fullName, mobile, role,
         shopIds: bindsShops ? shopIds : [],
       });
-      setMsg({ kind: "ok", text: `User ${username} created.` });
+      setMsg({ kind: "ok", text: `${t("User")} ${username} ${t("created.")}` });
       setUsername(""); setPassword(""); setFullName(""); setMobile(""); setShopIds([]);
       load();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
@@ -98,10 +101,10 @@ export default function UsersPage() {
     if (!editUser) return;
     setEditMsg(null);
     if (editRole === "SALESPERSON" && editShopIds.length !== 1) {
-      setEditMsg({ kind: "err", text: "A salesperson needs exactly one shop." }); return;
+      setEditMsg({ kind: "err", text: t("A salesperson needs exactly one shop.") }); return;
     }
     if (editRole === "MANAGER" && editShopIds.length === 0) {
-      setEditMsg({ kind: "err", text: "A manager needs at least one shop." }); return;
+      setEditMsg({ kind: "err", text: t("A manager needs at least one shop.") }); return;
     }
     setEditBusy(true);
     try {
@@ -114,50 +117,49 @@ export default function UsersPage() {
         shopIds: editBindsShops ? editShopIds : [],
         active: editActive,
       });
-      setEditMsg({ kind: "ok", text: "Saved." });
+      setEditMsg({ kind: "ok", text: t("Saved.") });
       load();
       setTimeout(() => { setEditUser(null); setEditMsg(null); }, 800);
     } catch (e: any) { setEditMsg({ kind: "err", text: e.message }); } finally { setEditBusy(false); }
   }
 
-  const shopName = (id: string) => shops.find((s) => s.id === id)?.name ?? id;
+  const shopName = (id: string) => { const s = shops.find((x) => x.id === id); return s ? dn(s) : id; };
 
   return (
     <div>
-      <h1 className="page-title mb-1">Users</h1>
+      <h1 className="page-title mb-1">{t("Users")}</h1>
       <p className="text-sm text-[#6b6960] mb-6">
-        Create accounts and bind them to shops. A salesperson is locked to one shop; managers can cover several;
-        admins and accountants work company-wide.
+        {t("Create accounts and bind them to shops. A salesperson is locked to one shop; managers can cover several; admins and accountants work company-wide.")}
       </p>
 
       {/* create form */}
       <div className="border border-line rounded-xl bg-white p-4 mb-6">
-        <p className="text-xs font-medium text-[#6b6960] uppercase tracking-wide mb-3">New user</p>
+        <p className="text-xs font-medium text-[#6b6960] uppercase tracking-wide mb-3">{t("New user")}</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-[#6b6960]">Username</label>
+            <label className="text-xs text-[#6b6960]">{t("Username")}</label>
             <input className="inp mt-1" value={username} onChange={(e) => setUsername(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-[#6b6960]">Full name</label>
+            <label className="text-xs text-[#6b6960]">{t("Full name")}</label>
             <input className="inp mt-1" value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-[#6b6960]">Mobile</label>
+            <label className="text-xs text-[#6b6960]">{t("Mobile")}</label>
             <input className="inp mt-1" value={mobile} onChange={(e) => setMobile(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-[#6b6960]">Password</label>
+            <label className="text-xs text-[#6b6960]">{t("Password")}</label>
             <input className="inp mt-1" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-[#6b6960]">Role</label>
+            <label className="text-xs text-[#6b6960]">{t("Role")}</label>
             <select className="inp mt-1" value={role}
               onChange={(e) => { setRole(e.target.value as Role); setShopIds([]); }}>
-              <option value="SALESPERSON">Salesperson</option>
-              <option value="MANAGER">Manager</option>
-              <option value="ACCOUNTANT">Accountant</option>
-              <option value="ADMIN">Admin</option>
+              <option value="SALESPERSON">{t("Salesperson")}</option>
+              <option value="MANAGER">{t("Manager")}</option>
+              <option value="ACCOUNTANT">{t("Accountant")}</option>
+              <option value="ADMIN">{t("Admin")}</option>
             </select>
           </div>
         </div>
@@ -165,7 +167,7 @@ export default function UsersPage() {
         {bindsShops && (
           <div className="mt-4">
             <label className="text-xs text-[#6b6960]">
-              {single ? "Assigned shop (pick one)" : "Assigned shops (pick one or more)"}
+              {single ? t("Assigned shop (pick one)") : t("Assigned shops (pick one or more)")}
             </label>
             <div className="flex flex-wrap gap-2 mt-2">
               {shops.map((s) => {
@@ -175,7 +177,7 @@ export default function UsersPage() {
                     className="px-3 py-1.5 rounded-lg text-sm border transition-colors"
                     style={{ background: on ? "#ecfdf5" : "#fff", color: on ? "#0f766e" : "#374151",
                              borderColor: on ? "#14b8a6" : "#e5e7eb", fontWeight: on ? 600 : 500 }}>
-                    {s.name}
+                    {dn(s)}
                   </button>
                 );
               })}
@@ -184,12 +186,12 @@ export default function UsersPage() {
         )}
         {!bindsShops && (
           <div className="mt-3 text-[12px] text-[#6b6960]">
-            {role === "ADMIN" ? "Admins" : "Accountants"} have company-wide access — no shop binding.
+            {t(role === "ADMIN" ? "Admins" : "Accountants")} {t("have company-wide access — no shop binding.")}
           </div>
         )}
 
         <div className="mt-4 flex items-center gap-3">
-          <button className="btn" onClick={submit} disabled={busy}>{busy ? "Creating…" : "Create user"}</button>
+          <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Creating…") : t("Create user")}</button>
           {msg && (
             <span className="text-sm" style={{ color: msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>{msg.text}</span>
           )}
@@ -200,46 +202,46 @@ export default function UsersPage() {
       {editUser && (
         <div className="border border-brand rounded-xl bg-white p-4 mb-6">
           <p className="text-xs font-medium text-[#6b6960] uppercase tracking-wide mb-3">
-            Editing <span className="font-mono text-[#1c1b19]">{editUser.username}</span>
+            {t("Editing")} <span className="font-mono text-[#1c1b19]">{editUser.username}</span>
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-[#6b6960]">Username</label>
+              <label className="text-xs text-[#6b6960]">{t("Username")}</label>
               <input className="inp mt-1 font-mono" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-[#6b6960]">Full name</label>
+              <label className="text-xs text-[#6b6960]">{t("Full name")}</label>
               <input className="inp mt-1" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-[#6b6960]">Mobile</label>
+              <label className="text-xs text-[#6b6960]">{t("Mobile")}</label>
               <input className="inp mt-1" value={editMobile} onChange={(e) => setEditMobile(e.target.value)} />
             </div>
             <div>
-              <label className="text-xs text-[#6b6960]">New password <span className="text-[#aaa]">(leave blank to keep)</span></label>
+              <label className="text-xs text-[#6b6960]">{t("New password")} <span className="text-[#aaa]">{t("(leave blank to keep)")}</span></label>
               <input className="inp mt-1" type="password" value={editPassword} onChange={(e) => setEditPassword(e.target.value)} placeholder="••••••" />
             </div>
             <div>
-              <label className="text-xs text-[#6b6960]">Role</label>
+              <label className="text-xs text-[#6b6960]">{t("Role")}</label>
               <select className="inp mt-1" value={editRole}
                 onChange={(e) => { setEditRole(e.target.value as Role); setEditShopIds([]); }}>
-                <option value="SALESPERSON">Salesperson</option>
-                <option value="MANAGER">Manager</option>
-                <option value="ACCOUNTANT">Accountant</option>
-                <option value="ADMIN">Admin</option>
+                <option value="SALESPERSON">{t("Salesperson")}</option>
+                <option value="MANAGER">{t("Manager")}</option>
+                <option value="ACCOUNTANT">{t("Accountant")}</option>
+                <option value="ADMIN">{t("Admin")}</option>
               </select>
             </div>
             <div className="flex items-center gap-2 pt-4">
               <input id="editActive" type="checkbox" checked={editActive}
                 onChange={(e) => setEditActive(e.target.checked)} className="w-4 h-4" />
-              <label htmlFor="editActive" className="text-sm">Active</label>
+              <label htmlFor="editActive" className="text-sm">{t("Active")}</label>
             </div>
           </div>
 
           {editBindsShops && (
             <div className="mt-4">
               <label className="text-xs text-[#6b6960]">
-                {editSingle ? "Assigned shop (pick one)" : "Assigned shops (pick one or more)"}
+                {editSingle ? t("Assigned shop (pick one)") : t("Assigned shops (pick one or more)")}
               </label>
               <div className="flex flex-wrap gap-2 mt-2">
                 {shops.map((s) => {
@@ -249,7 +251,7 @@ export default function UsersPage() {
                       className="px-3 py-1.5 rounded-lg text-sm border"
                       style={{ background: on ? "#1d5e4f" : "#fff", color: on ? "#fff" : "#1c1b19",
                                borderColor: on ? "#1d5e4f" : "#d8d4ca" }}>
-                      {s.name}
+                      {dn(s)}
                     </button>
                   );
                 })}
@@ -258,13 +260,13 @@ export default function UsersPage() {
           )}
           {!editBindsShops && (
             <div className="mt-3 text-[12px] text-[#6b6960]">
-              {editRole === "ADMIN" ? "Admins" : "Accountants"} have company-wide access — no shop binding.
+              {t(editRole === "ADMIN" ? "Admins" : "Accountants")} {t("have company-wide access — no shop binding.")}
             </div>
           )}
 
           <div className="mt-4 flex items-center gap-3">
-            <button className="btn" onClick={saveEdit} disabled={editBusy}>{editBusy ? "Saving…" : "Save"}</button>
-            <button className="btn-ghost" onClick={cancelEdit}>Cancel</button>
+            <button className="btn" onClick={saveEdit} disabled={editBusy}>{editBusy ? t("Saving…") : t("Save")}</button>
+            <button className="btn-ghost" onClick={cancelEdit}>{t("Cancel")}</button>
             {editMsg && (
               <span className="text-sm" style={{ color: editMsg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>{editMsg.text}</span>
             )}
@@ -276,26 +278,26 @@ export default function UsersPage() {
       <div className="border border-line rounded-xl bg-white overflow-hidden">
         <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>Username</th><th>Name</th><th>Mobile</th><th>Role</th><th>Shops</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>{t("Username")}</th><th>{t("Name")}</th><th>{t("Mobile")}</th><th>{t("Role")}</th><th>{t("Shops")}</th><th>{t("Status")}</th><th></th></tr></thead>
           <tbody>
             {users.map((u) => (
               <tr key={u.id} className={editUser?.id === u.id ? "bg-teal-50" : ""}>
                 <td className="font-mono text-[13px]">{u.username}</td>
                 <td>{u.fullName ?? "—"}</td>
                 <td className="text-[13px]">{u.mobile ?? "—"}</td>
-                <td className="text-xs">{u.role}</td>
+                <td className="text-xs">{roleLabel(u.role)}</td>
                 <td className="text-[13px]">
                   {u.shopIds.length === 0
-                    ? <span className="text-[#6b6960]">company-wide</span>
+                    ? <span className="text-[#6b6960]">{t("company-wide")}</span>
                     : u.shopIds.map(shopName).join(", ")}
                 </td>
                 <td>
                   <span className={u.active ? "text-[#1d5e4f]" : "text-[#9a2b22]"}>
-                    {u.active ? "active" : "disabled"}
+                    {u.active ? t("active") : t("disabled")}
                   </span>
                 </td>
                 <td>
-                  <button className="btn-icon btn-icon-edit" title="Edit" onClick={() => openEdit(u)}><EditIcon /></button>
+                  <button className="btn-icon btn-icon-edit" title={t("Edit")} onClick={() => openEdit(u)}><EditIcon /></button>
                 </td>
               </tr>
             ))}

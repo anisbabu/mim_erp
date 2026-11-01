@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { endpoints, type Product, type Warehouse } from "@/lib/api";
 
 export default function AdjustPage() {
+  const { t, lang, dn } = useI18n();
   const [type, setType] = useState<"DAMAGE" | "COUNT" | "TRANSFER">("DAMAGE");
   const [products, setProducts] = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -41,9 +43,9 @@ export default function AdjustPage() {
   async function submit() {
     setMsg(null);
     if (!productId || !fromWarehouseId || !(Number(qty) > 0)) {
-      setMsg({ kind: "err", text: "Product, source warehouse and quantity are required." }); return;
+      setMsg({ kind: "err", text: t("Product, source warehouse and quantity are required.") }); return;
     }
-    if (isTransfer && !toWarehouseId) { setMsg({ kind: "err", text: "Choose a destination warehouse." }); return; }
+    if (isTransfer && !toWarehouseId) { setMsg({ kind: "err", text: t("Choose a destination warehouse.") }); return; }
     setBusy(true);
     try {
       const a: any = await endpoints.adjust({
@@ -51,7 +53,7 @@ export default function AdjustPage() {
         toWarehouseId: isTransfer ? toWarehouseId : null,
         qty: Number(qty), reason,
       });
-      setMsg({ kind: "ok", text: `Adjustment ${a.adjNo} posted.` });
+      setMsg({ kind: "ok", text: `${t("Adjustment")} ${a.adjNo} ${t("posted.")}` });
       setQty(""); setReason("");
       refreshAvailability();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
@@ -59,64 +61,63 @@ export default function AdjustPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="page-title mb-1">Stock adjustment</h1>
+      <h1 className="page-title mb-1">{t("Stock adjustment")}</h1>
       <p className="text-sm text-[#6b6960] mb-6">
-        Write off damaged stock, correct a count, or transfer stock between warehouses. Damage and count
-        post a loss at FIFO cost; transfer just moves cost layers (no profit impact).
+        {t("Write off damaged stock, correct a count, or transfer stock between warehouses. Damage and count post a loss at FIFO cost; transfer just moves cost layers (no profit impact).")}
       </p>
       <div className="flex gap-1 mb-5 text-sm">
-        {(["DAMAGE", "COUNT", "TRANSFER"] as const).map((t) => (
-          <button key={t} onClick={() => setType(t)} className="px-3 py-1.5 rounded-lg"
-            style={{ background: type === t ? "#1d5e4f" : "#fff", color: type === t ? "#fff" : "#1c1b19", border: "1px solid #d8d4ca" }}>
-            {t[0] + t.slice(1).toLowerCase()}
+        {(["DAMAGE", "COUNT", "TRANSFER"] as const).map((k) => (
+          <button key={k} onClick={() => setType(k)} className="px-3 py-1.5 rounded-lg"
+            style={{ background: type === k ? "#1d5e4f" : "#fff", color: type === k ? "#fff" : "#1c1b19", border: "1px solid #d8d4ca" }}>
+            {t(k[0] + k.slice(1).toLowerCase())}
           </button>
         ))}
       </div>
       <div className="space-y-4">
         <div>
-          <label className="text-xs text-[#6b6960]">Product</label>
+          <label className="text-xs text-[#6b6960]">{t("Product")}</label>
           <select className="inp mt-1" value={productId} onChange={(e) => setProductId(e.target.value)}>
-            <option value="">Select…</option>
-            {products.map((p) => <option key={p.id} value={p.id}>{p.fullName ?? p.name}{p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""}</option>)}
+            <option value="">{t("Select…")}</option>
+            {products.map((p) => <option key={p.id} value={p.id}>{lang === "bn" && p.nameBn ? p.nameBn : p.fullName ?? p.name}{p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""}</option>)}
           </select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-xs text-[#6b6960]">{isTransfer ? "From warehouse" : "Warehouse"}</label>
+            <label className="text-xs text-[#6b6960]">{isTransfer ? t("From warehouse") : t("Warehouse")}</label>
             <select className="inp mt-1" value={fromWarehouseId} onChange={(e) => { setFromWarehouseId(e.target.value); setToWarehouseId(""); }}>
-              <option value="">Select…</option>
-              {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              <option value="">{t("Select…")}</option>
+              {warehouses.map((w) => <option key={w.id} value={w.id}>{dn(w)}</option>)}
             </select>
             <div className="h-4 leading-4 mt-0.5 text-xs text-[#6b6960]">
               {productId && fromWarehouseId
-                ? `On hand: ${availability[fromWarehouseId] ?? 0}`
+                ? `${t("On hand:")} ${availability[fromWarehouseId] ?? 0}`
                 : ""}
             </div>
           </div>
           {isTransfer && (
             <div>
-              <label className="text-xs text-[#6b6960]">To warehouse</label>
+              <label className="text-xs text-[#6b6960]">{t("To warehouse")}</label>
               <select className="inp mt-1" value={toWarehouseId} onChange={(e) => setToWarehouseId(e.target.value)}>
-                <option value="">Select…</option>
-                {warehouses.filter((w) => w.id !== fromWarehouseId).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                <option value="">{t("Select…")}</option>
+                {warehouses.filter((w) => w.id !== fromWarehouseId).map((w) => <option key={w.id} value={w.id}>{dn(w)}</option>)}
               </select>
               <div className="h-4 leading-4 mt-0.5 text-xs text-[#6b6960]">
                 {productId && toWarehouseId
-                  ? `On hand: ${availability[toWarehouseId] ?? 0}`
+                  ? `${t("On hand:")} ${availability[toWarehouseId] ?? 0}`
                   : ""}
               </div>
             </div>
           )}
         </div>
         <div>
-          <label className="text-xs text-[#6b6960]">Quantity</label>
+          <label className="text-xs text-[#6b6960]">{t("Quantity")}</label>
           <input className="inp mt-1 text-right tabular-nums" type="number" min={0} value={qty} onChange={(e) => setQty(e.target.value)} />
         </div>
         <div>
-          <label className="text-xs text-[#6b6960]">Reason</label>
+          <label className="text-xs text-[#6b6960]">{t("Reason")}</label>
           <input className="inp mt-1" value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
-        <button className="btn" onClick={submit} disabled={busy}>{busy ? "Posting…" : "Post adjustment"}</button>
+        <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Posting…") : t("Post adjustment")}</button>
       </div>
       {msg && (
         <div className="mt-4 text-sm rounded-lg px-4 py-3"

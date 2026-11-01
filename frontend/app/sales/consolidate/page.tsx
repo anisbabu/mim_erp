@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { endpoints, type DeliveryChallan, type Customer, type ChallanLineView, type UserView, type Warehouse } from "@/lib/api";
 
 type LineEdit = { unitPrice: string };
@@ -15,6 +16,7 @@ function bandStatus(l: ChallanLineView, edit: LineEdit): "out" | "ok" | "none" {
 }
 
 export default function ConsolidatePage() {
+  const { t, dn } = useI18n();
   const [challans, setChallans]   = useState<DeliveryChallan[]>([]);
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [warehouseById, setWarehouseById] = useState<Record<string, Warehouse>>({});
@@ -89,9 +91,9 @@ export default function ConsolidatePage() {
 
   async function submit() {
     setMsg(null);
-    if (!customerId) { setMsg({ kind: "err", text: "Select a customer." }); return; }
+    if (!customerId) { setMsg({ kind: "err", text: t("Select a customer.") }); return; }
     if (anyOut && !overrideBy.trim()) {
-      setMsg({ kind: "err", text: "Price out of band — enter authoriser name." }); return;
+      setMsg({ kind: "err", text: t("Price out of band — enter authoriser name.") }); return;
     }
     setBusy(true);
     try {
@@ -111,7 +113,7 @@ export default function ConsolidatePage() {
           };
         }),
       });
-      setMsg({ kind: "ok", text: `Invoice ${r.soNo} · ${r.challanIds.length} challan(s) · net ${Number(r.totalValue).toFixed(2)}` });
+      setMsg({ kind: "ok", text: `${t("Invoice")} ${r.soNo} · ${r.challanIds.length} ${t("challan(s)")} · ${t("net")} ${Number(r.totalValue).toFixed(2)}` });
       setCustomerId(""); setLines([]); setEdits({}); setOverrideBy(""); setDiscount(""); setTransport("");
       loadChallans();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
@@ -120,26 +122,26 @@ export default function ConsolidatePage() {
 
   return (
     <div>
-      <h1 className="page-title mb-5">Day-end consolidate</h1>
+      <h1 className="page-title mb-5">{t("Day-end consolidate")}</h1>
 
       {/* Customer picker */}
       <div className="card overflow-hidden mb-6">
         <div className="px-4 py-2 text-xs font-semibold muted border-b border-[var(--border)] uppercase tracking-wide">
-          Open challans by customer
+          {t("Open challans by customer")}
         </div>
         <table className="tbl w-full">
-          <thead><tr><th></th><th>Customer</th><th className="text-right">Open challans</th></tr></thead>
+          <thead><tr><th></th><th>{t("Customer")}</th><th className="text-right">{t("Open challans")}</th></tr></thead>
           <tbody>
             {Object.keys(byCustomer).length === 0 && (
-              <tr><td colSpan={3} className="muted">No open challans.</td></tr>
+              <tr><td colSpan={3} className="muted">{t("No open challans.")}</td></tr>
             )}
             {Object.keys(byCustomer).map((cid) => (
               <tr key={cid} className="cursor-pointer" onClick={() => selectCustomer(cid)}
                 style={{ background: customerId === cid ? "var(--brand-muted, #e6efe9)" : undefined }}>
                 <td><input type="radio" readOnly checked={customerId === cid} /></td>
                 <td>
-                  {customers[cid]?.name ?? cid}
-                  {customers[cid] && <span className="text-xs muted ml-2">({customers[cid].type})</span>}
+                  {customers[cid] ? dn(customers[cid]) : cid}
+                  {customers[cid] && <span className="text-xs muted ml-2">({t(customers[cid].type)})</span>}
                 </td>
                 <td className="text-right tabular-nums">{byCustomer[cid].length}</td>
               </tr>
@@ -151,23 +153,23 @@ export default function ConsolidatePage() {
       {/* Line review form */}
       {customerId && (
         <>
-          {linesLoading && <div className="muted text-sm mb-4">Loading lines…</div>}
+          {linesLoading && <div className="muted text-sm mb-4">{t("Loading lines…")}</div>}
 
           {!linesLoading && lines.length > 0 && (
             <div className="card overflow-hidden mb-4">
               <div className="px-4 py-2 text-xs font-semibold muted border-b border-[var(--border)] uppercase tracking-wide">
-                Review &amp; edit lines before invoicing
+                {t("Review & edit lines before invoicing")}
               </div>
               <div className="overflow-x-auto">
                 <table className="tbl w-full">
                   <thead>
                     <tr>
-                      <th>Challan</th>
-                      <th>Product</th>
-                      <th style={{ width: 130 }}>Warehouse</th>
-                      <th className="text-right" style={{ width: 70 }}>Qty</th>
-                      <th className="text-right" style={{ width: 120 }}>Unit price</th>
-                      <th className="text-right" style={{ width: 110 }}>Net</th>
+                      <th>{t("Challan")}</th>
+                      <th>{t("Product")}</th>
+                      <th style={{ width: 130 }}>{t("Warehouse")}</th>
+                      <th className="text-right" style={{ width: 70 }}>{t("Qty")}</th>
+                      <th className="text-right" style={{ width: 120 }}>{t("Unit price")}</th>
+                      <th className="text-right" style={{ width: 110 }}>{t("Net")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -190,12 +192,12 @@ export default function ConsolidatePage() {
                               <div className="text-[11px] mt-0.5 h-4 leading-4"
                                 style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                                 {hasBand
-                                  ? `band ${l.priceLower ?? "—"}–${l.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}`
-                                  : "no band"}
+                                  ? `${t("band")} ${l.priceLower ?? "—"}–${l.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}`
+                                  : t("no band")}
                               </div>
                             </td>
                             <td className="align-top pt-1 text-sm">
-                              {l.warehouseId ? (warehouseById[l.warehouseId]?.name ?? "—") : "—"}
+                              {l.warehouseId && warehouseById[l.warehouseId] ? dn(warehouseById[l.warehouseId]) : "—"}
                             </td>
                             <td className="text-right tabular-nums align-top pt-1">{l.qty}</td>
                             <td className="text-right align-top">
@@ -215,11 +217,11 @@ export default function ConsolidatePage() {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={4} className="text-right text-sm muted">Gross</td>
+                      <td colSpan={4} className="text-right text-sm muted">{t("Gross")}</td>
                       <td colSpan={2} className="text-right tabular-nums muted">{grandGross.toFixed(2)}</td>
                     </tr>
                     <tr>
-                      <td colSpan={4} className="text-right text-sm muted">Discount</td>
+                      <td colSpan={4} className="text-right text-sm muted">{t("Discount")}</td>
                       <td colSpan={2} className="text-right">
                         <input className="inp text-right tabular-nums"
                           style={{ width: 100, marginLeft: "auto" }}
@@ -229,7 +231,7 @@ export default function ConsolidatePage() {
                       </td>
                     </tr>
                     <tr>
-                      <td colSpan={4} className="text-right text-sm muted">Transport &amp; Lifting</td>
+                      <td colSpan={4} className="text-right text-sm muted">{t("Transport & Lifting")}</td>
                       <td colSpan={2} className="text-right">
                         <input className="inp text-right tabular-nums"
                           style={{ width: 100, marginLeft: "auto" }}
@@ -239,7 +241,7 @@ export default function ConsolidatePage() {
                       </td>
                     </tr>
                     <tr>
-                      <td colSpan={4} className="text-right font-semibold">Net total</td>
+                      <td colSpan={4} className="text-right font-semibold">{t("Net total")}</td>
                       <td colSpan={2} className="text-right tabular-nums font-bold text-base" style={{ color: "#0f766e" }}>
                         {netTotal.toFixed(2)}
                       </td>
@@ -253,26 +255,26 @@ export default function ConsolidatePage() {
           {/* Payment + authorisers + submit */}
           <div className="flex flex-wrap items-end gap-4 mb-4">
             <div className="field">
-              <label>Payment</label>
+              <label>{t("Payment")}</label>
               <select className="inp mt-1" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value as "CASH" | "CREDIT")}>
-                <option value="CASH">Cash</option>
-                <option value="CREDIT">Credit (party)</option>
+                <option value="CASH">{t("Cash")}</option>
+                <option value="CREDIT">{t("Credit (party)")}</option>
               </select>
             </div>
             {(anyOut || paymentMode === "CREDIT") && (
               <div className="field flex-1" style={{ minWidth: 200 }}>
-                <label>Authoriser {anyOut ? "(price out of band)" : "(credit limit)"}</label>
+                <label>{t("Authoriser")} {anyOut ? t("(price out of band)") : t("(credit limit)")}</label>
                 <select className="inp mt-1" value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)}
                   style={{ borderColor: (anyOut || paymentMode === "CREDIT") && !overrideBy ? "#b3261e" : undefined }}>
-                  <option value="">Select…</option>
+                  <option value="">{t("Select…")}</option>
                   {authorisers.map((u) => (
-                    <option key={u.id} value={u.fullName || u.username}>{u.fullName || u.username} ({u.role})</option>
+                    <option key={u.id} value={u.fullName || u.username}>{u.fullName || u.username} ({t(u.role)})</option>
                   ))}
                 </select>
               </div>
             )}
             <button className="btn" onClick={submit} disabled={busy || linesLoading}>
-              {busy ? "Consolidating…" : "Consolidate to invoice"}
+              {busy ? t("Consolidating…") : t("Consolidate to invoice")}
             </button>
           </div>
         </>

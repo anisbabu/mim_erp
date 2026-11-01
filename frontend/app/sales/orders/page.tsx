@@ -2,12 +2,14 @@
 import { Fragment, useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type SalesOrder, type Customer, type SoLineView, type Warehouse, type WarehouseStock, type PickupView } from "@/lib/api";
 import { beep } from "@/lib/beep";
+import { useI18n } from "@/lib/i18n";
 
 const PAGE_SIZE = 5;
 
 type FulfillDraft = { warehouseId: string; qty: string };
 
 export default function SalesOrdersPage() {
+  const { t, dn } = useI18n();
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [search, setSearch] = useState("");
@@ -70,7 +72,7 @@ export default function SalesOrdersPage() {
           : null;
       })
       .filter((x): x is { soLineId: string; warehouseId: string; qty: number } => x !== null);
-    if (!reqLines.length) { setFulfillErr("Choose a warehouse and quantity for at least one line."); return; }
+    if (!reqLines.length) { setFulfillErr(t("Choose a warehouse and quantity for at least one line.")); return; }
     setFulfillBusy(true);
     setFulfillErr(null);
     try {
@@ -169,12 +171,12 @@ export default function SalesOrdersPage() {
   return (
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h1 className="page-title">Sales orders</h1>
+          <h1 className="page-title">{t("Sales orders")}</h1>
         </div>
 
         <input
             className="inp mb-4 max-w-sm"
-            placeholder="Search SO no, customer, mobile, date…"
+            placeholder={t("Search SO no, customer, mobile, date…")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
         />
@@ -182,11 +184,11 @@ export default function SalesOrdersPage() {
         <div className="border border-line rounded-xl bg-surface overflow-hidden">
           <div className="table-wrap">
           <table className="tbl">
-            <thead><tr><th>SO no</th><th>Customer</th><th>Workflow</th><th>Date</th><th>Status</th></tr></thead>
+            <thead><tr><th>{t("SO no")}</th><th>{t("Customer")}</th><th>{t("Workflow")}</th><th>{t("Date")}</th><th>{t("Status")}</th></tr></thead>
             <tbody>
             {pageItems.length === 0 && (
                 <tr><td colSpan={5} className="text-[#6b6960]">
-                  {search ? "No matching orders." : "No sales orders yet."}
+                  {search ? t("No matching orders.") : t("No sales orders yet.")}
                 </td></tr>
             )}
             {pageItems.map((o) => {
@@ -203,14 +205,14 @@ export default function SalesOrdersPage() {
                     <tr className="border-t border-line">
                       <td className="font-mono text-[13px] text-center">{o.soNo}</td>
                       <td className="text-center">
-                        <div>{cust?.name ?? "—"}</div>
+                        <div>{cust ? dn(cust) : "—"}</div>
                         {cust?.mobile && (
                             <div className="text-[12px] text-[#6b6960]">{cust.mobile}</div>
                         )}
                       </td>
-                      <td className="text-xs text-center">{o.workflow}</td>
+                      <td className="text-xs text-center">{t(o.workflow)}</td>
                       <td className="text-center">{fmtDate(o.orderDate)}</td>
-                      <td className="text-center">{o.status}</td>
+                      <td className="text-center">{t(o.status)}</td>
                     </tr>
 
                     {/* Document actions row — separate section below the order's data row */}
@@ -218,54 +220,54 @@ export default function SalesOrdersPage() {
                       <td colSpan={5} className="py-2">
                         <div className="flex flex-wrap items-center gap-6">
                           <div className="flex items-center gap-2">
-                            <span className="text-[12px] text-[#6b6960] w-[110px]">Dispatch token</span>
+                            <span className="text-[12px] text-[#6b6960] w-[110px]">{t("Dispatch token")}</span>
                             <button className="btn-ghost btn-sm" disabled={wtBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Print dispatch token"}
+                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Print dispatch token")}
                                     onClick={() => openDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey)}>
                               {wtBusy ? "…" : "🖨"}
                             </button>
                             <button className="btn-ghost btn-sm" disabled={wtBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Download dispatch token"}
+                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Download dispatch token")}
                                     onClick={() => downloadDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey, `dispatch-${o.soNo}.pdf`)}>
                               ↓
                             </button>
                             <button className="btn btn-sm" disabled={wtBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Share dispatch token"}
+                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Share dispatch token")}
                                     onClick={() => shareDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey, `dispatch-${o.soNo}.pdf`, `Dispatch Token ${o.soNo}`)}>
                               ↗
                             </button>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="text-[12px] text-[#6b6960] w-[70px]">Challan</span>
+                            <span className="text-[12px] text-[#6b6960] w-[70px]">{t("Challan")}</span>
                             <button className="btn-ghost btn-sm" disabled={dcBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Print challan"}
+                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Print challan")}
                                     onClick={() => openDoc(() => endpoints.orderChallanBlob(o.id), dcKey)}>
                               {dcBusy ? "…" : "🖨"}
                             </button>
                             <button className="btn-ghost btn-sm" disabled={dcBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Download challan"}
+                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Download challan")}
                                     onClick={() => downloadDoc(() => endpoints.orderChallanBlob(o.id), dcKey, `challan-${o.soNo}.pdf`)}>
                               ↓
                             </button>
                             <button className="btn btn-sm" disabled={dcBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? "Nothing delivered yet — fulfill the order first" : "Share challan"}
+                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Share challan")}
                                     onClick={() => shareDoc(() => endpoints.orderChallanBlob(o.id), dcKey, `challan-${o.soNo}.pdf`, `Challan ${o.soNo}`)}>
                               ↗
                             </button>
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="text-[12px] text-[#6b6960] w-[60px]">Invoice</span>
-                            <button className="btn-ghost btn-sm" disabled={invBusy} title="Print invoice"
+                            <span className="text-[12px] text-[#6b6960] w-[60px]">{t("Invoice")}</span>
+                            <button className="btn-ghost btn-sm" disabled={invBusy} title={t("Print invoice")}
                                     onClick={() => openDoc(() => endpoints.invoiceBlob(o.id), invKey)}>
                               {invBusy ? "…" : "🖨"}
                             </button>
-                            <button className="btn-ghost btn-sm" disabled={invBusy} title="Download invoice"
+                            <button className="btn-ghost btn-sm" disabled={invBusy} title={t("Download invoice")}
                                     onClick={() => downloadDoc(() => endpoints.invoiceBlob(o.id), invKey, `${o.soNo}.pdf`)}>
                               ↓
                             </button>
-                            <button className="btn btn-sm" disabled={invBusy} title="Share invoice"
+                            <button className="btn btn-sm" disabled={invBusy} title={t("Share invoice")}
                                     onClick={() => shareDoc(() => endpoints.invoiceBlob(o.id), invKey, `${o.soNo}.pdf`, `Invoice ${o.soNo}`)}>
                               ↗
                             </button>
@@ -273,17 +275,17 @@ export default function SalesOrdersPage() {
 
                           {o.workflow === "SO_FIRST" && o.status !== "DELIVERED" && (
                             <div className="flex items-center gap-2">
-                              <span className="text-[12px] text-[#6b6960] w-[60px]">Fulfill</span>
+                              <span className="text-[12px] text-[#6b6960] w-[60px]">{t("Fulfill")}</span>
                               <button className="btn btn-sm" onClick={() => toggleFulfill(o.id)}>
-                                {fulfillOpenId === o.id ? "Close" : "Fulfill"}
+                                {fulfillOpenId === o.id ? t("Close") : t("Fulfill")}
                               </button>
                             </div>
                           )}
 
                           <div className="flex items-center gap-2">
-                            <span className="text-[12px] text-[#6b6960] w-[60px]">Pickups</span>
+                            <span className="text-[12px] text-[#6b6960] w-[60px]">{t("Pickups")}</span>
                             <button className="btn-ghost btn-sm" onClick={() => togglePickups(o.id)}>
-                              {pickupsOpenId === o.id ? "Close" : "History"}
+                              {pickupsOpenId === o.id ? t("Close") : t("History")}
                             </button>
                           </div>
                         </div>
@@ -294,13 +296,13 @@ export default function SalesOrdersPage() {
                       <tr className="bg-[#faf9f6] border-t border-line">
                         <td colSpan={5} className="py-3">
                           {!pickups[o.id] && !pickupsErr && (
-                            <div className="text-[12px] text-[#6b6960]">Loading pickups…</div>
+                            <div className="text-[12px] text-[#6b6960]">{t("Loading pickups…")}</div>
                           )}
                           {pickupsErr && (
                             <div className="text-[12px]" style={{ color: "#9a2b22" }}>{pickupsErr}</div>
                           )}
                           {pickups[o.id] && pickups[o.id].length === 0 && (
-                            <div className="text-[12px] text-[#6b6960]">No pickups yet.</div>
+                            <div className="text-[12px] text-[#6b6960]">{t("No pickups yet.")}</div>
                           )}
                           {pickups[o.id] && pickups[o.id].length > 0 && (
                             <div className="flex flex-col gap-2">
@@ -315,15 +317,15 @@ export default function SalesOrdersPage() {
                                     <span className="text-[12px] text-[#6b6960]">{fmtDate(p.date)}</span>
                                     <span className="text-[12px] text-[#6b6960]">{p.warehouseName}</span>
                                     <span className="text-[13px]">{itemsText}</span>
-                                    <button className="btn-ghost btn-sm" disabled={pBusy} title="Print this pickup's challan"
+                                    <button className="btn-ghost btn-sm" disabled={pBusy} title={t("Print this pickup's challan")}
                                             onClick={() => openDoc(() => endpoints.challanBlob(p.dcId), pKey)}>
                                       {pBusy ? "…" : "🖨"}
                                     </button>
-                                    <button className="btn-ghost btn-sm" disabled={pBusy} title="Download this pickup's challan"
+                                    <button className="btn-ghost btn-sm" disabled={pBusy} title={t("Download this pickup's challan")}
                                             onClick={() => downloadDoc(() => endpoints.challanBlob(p.dcId), pKey, `${p.dcNo}.pdf`)}>
                                       ↓
                                     </button>
-                                    <button className="btn btn-sm" disabled={pBusy} title="Share this pickup's challan"
+                                    <button className="btn btn-sm" disabled={pBusy} title={t("Share this pickup's challan")}
                                             onClick={() => shareDoc(() => endpoints.challanBlob(p.dcId), pKey, `${p.dcNo}.pdf`, `Challan ${p.dcNo}`)}>
                                       ↗
                                     </button>
@@ -340,7 +342,7 @@ export default function SalesOrdersPage() {
                       <tr className="bg-[#faf9f6] border-t border-line">
                         <td colSpan={5} className="py-3">
                           {!pendingLines[o.id] && !fulfillErr && (
-                            <div className="text-[12px] text-[#6b6960]">Loading pending lines…</div>
+                            <div className="text-[12px] text-[#6b6960]">{t("Loading pending lines…")}</div>
                           )}
                           {fulfillErr && (
                             <div className="text-[12px] mb-2" style={{ color: "#9a2b22" }}>{fulfillErr}</div>
@@ -348,7 +350,7 @@ export default function SalesOrdersPage() {
                           {pendingLines[o.id] && (
                             <div className="flex flex-col gap-3">
                               {pendingLines[o.id].filter((l) => l.qtyPending > 0).length === 0 && (
-                                <div className="text-[12px] text-[#6b6960]">Nothing pending on this order.</div>
+                                <div className="text-[12px] text-[#6b6960]">{t("Nothing pending on this order.")}</div>
                               )}
                               {pendingLines[o.id].filter((l) => l.qtyPending > 0).map((l) => {
                                 const stock = stockByProduct[l.productId] ?? [];
@@ -360,14 +362,14 @@ export default function SalesOrdersPage() {
                                 return (
                                   <div key={l.id} className="flex flex-wrap items-center gap-3">
                                     <span className="text-[13px] min-w-[180px]">{l.productName}</span>
-                                    <span className="text-[12px] text-[#6b6960]">pending: {l.qtyPending}</span>
+                                    <span className="text-[12px] text-[#6b6960]">{t("pending:")} {l.qtyPending}</span>
                                     <select className="inp" style={{ width: 200 }}
                                       value={draft.warehouseId}
                                       onChange={(e) => setFulfillDraft((m) => ({ ...m, [l.id]: { ...draft, warehouseId: e.target.value } }))}>
-                                      <option value="">Select warehouse…</option>
+                                      <option value="">{t("Select warehouse…")}</option>
                                       {stocked.map((s) => (
                                         <option key={s.warehouseId} value={s.warehouseId}>
-                                          {warehouseById[s.warehouseId]?.name ?? s.warehouseId} ({s.qty})
+                                          {warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId} ({s.qty})
                                         </option>
                                       ))}
                                     </select>
@@ -377,7 +379,7 @@ export default function SalesOrdersPage() {
                                       value={draft.qty}
                                       onChange={(e) => setFulfillDraft((m) => ({ ...m, [l.id]: { ...draft, qty: e.target.value } }))} />
                                     {stocked.length === 0 && (
-                                      <span className="text-[12px]" style={{ color: "#b4690e" }}>still no stock</span>
+                                      <span className="text-[12px]" style={{ color: "#b4690e" }}>{t("still no stock")}</span>
                                     )}
                                   </div>
                                 );
@@ -385,7 +387,7 @@ export default function SalesOrdersPage() {
                               {pendingLines[o.id].some((l) => l.qtyPending > 0) && (
                                 <button className="btn btn-sm w-fit" disabled={fulfillBusy}
                                   onClick={() => confirmFulfill(o.id)}>
-                                  {fulfillBusy ? "Fulfilling…" : "Confirm fulfillment"}
+                                  {fulfillBusy ? t("Fulfilling…") : t("Confirm fulfillment")}
                                 </button>
                               )}
                             </div>
@@ -403,14 +405,14 @@ export default function SalesOrdersPage() {
 
         {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 text-sm text-[#6b6960]">
-              <span>{filtered.length} orders · page {page} of {totalPages}</span>
+              <span>{filtered.length} {t("orders")} · {t("page")} {page} {t("of")} {totalPages}</span>
               <div className="flex gap-2">
                 <button className="btn-ghost px-3 py-1"
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        disabled={page === 1}>← Prev</button>
+                        disabled={page === 1}>← {t("Prev")}</button>
                 <button className="btn-ghost px-3 py-1"
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}>Next →</button>
+                        disabled={page === totalPages}>{t("Next")} →</button>
               </div>
             </div>
         )}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { TrashIcon } from "@/components/Icons";
 
@@ -10,6 +11,7 @@ type Line = { productId: string; warehouseId: string; qty: string; unitPrice: st
 
 export default function ChallanPage() {
   const { user, activeShopId } = useAuth();
+  const { t, lang, dn } = useI18n();
   const [products, setProducts]     = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [shops, setShops]           = useState<Shop[]>([]);
@@ -43,15 +45,15 @@ export default function ChallanPage() {
   const supplierById  = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
   const productOpts: Option[] = useMemo(
     () => products.map((p) => {
-      const supplierName = p.supplierId ? supplierById[p.supplierId]?.name : undefined;
+      const supplierName = p.supplierId && supplierById[p.supplierId] ? dn(supplierById[p.supplierId]) : undefined;
       const thickness = p.thicknessLabel ?? (p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined);
       const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
-      return { value: p.id, label: p.fullName || p.name, sublabel: sub };
+      return { value: p.id, label: lang === "bn" && p.nameBn ? p.nameBn : p.fullName || p.name, sublabel: sub };
     }),
-    [products, supplierById]);
+    [products, supplierById, lang]);
   const customerOpts: Option[] = useMemo(
-    () => customers.map((c) => ({ value: c.id, label: `${c.name} (${c.type})`, sublabel: c.mobile })),
-    [customers]);
+    () => customers.map((c) => ({ value: c.id, label: `${dn(c)} (${t(c.type)})`, sublabel: c.mobile })),
+    [customers, lang]);
   const needsSalesperson = user?.role !== "SALESPERSON";
   const salespersonOpts: Option[] = useMemo(
     () => salespeople.map((s) => ({ value: s.id, label: s.fullName || s.username })),
@@ -97,13 +99,13 @@ export default function ChallanPage() {
 
   async function submit() {
     setMsg(null);
-    if (!shopId)      { setMsg({ kind: "err", text: "Select a shop." }); return; }
-    if (!customerId)  { setMsg({ kind: "err", text: "Select a customer." }); return; }
-    if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: "Select a salesperson." }); return; }
+    if (!shopId)      { setMsg({ kind: "err", text: t("Select a shop.") }); return; }
+    if (!customerId)  { setMsg({ kind: "err", text: t("Select a customer.") }); return; }
+    if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: t("Select a salesperson.") }); return; }
     const allocations = lines
       .filter((l) => l.productId && l.warehouseId && Number(l.qty) > 0)
       .map((l) => ({ productId: l.productId, warehouseId: l.warehouseId, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: 0 }));
-    if (!allocations.length) { setMsg({ kind: "err", text: "Add at least one line with product, warehouse and quantity." }); return; }
+    if (!allocations.length) { setMsg({ kind: "err", text: t("Add at least one line with product, warehouse and quantity.") }); return; }
 
     // A single delivery challan ships from one warehouse (DB constraint) — lines can
     // come from different warehouses, so split into one challan per warehouse.
@@ -124,7 +126,7 @@ export default function ChallanPage() {
         });
         dcNos.push(dc.dcNo);
       }
-      setMsg({ kind: "ok", text: `Challan${dcNos.length > 1 ? "s" : ""} ${dcNos.join(", ")} issued.` });
+      setMsg({ kind: "ok", text: `${t(dcNos.length > 1 ? "Challans" : "Challan")} ${dcNos.join(", ")} ${t("issued.")}` });
       setLines([{ productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
     finally { setBusy(false); }
@@ -134,19 +136,19 @@ export default function ChallanPage() {
     <div>
       {/* Header row: title + stock panel */}
       <div className="flex items-start justify-between gap-4 mb-5">
-        <h1 className="page-title">Challan</h1>
+        <h1 className="page-title">{t("Challan")}</h1>
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: "#0f766e" }}>
-                  <th className="text-left text-xs font-semibold px-3 py-2 text-white">Warehouse</th>
-                  <th className="text-right text-xs font-semibold px-3 py-2 text-white">Qty</th>
+                  <th className="text-left text-xs font-semibold px-3 py-2 text-white">{t("Warehouse")}</th>
+                  <th className="text-right text-xs font-semibold px-3 py-2 text-white">{t("Qty")}</th>
                 </tr>
               </thead>
               <tbody>
                 {stockPanel.length === 0 && (
-                  <tr><td colSpan={2} className="muted text-xs px-3 py-2">No stock</td></tr>
+                  <tr><td colSpan={2} className="muted text-xs px-3 py-2">{t("No stock")}</td></tr>
                 )}
                 {stockPanel.map((s, idx) => {
                   const selected = panelLineIndex != null && lines[panelLineIndex]?.warehouseId === s.warehouseId;
@@ -157,7 +159,7 @@ export default function ChallanPage() {
                         background: selected ? "#d1fae5" : (idx % 2 === 0 ? "var(--surface)" : "var(--bg)"),
                         cursor: s.qty > 0 ? "pointer" : "default",
                       }}>
-                      <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId]?.name ?? s.warehouseId}</td>
+                      <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
                           style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
                     </tr>
@@ -173,23 +175,23 @@ export default function ChallanPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
         {!activeShopId && (
           <div className="field">
-            <label>Shop</label>
+            <label>{t("Shop")}</label>
             <select className="inp inp-shop mt-1" value={localShopId} onChange={(e) => setLocalShopId(e.target.value)}>
-              <option value="">Select shop…</option>
-              {shops.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              <option value="">{t("Select shop…")}</option>
+              {shops.map((s) => <option key={s.id} value={s.id}>{dn(s)}</option>)}
             </select>
           </div>
         )}
         <div className="field">
-          <label>Customer</label>
+          <label>{t("Customer")}</label>
           <SearchSelect options={customerOpts} value={customerId}
-            onChange={setCustomerId} placeholder="Search name or mobile…" />
+            onChange={setCustomerId} placeholder={t("Search name or mobile…")} />
         </div>
         {needsSalesperson && (
           <div className="field">
-            <label>Salesperson</label>
+            <label>{t("Salesperson")}</label>
             <SearchSelect options={salespersonOpts} value={salespersonId}
-              onChange={setSalespersonId} placeholder="Search…" />
+              onChange={setSalespersonId} placeholder={t("Search…")} />
           </div>
         )}
       </div>
@@ -202,11 +204,11 @@ export default function ChallanPage() {
           <table className="tbl w-full">
             <thead>
               <tr>
-                <th>Product</th>
-                <th style={{ width: 150 }}>Warehouse</th>
-                <th className="text-right" style={{ width: 100 }}>Qty</th>
-                <th className="text-right" style={{ width: 130 }}>Unit price</th>
-                <th className="text-right" style={{ width: 130 }}>Gross total</th>
+                <th>{t("Product")}</th>
+                <th style={{ width: 150 }}>{t("Warehouse")}</th>
+                <th className="text-right" style={{ width: 100 }}>{t("Qty")}</th>
+                <th className="text-right" style={{ width: 130 }}>{t("Unit price")}</th>
+                <th className="text-right" style={{ width: 130 }}>{t("Gross total")}</th>
                 <th style={{ width: 40 }}></th>
               </tr>
             </thead>
@@ -223,26 +225,26 @@ export default function ChallanPage() {
                   <tr key={i}>
                     <td className="align-top">
                       <SearchSelect options={productOpts} value={l.productId}
-                        onChange={(v) => selectProduct(i, v)} placeholder="Search name, code, supplier, mm…" />
+                        onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
                       <div className="text-[11px] mt-1 h-4 leading-4"
                         style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                         {hasBand
-                          ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}`
-                          : (p ? "no band set" : "")}
+                          ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}`
+                          : (p ? t("no band set") : "")}
                       </div>
                     </td>
                     <td className="align-top">
                       <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
-                        <option value="">Select…</option>
+                        <option value="">{t("Select…")}</option>
                         {stockedWarehouses.map((w) => (
                           <option key={w.id} value={w.id}>
-                            {w.name}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                            {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
                           </option>
                         ))}
                       </select>
                       <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
-                        {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
-                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                        {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
+                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
                       </div>
                     </td>
                     <td className="text-right align-top">
@@ -266,7 +268,7 @@ export default function ChallanPage() {
                     </td>
                     <td className="text-right">
                       {lines.length > 1 && (
-                        <button className="btn-icon btn-icon-del" title="Remove" onClick={() => removeLine(i)}>
+                        <button className="btn-icon btn-icon-del" title={t("Remove")} onClick={() => removeLine(i)}>
                           <TrashIcon />
                         </button>
                       )}
@@ -291,45 +293,45 @@ export default function ChallanPage() {
             return (
               <div key={i} className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs muted font-medium">Product</span>
+                  <span className="text-xs muted font-medium">{t("Product")}</span>
                   {lines.length > 1 && (
-                    <button onClick={() => removeLine(i)} title="Remove"
+                    <button onClick={() => removeLine(i)} title={t("Remove")}
                       className="text-[#9a2b22] hover:text-[#7a1c16] transition-colors">
                       <TrashIcon />
                     </button>
                   )}
                 </div>
                 <SearchSelect options={productOpts} value={l.productId}
-                  onChange={(v) => selectProduct(i, v)} placeholder="Search name, code, supplier, mm…" />
+                  onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
                 <div className="text-[11px] -mt-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                   {hasBand
-                    ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}`
-                    : (p ? "no band set" : "")}
+                    ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}`
+                    : (p ? t("no band set") : "")}
                 </div>
                 <div className="field">
-                  <label className="text-xs muted block mb-1">Warehouse</label>
+                  <label className="text-xs muted block mb-1">{t("Warehouse")}</label>
                   <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
-                    <option value="">Select…</option>
+                    <option value="">{t("Select…")}</option>
                     {stockedWarehouses.map((w) => (
                       <option key={w.id} value={w.id}>
-                        {w.name}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                        {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
                       </option>
                     ))}
                   </select>
                   <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
-                    {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
-                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                    {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
+                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="text-xs muted block mb-1">Qty</label>
+                    <label className="text-xs muted block mb-1">{t("Qty")}</label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
                       value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} />
                   </div>
                   <div>
                     <label className="text-xs block mb-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
-                      Unit price {band === "out" ? "✕" : ""}
+                      {t("Unit price")} {band === "out" ? "✕" : ""}
                     </label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
                       style={{ borderColor: band === "out" ? "#b3261e" : undefined }}
@@ -337,7 +339,7 @@ export default function ChallanPage() {
                       onKeyDown={(e) => e.key === "Enter" && i === lines.length - 1 && addLine()} />
                   </div>
                   <div>
-                    <label className="text-xs muted block mb-1">Total</label>
+                    <label className="text-xs muted block mb-1">{t("Total")}</label>
                     <div className="inp text-right tabular-nums font-medium bg-transparent border-transparent">
                       {grossTotal > 0 ? grossTotal.toFixed(2) : "—"}
                     </div>
@@ -349,21 +351,21 @@ export default function ChallanPage() {
         </div>
 
         <div className="px-4 py-3 border-t border-[var(--border)]">
-          <button className="btn-ghost" onClick={addLine}>+ Add line</button>
+          <button className="btn-ghost" onClick={addLine}>+ {t("Add line")}</button>
         </div>
       </div>
 
       {grandGross > 0 && (
         <div className="mb-4 flex justify-end">
           <div className="flex items-center gap-6">
-            <span className="text-sm muted font-semibold">Total</span>
+            <span className="text-sm muted font-semibold">{t("Total")}</span>
             <span className="tabular-nums font-semibold text-lg">{grandGross.toFixed(2)}</span>
           </div>
         </div>
       )}
 
       <button className="btn w-full sm:w-auto" onClick={submit} disabled={busy}>
-        {busy ? "Issuing…" : "Issue challan"}
+        {busy ? t("Issuing…") : t("Issue challan")}
       </button>
 
       {msg && (

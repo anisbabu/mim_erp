@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import { useI18n } from "@/lib/i18n";
 
 // takeNow: qty the customer picks up today ("" = all of it); the rest stays pending on the order
 type Line = { productId: string; warehouseId: string; qty: string; takeNow: string; unitPrice: string };
@@ -15,6 +16,7 @@ const takeNowQty = (l: Line) => (l.takeNow === "" ? Number(l.qty) || 0 : Number(
 
 export default function NewSalePage() {
   const { user, activeShopId } = useAuth();
+  const { t, lang, dn } = useI18n();
   const [products, setProducts]     = useState<Product[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [shops, setShops]           = useState<Shop[]>([]);
@@ -61,20 +63,20 @@ export default function NewSalePage() {
   const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
   const supplierById  = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
   const customerOpts: Option[] = useMemo(
-    () => customers.map((c) => ({ value: c.id, label: `${c.name} (${c.type})`, sublabel: c.mobile })),
-    [customers]);
+    () => customers.map((c) => ({ value: c.id, label: `${dn(c)} (${t(c.type)})`, sublabel: c.mobile })),
+    [customers, lang]);
   const needsSalesperson = user?.role !== "SALESPERSON";
   const salespersonOpts: Option[] = useMemo(
     () => salespeople.map((s) => ({ value: s.id, label: s.fullName || s.username })),
     [salespeople]);
   const productOpts: Option[] = useMemo(
     () => products.map((p) => {
-      const supplierName = p.supplierId ? supplierById[p.supplierId]?.name : undefined;
+      const supplierName = p.supplierId && supplierById[p.supplierId] ? dn(supplierById[p.supplierId]) : undefined;
       const thickness = p.thicknessLabel ?? (p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined);
       const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
-      return { value: p.id, label: p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub };
+      return { value: p.id, label: lang === "bn" && p.nameBn ? p.nameBn : p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub };
     }),
-    [products, supplierById]);
+    [products, supplierById, lang]);
 
   async function selectProduct(i: number, productId: string) {
     update(i, { productId, warehouseId: "" });
@@ -132,15 +134,15 @@ export default function NewSalePage() {
       const committed = waiting.reduce((s, x) => s + Number(x.qtyPending), 0);
       if (onHand - committed >= want) return [];
       const p = productById[pid];
-      return [{ pid, name: p?.fullName || p?.name || pid, onHand, committed, want, waiting }];
+      return [{ pid, name: (lang === "bn" && p?.nameBn) || p?.fullName || p?.name || pid, onHand, committed, want, waiting }];
     });
-  }, [lines, committedByProduct, stockByProduct, productById]);
+  }, [lines, committedByProduct, stockByProduct, productById, lang]);
 
   async function submit() {
     setMsg(null);
-    if (!shopId)      { setMsg({ kind: "err", text: "Select a shop." }); return; }
-    if (!customerId)  { setMsg({ kind: "err", text: "Select a customer." }); return; }
-    if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: "Select a salesperson." }); return; }
+    if (!shopId)      { setMsg({ kind: "err", text: t("Select a shop.") }); return; }
+    if (!customerId)  { setMsg({ kind: "err", text: t("Select a customer.") }); return; }
+    if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: t("Select a salesperson.") }); return; }
     const validLines = lines.filter((l) => l.productId && Number(l.qty) > 0);
     const sumGross = validLines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
     let assigned = 0;
@@ -156,15 +158,15 @@ export default function NewSalePage() {
       return { productId: l.productId, warehouseId: l.warehouseId || null, qty: Number(l.qty),
                qtyNow: l.warehouseId ? takeNowQty(l) : null, unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
     });
-    if (!allocations.length) { setMsg({ kind: "err", text: "Add at least one line with qty." }); return; }
+    if (!allocations.length) { setMsg({ kind: "err", text: t("Add at least one line with qty.") }); return; }
     if (validLines.some((l) => takeNowQty(l) < 0 || takeNowQty(l) > Number(l.qty))) {
-      setMsg({ kind: "err", text: "Take now must be between 0 and the ordered qty." }); return;
+      setMsg({ kind: "err", text: t("Take now must be between 0 and the ordered qty.") }); return;
     }
     if (anyOutOfBand && !overrideBy.trim()) {
-      setMsg({ kind: "err", text: "A price is out of band — enter the authoriser name to override." }); return;
+      setMsg({ kind: "err", text: t("A price is out of band — enter the authoriser name to override.") }); return;
     }
     if (anyDiscount && !discountBy.trim()) {
-      setMsg({ kind: "err", text: "Discount requires an authoriser — enter their name." }); return;
+      setMsg({ kind: "err", text: t("Discount requires an authoriser — enter their name.") }); return;
     }
     setBusy(true);
     try {
@@ -178,7 +180,7 @@ export default function NewSalePage() {
         deliveryMobile:      deliveryMobile.trim() || null,
       });
       const margin = (res.totalValue - res.totalCost).toFixed(2);
-      setMsg({ kind: "ok", text: `Sale ${res.soNo} created · ${res.challanIds.length} challan(s) · margin ${margin}` });
+      setMsg({ kind: "ok", text: `${t("Sale")} ${res.soNo} ${t("created")} · ${res.challanIds.length} ${t("challan(s)")} · ${t("margin")} ${margin}` });
       setDiscount(""); setTransport(""); setDeliveryAddress(""); setDeliveryMobile("");
       if (panelProductId) {
         const s = await endpoints.availability(panelProductId);
@@ -193,19 +195,19 @@ export default function NewSalePage() {
     <div>
       {/* Header + stock panel */}
       <div className="flex items-start justify-between gap-4 mb-5">
-        <h1 className="page-title">Sales invoice</h1>
+        <h1 className="page-title">{t("Sales invoice")}</h1>
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: "#0f766e" }}>
-                  <th className="text-left text-xs font-semibold px-3 py-2 text-white">Warehouse</th>
-                  <th className="text-right text-xs font-semibold px-3 py-2 text-white">Qty</th>
+                  <th className="text-left text-xs font-semibold px-3 py-2 text-white">{t("Warehouse")}</th>
+                  <th className="text-right text-xs font-semibold px-3 py-2 text-white">{t("Qty")}</th>
                 </tr>
               </thead>
               <tbody>
                 {stockPanel.length === 0 && (
-                  <tr><td colSpan={2} className="muted text-xs px-3 py-2">No stock</td></tr>
+                  <tr><td colSpan={2} className="muted text-xs px-3 py-2">{t("No stock")}</td></tr>
                 )}
                 {stockPanel.map((s, idx) => {
                   const selected = panelLineIndex != null && lines[panelLineIndex]?.warehouseId === s.warehouseId;
@@ -216,7 +218,7 @@ export default function NewSalePage() {
                         background: selected ? "#d1fae5" : (idx % 2 === 0 ? "var(--surface)" : "var(--bg)"),
                         cursor: s.qty > 0 ? "pointer" : "default",
                       }}>
-                      <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId]?.name ?? s.warehouseId}</td>
+                      <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
                           style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
                     </tr>
@@ -232,40 +234,40 @@ export default function NewSalePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         {!activeShopId && (
           <div className="field">
-            <label>Shop</label>
+            <label>{t("Shop")}</label>
             <select className="inp inp-shop" value={localShopId} onChange={(e) => setLocalShopId(e.target.value)}>
-              <option value="">Select shop…</option>
-              {shops.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              <option value="">{t("Select shop…")}</option>
+              {shops.map((s) => <option key={s.id} value={s.id}>{dn(s)}</option>)}
             </select>
           </div>
         )}
         <div className="field">
-          <label>Customer</label>
+          <label>{t("Customer")}</label>
           <SearchSelect options={customerOpts} value={customerId}
-            onChange={setCustomerId} placeholder="Search name or mobile…" />
+            onChange={setCustomerId} placeholder={t("Search name or mobile…")} />
         </div>
         <div className="field">
-          <label>Delivery address</label>
+          <label>{t("Delivery address")}</label>
           <input className="inp" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)}
-            placeholder="Leave blank to use customer's address" />
+            placeholder={t("Leave blank to use customer's address")} />
         </div>
         <div className="field">
-          <label>Delivery mobile</label>
+          <label>{t("Delivery mobile")}</label>
           <input className="inp" value={deliveryMobile} onChange={(e) => setDeliveryMobile(e.target.value)}
-            placeholder="Leave blank to use customer's mobile" />
+            placeholder={t("Leave blank to use customer's mobile")} />
         </div>
         {needsSalesperson && (
           <div className="field">
-            <label>Salesperson</label>
+            <label>{t("Salesperson")}</label>
             <SearchSelect options={salespersonOpts} value={salespersonId}
-              onChange={setSalespersonId} placeholder="Search…" />
+              onChange={setSalespersonId} placeholder={t("Search…")} />
           </div>
         )}
         <div className="field">
-          <label>Payment</label>
+          <label>{t("Payment")}</label>
           <select className="inp" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value as "CASH" | "CREDIT")}>
-            <option value="CASH">Cash</option>
-            <option value="CREDIT">Credit (party)</option>
+            <option value="CASH">{t("Cash")}</option>
+            <option value="CREDIT">{t("Credit (party)")}</option>
           </select>
         </div>
       </div>
@@ -278,12 +280,12 @@ export default function NewSalePage() {
           <table className="tbl w-full">
             <thead>
               <tr>
-                <th>Product</th>
-                <th style={{ width: 150 }}>Warehouse</th>
-                <th className="text-right" style={{ width: 90 }}>Qty</th>
-                <th className="text-right" style={{ width: 90 }} title="How much the customer takes today; the rest stays pending">Take now</th>
-                <th className="text-right" style={{ width: 110 }}>Unit price</th>
-                <th className="text-right" style={{ width: 120 }}>Gross total</th>
+                <th>{t("Product")}</th>
+                <th style={{ width: 150 }}>{t("Warehouse")}</th>
+                <th className="text-right" style={{ width: 90 }}>{t("Qty")}</th>
+                <th className="text-right" style={{ width: 90 }} title={t("How much the customer takes today; the rest stays pending")}>{t("Take now")}</th>
+                <th className="text-right" style={{ width: 110 }}>{t("Unit price")}</th>
+                <th className="text-right" style={{ width: 120 }}>{t("Gross total")}</th>
                 <th style={{ width: 40 }}></th>
               </tr>
             </thead>
@@ -299,25 +301,25 @@ export default function NewSalePage() {
                   <tr key={i}>
                     <td className="align-top">
                       <SearchSelect options={productOpts} value={l.productId}
-                        onChange={(v) => selectProduct(i, v)} placeholder="Search name, code, supplier, mm…" />
+                        onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
                       <div className="text-[11px] mt-1 h-4 leading-4"
                         style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
-                        {p ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}` : ""}
+                        {p ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}` : ""}
                       </div>
                     </td>
                     <td className="align-top">
                       <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
-                        <option value="">Select…</option>
+                        <option value="">{t("Select…")}</option>
                         {stockedWarehouses.map((w) => (
                           <option key={w.id} value={w.id}>
-                            {w.name}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                            {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
                           </option>
                         ))}
                       </select>
                       <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
-                        {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
-                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
-                        {!l.warehouseId && l.productId && Number(l.qty) > 0 ? "all pending (no warehouse)" : ""}
+                        {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
+                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                        {!l.warehouseId && l.productId && Number(l.qty) > 0 ? t("all pending (no warehouse)") : ""}
                       </div>
                     </td>
                     <td className="text-right align-top">
@@ -332,7 +334,7 @@ export default function NewSalePage() {
                         disabled={!l.warehouseId}
                         onChange={(e) => update(i, { takeNow: e.target.value })} />
                       <div className="text-[11px] mt-1 h-4 leading-4 whitespace-nowrap" style={{ color: "#b4690e" }}>
-                        {l.warehouseId && Number(l.qty) - takeNowQty(l) > 0 ? `${Number(l.qty) - takeNowQty(l)} pending` : ""}
+                        {l.warehouseId && Number(l.qty) - takeNowQty(l) > 0 ? `${Number(l.qty) - takeNowQty(l)} ${t("pending")}` : ""}
                       </div>
                     </td>
                     <td className="text-right align-top">
@@ -353,7 +355,7 @@ export default function NewSalePage() {
                     </td>
                     <td className="text-right align-top pt-2">
                       {lines.length > 1 && (
-                        <button className="btn-icon btn-icon-del" title="Remove" onClick={() => removeLine(i)}>
+                        <button className="btn-icon btn-icon-del" title={t("Remove")} onClick={() => removeLine(i)}>
                           <TrashIcon />
                         </button>
                       )}
@@ -378,60 +380,60 @@ export default function NewSalePage() {
             return (
               <div key={i} className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs muted font-medium">Product</span>
+                  <span className="text-xs muted font-medium">{t("Product")}</span>
                   {lines.length > 1 && (
-                    <button onClick={() => removeLine(i)} title="Remove"
+                    <button onClick={() => removeLine(i)} title={t("Remove")}
                       className="text-[#9a2b22] hover:text-[#7a1c16] transition-colors">
                       <TrashIcon />
                     </button>
                   )}
                 </div>
                 <SearchSelect options={productOpts} value={l.productId}
-                  onChange={(v) => selectProduct(i, v)} placeholder="Search name, code, supplier, mm…" />
+                  onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
                 <div className="text-[11px] -mt-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
-                  {p ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}` : ""}
+                  {p ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}` : ""}
                 </div>
                 <div className="field">
-                  <label className="text-xs muted block mb-1">Warehouse</label>
+                  <label className="text-xs muted block mb-1">{t("Warehouse")}</label>
                   <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
-                    <option value="">Select…</option>
+                    <option value="">{t("Select…")}</option>
                     {stockedWarehouses.map((w) => (
                       <option key={w.id} value={w.id}>
-                        {w.name}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                        {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
                       </option>
                     ))}
                   </select>
                   <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
-                    {l.productId && lineStock && stockedWarehouses.length === 0 ? "no stock" : ""}
-                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `on hand: ${qtyByWarehouse[l.warehouseId]}` : ""}
-                    {!l.warehouseId && l.productId && Number(l.qty) > 0 ? "all pending (no warehouse)" : ""}
+                    {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
+                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                    {!l.warehouseId && l.productId && Number(l.qty) > 0 ? t("all pending (no warehouse)") : ""}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs muted block mb-1">Qty</label>
+                    <label className="text-xs muted block mb-1">{t("Qty")}</label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
                       value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} />
                   </div>
                   <div>
-                    <label className="text-xs muted block mb-1">Take now</label>
+                    <label className="text-xs muted block mb-1">{t("Take now")}</label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
                       value={l.warehouseId ? l.takeNow : ""} placeholder={l.warehouseId ? l.qty : "0"} disabled={!l.warehouseId}
                       onChange={(e) => update(i, { takeNow: e.target.value })} />
                     <div className="text-[11px] mt-0.5 h-4 leading-4" style={{ color: "#b4690e" }}>
-                      {l.warehouseId && Number(l.qty) - takeNowQty(l) > 0 ? `${Number(l.qty) - takeNowQty(l)} pending` : ""}
+                      {l.warehouseId && Number(l.qty) - takeNowQty(l) > 0 ? `${Number(l.qty) - takeNowQty(l)} ${t("pending")}` : ""}
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs muted block mb-1">Unit price</label>
+                    <label className="text-xs muted block mb-1">{t("Unit price")}</label>
                     <input className="inp text-right tabular-nums w-full"
                       style={{ borderColor: band === "out" ? "#b3261e" : undefined }}
                       type="number" min={0} value={l.unitPrice}
                       onChange={(e) => update(i, { unitPrice: e.target.value })} />
-                    {band === "out" && <div className="text-[11px] mt-0.5" style={{ color: "#b3261e" }}>✕ out of band</div>}
+                    {band === "out" && <div className="text-[11px] mt-0.5" style={{ color: "#b3261e" }}>✕ {t("out of band")}</div>}
                   </div>
                   <div>
-                    <label className="text-xs muted block mb-1">Gross total</label>
+                    <label className="text-xs muted block mb-1">{t("Gross total")}</label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
                       value={grossTotal ? grossTotal.toFixed(2) : ""}
                       onChange={(e) => { const t = Number(e.target.value), q = Number(l.qty); if (q > 0) update(i, { unitPrice: String(t / q) }); }}
@@ -444,24 +446,24 @@ export default function NewSalePage() {
         </div>
 
         <div className="px-4 py-3 border-t border-[var(--border)]">
-          <button className="btn-ghost" onClick={addLine}>+ Add line</button>
+          <button className="btn-ghost" onClick={addLine}>+ {t("Add line")}</button>
         </div>
       </div>
 
       {grandGross > 0 && (
         <div className="mb-4 flex justify-end">
           <div style={{ display: "grid", gridTemplateColumns: "auto auto", rowGap: 6, columnGap: 24, alignItems: "center" }}>
-            <span className="text-xs muted text-right">Gross</span>
+            <span className="text-xs muted text-right">{t("Gross")}</span>
             <span className="tabular-nums text-right">{grandGross.toFixed(2)}</span>
-            <span className="text-xs muted text-right">Discount</span>
+            <span className="text-xs muted text-right">{t("Discount")}</span>
             <input className="inp text-right tabular-nums" style={{ width: 120 }}
               type="number" min={0} max={grandGross} placeholder="0"
               value={discount} onChange={(e) => setDiscount(e.target.value)} />
-            <span className="text-xs muted text-right">Transport &amp; Lifting</span>
+            <span className="text-xs muted text-right">{t("Transport & Lifting")}</span>
             <input className="inp text-right tabular-nums" style={{ width: 120 }}
               type="number" min={0} placeholder="0"
               value={transport} onChange={(e) => setTransport(e.target.value)} />
-            <span className="text-xs muted font-semibold text-right">Net total</span>
+            <span className="text-xs muted font-semibold text-right">{t("Net total")}</span>
             <span className="tabular-nums font-bold text-right text-base" style={{ color: "#0f766e" }}>
               {netTotal.toFixed(2)}
             </span>
@@ -471,12 +473,12 @@ export default function NewSalePage() {
 
       {anyDiscount && (
         <div className="mb-4">
-          <label className="text-xs muted">Discount authorised by <span className="text-[#9a2b22]">*</span></label>
+          <label className="text-xs muted">{t("Discount authorised by")} <span className="text-[#9a2b22]">*</span></label>
           <select className="inp mt-1" style={{ maxWidth: 320, borderColor: !discountBy ? "#b4690e" : undefined }}
             value={discountBy} onChange={(e) => setDiscountBy(e.target.value)}>
-            <option value="">Select authoriser…</option>
+            <option value="">{t("Select authoriser…")}</option>
             {authorisers.map((u) => (
-              <option key={u.id} value={u.fullName || u.username}>{u.fullName || u.username} ({u.role})</option>
+              <option key={u.id} value={u.fullName || u.username}>{u.fullName || u.username} ({t(u.role)})</option>
             ))}
           </select>
         </div>
@@ -484,9 +486,9 @@ export default function NewSalePage() {
 
       {(anyOutOfBand || paymentMode === "CREDIT") && (
         <div className="mb-4">
-          <label className="text-xs muted">Authoriser (required for out-of-band price or over-limit credit)</label>
+          <label className="text-xs muted">{t("Authoriser (required for out-of-band price or over-limit credit)")}</label>
           <input className="inp mt-1" style={{ maxWidth: 320 }}
-            placeholder="Manager / authority name"
+            placeholder={t("Manager / authority name")}
             value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)} />
         </div>
       )}
@@ -495,16 +497,16 @@ export default function NewSalePage() {
         <div className="mb-4 text-sm rounded-lg px-4 py-3" style={{ background: "#fdf3e1", color: "#7a4a06" }}>
           {pendingWarnings.map((w) => (
             <div key={w.pid} className="mb-1 last:mb-0">
-              ⚠ <b>{w.name}</b>: on hand {w.onHand}, already sold but not picked up {w.committed}
-              {" "}(waiting: {w.waiting.map((c) => `${c.customerName} ${Number(c.qtyPending)} (${c.soNo})`).join(", ")}).
-              {" "}Taking {w.want} now may leave them short. You can still sell, at your own risk.
+              ⚠ <b>{w.name}</b>: {t("on hand")} {w.onHand}, {t("already sold but not picked up")} {w.committed}
+              {" "}({t("waiting:")} {w.waiting.map((c) => `${c.customerName} ${Number(c.qtyPending)} (${c.soNo})`).join(", ")}).
+              {" "}{t("Taking")} {w.want} {t("now may leave them short. You can still sell, at your own risk.")}
             </div>
           ))}
         </div>
       )}
 
       <button className="btn w-full sm:w-auto" onClick={submit} disabled={busy}>
-        {busy ? "Creating…" : "Create invoice & deliver"}
+        {busy ? t("Creating…") : t("Create invoice & deliver")}
       </button>
 
       {msg && (

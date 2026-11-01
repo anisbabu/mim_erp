@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { endpoints, type Shop, type Account } from "@/lib/api";
 
 export default function PettyCashPage() {
+  const { t, dn } = useI18n();
   const [shops, setShops] = useState<Shop[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [shopId, setShopId] = useState("");
@@ -20,44 +22,44 @@ export default function PettyCashPage() {
   async function submit() {
     setMsg(null);
     if (!shopId || !expenseAccountId || !(Number(amount) > 0)) {
-      setMsg({ kind: "err", text: "Shop, expense account and amount are required." }); return;
+      setMsg({ kind: "err", text: t("Shop, expense account and amount are required.") }); return;
     }
     setBusy(true);
     try {
       const v: any = await endpoints.pettyCash({ shopId, expenseAccountId, amount: Number(amount), description });
-      setMsg({ kind: "ok", text: `Voucher ${v.voucherNo} posted (Dr expense / Cr petty cash).` });
+      setMsg({ kind: "ok", text: `${t("Voucher")} ${v.voucherNo} ${t("posted (Dr expense / Cr petty cash).")}` });
       setAmount(""); setDescription("");
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
   }
 
   return (
     <div className="max-w-lg">
-      <h1 className="page-title mb-1">Petty cash voucher</h1>
-      <p className="text-sm text-[#6b6960] mb-6">Record a small shop expense paid from the petty-cash float (imprest system).</p>
+      <h1 className="page-title mb-1">{t("Petty cash voucher")}</h1>
+      <p className="text-sm text-[#6b6960] mb-6">{t("Record a small shop expense paid from the petty-cash float (imprest system).")}</p>
       <div className="space-y-4">
         <div>
-          <label className="text-xs text-[#6b6960]">Shop</label>
+          <label className="text-xs text-[#6b6960]">{t("Shop")}</label>
           <select className="inp inp-shop mt-1" value={shopId} onChange={(e) => setShopId(e.target.value)}>
-            <option value="">Select shop…</option>
-            {shops.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            <option value="">{t("Select shop…")}</option>
+            {shops.map((s) => <option key={s.id} value={s.id}>{dn(s)}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs text-[#6b6960]">Expense account</label>
+          <label className="text-xs text-[#6b6960]">{t("Expense account")}</label>
           <select className="inp mt-1" value={expenseAccountId} onChange={(e) => setExpenseAccountId(e.target.value)}>
-            <option value="">Select…</option>
-            {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} · {a.name}</option>)}
+            <option value="">{t("Select…")}</option>
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.code} · {dn(a)}</option>)}
           </select>
         </div>
         <div>
-          <label className="text-xs text-[#6b6960]">Amount</label>
+          <label className="text-xs text-[#6b6960]">{t("Amount")}</label>
           <input className="inp mt-1 text-right tabular-nums" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
         </div>
         <div>
-          <label className="text-xs text-[#6b6960]">Description</label>
+          <label className="text-xs text-[#6b6960]">{t("Description")}</label>
           <input className="inp mt-1" value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
-        <button className="btn" onClick={submit} disabled={busy}>{busy ? "Posting…" : "Post voucher"}</button>
+        <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Posting…") : t("Post voucher")}</button>
       </div>
       {msg && (
         <div className="mt-4 text-sm rounded-lg px-4 py-3"

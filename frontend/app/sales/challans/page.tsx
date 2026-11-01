@@ -2,10 +2,12 @@
 import { useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type DeliveryChallan, type Customer } from "@/lib/api";
 import { beep } from "@/lib/beep";
+import { useI18n } from "@/lib/i18n";
 
 const PAGE_SIZE = 20;
 
 export default function ChallanListPage() {
+  const { t, dn } = useI18n();
   const [challans, setChallans] = useState<DeliveryChallan[]>([]);
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [search, setSearch] = useState("");
@@ -85,11 +87,11 @@ export default function ChallanListPage() {
 
   return (
     <div>
-      <h1 className="page-title mb-4">Challans</h1>
+      <h1 className="page-title mb-4">{t("Challans")}</h1>
 
       <input
         className="inp mb-4 max-w-sm"
-        placeholder="Search DC no, customer, mobile, date…"
+        placeholder={t("Search DC no, customer, mobile, date…")}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
@@ -97,11 +99,11 @@ export default function ChallanListPage() {
       <div className="border border-line rounded-xl bg-surface overflow-hidden">
         <div className="table-wrap">
         <table className="tbl">
-          <thead><tr><th>DC no</th><th>Customer</th><th>Date</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>{t("DC no")}</th><th>{t("Customer")}</th><th>{t("Date")}</th><th>{t("Status")}</th><th></th></tr></thead>
           <tbody>
             {pageItems.length === 0 && (
               <tr><td colSpan={5} className="text-[var(--muted)]">
-                {search ? "No matching challans." : "No challans yet."}
+                {search ? t("No matching challans.") : t("No challans yet.")}
               </td></tr>
             )}
             {pageItems.map((dc) => {
@@ -111,7 +113,7 @@ export default function ChallanListPage() {
                 <tr key={dc.id}>
                   <td className="font-mono text-[13px] text-brand">{dc.dcNo}</td>
                   <td>
-                    <div>{cust?.name ?? "—"}</div>
+                    <div>{cust ? dn(cust) : "—"}</div>
                     {cust?.mobile && (
                       <div className="text-[12px] text-[var(--muted)]">{cust.mobile}</div>
                     )}
@@ -123,22 +125,22 @@ export default function ChallanListPage() {
                         background: dc.status === "ISSUED" ? "var(--chip-open-bg)" : "var(--chip-other-bg)",
                         color:      dc.status === "ISSUED" ? "var(--chip-open-fg)" : "var(--chip-other-fg)",
                       }}>
-                      {dc.status}
+                      {t(dc.status)}
                     </span>
                   </td>
                   <td className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="btn-ghost btn-sm" disabled={loading} title="Open / Print"
+                      <button className="btn-ghost btn-sm" disabled={loading} title={t("Open / Print")}
                         onClick={() => openChallan(dc.id)}>
-                        {loading ? "…" : "🖨 Print"}
+                        {loading ? "…" : `🖨 ${t("Print")}`}
                       </button>
-                      <button className="btn-ghost btn-sm" disabled={loading} title="Download PDF"
+                      <button className="btn-ghost btn-sm" disabled={loading} title={t("Download PDF")}
                         onClick={() => downloadChallan(dc.id, dc.dcNo)}>
                         ↓ PDF
                       </button>
-                      <button className="btn btn-sm" disabled={loading} title="Share"
+                      <button className="btn btn-sm" disabled={loading} title={t("Share")}
                         onClick={() => shareChallan(dc.id, dc.dcNo)}>
-                        ↗ Share
+                        ↗ {t("Share")}
                       </button>
                     </div>
                   </td>
@@ -152,14 +154,14 @@ export default function ChallanListPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm text-[var(--muted)]">
-          <span>{filtered.length} challans · page {page} of {totalPages}</span>
+          <span>{filtered.length} {t("challans")} · {t("page")} {page} {t("of")} {totalPages}</span>
           <div className="flex gap-2">
             <button className="btn-ghost px-3 py-1"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}>← Prev</button>
+              disabled={page === 1}>← {t("Prev")}</button>
             <button className="btn-ghost px-3 py-1"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}>Next →</button>
+              disabled={page === totalPages}>{t("Next")} →</button>
           </div>
         </div>
       )}

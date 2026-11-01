@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { endpoints, fmtDate, type PurchaseOrder, type Supplier } from "@/lib/api";
 import { ReceiveIcon } from "@/components/Icons";
+import { useI18n } from "@/lib/i18n";
 
 const PAGE_SIZE = 20;
 
 export default function PoListPage() {
+  const { t, dn } = useI18n();
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Record<string, Supplier>>({});
   const [search, setSearch] = useState("");
@@ -44,13 +46,13 @@ export default function PoListPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="page-title">Purchase orders</h1>
-        <Link href="/purchase/orders/new" className="btn">New purchase order</Link>
+        <h1 className="page-title">{t("Purchase orders")}</h1>
+        <Link href="/purchase/orders/new" className="btn">{t("New purchase order")}</Link>
       </div>
 
       <input
         className="inp mb-4 max-w-sm"
-        placeholder="Search PO no, supplier, mobile, date…"
+        placeholder={t("Search PO no, supplier, mobile, date…")}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
@@ -59,16 +61,16 @@ export default function PoListPage() {
         <div className="table-wrap">
         <table className="tbl">
           <thead><tr>
-            <th style={{ textAlign: "center" }}>PO no</th>
-            <th style={{ textAlign: "center" }}>Supplier</th>
-            <th style={{ textAlign: "center" }}>Date</th>
-            <th style={{ textAlign: "center" }}>Status</th>
-            <th style={{ textAlign: "center" }}>Receive</th>
+            <th style={{ textAlign: "center" }}>{t("PO no")}</th>
+            <th style={{ textAlign: "center" }}>{t("Supplier")}</th>
+            <th style={{ textAlign: "center" }}>{t("Date")}</th>
+            <th style={{ textAlign: "center" }}>{t("Status")}</th>
+            <th style={{ textAlign: "center" }}>{t("Receive")}</th>
           </tr></thead>
           <tbody>
             {pageItems.length === 0 && (
               <tr><td colSpan={5} className="text-[var(--muted)]">
-                {search ? "No matching orders." : "No purchase orders yet."}
+                {search ? t("No matching orders.") : t("No purchase orders yet.")}
               </td></tr>
             )}
             {pageItems.map((p) => {
@@ -78,7 +80,7 @@ export default function PoListPage() {
                     onClick={() => router.push(`/purchase/orders/${p.id}`)}>
                   <td className="font-mono text-[13px] text-brand text-center">{p.poNo}</td>
                   <td className="text-center">
-                    <div>{sup?.name ?? "—"}</div>
+                    <div>{sup ? dn(sup) : "—"}</div>
                     {sup?.mobile && (
                       <div className="text-[12px] text-[var(--muted)]">{sup.mobile}</div>
                     )}
@@ -88,12 +90,12 @@ export default function PoListPage() {
                     <span className="text-xs px-2 py-0.5 rounded-full"
                       style={{ background: p.status === "OPEN" ? "var(--chip-open-bg)" : "var(--chip-other-bg)",
                                color:      p.status === "OPEN" ? "var(--chip-open-fg)" : "var(--chip-other-fg)" }}>
-                      {p.status}
+                      {t(p.status)}
                     </span>
                   </td>
                   <td className="text-center">
                     {p.status === "OPEN" && (
-                      <Link className="btn-icon btn-icon-edit" title="Receive"
+                      <Link className="btn-icon btn-icon-edit" title={t("Receive")}
                         href={`/purchase/receive?poId=${p.id}`}
                         onClick={(e) => e.stopPropagation()}>
                         <ReceiveIcon size={16} />
@@ -110,14 +112,14 @@ export default function PoListPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm text-[var(--muted)]">
-          <span>{filtered.length} orders · page {page} of {totalPages}</span>
+          <span>{filtered.length} {t("orders")} · {t("page")} {page} {t("of")} {totalPages}</span>
           <div className="flex gap-2">
             <button className="btn-ghost px-3 py-1"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}>← Prev</button>
+              disabled={page === 1}>← {t("Prev")}</button>
             <button className="btn-ghost px-3 py-1"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}>Next →</button>
+              disabled={page === totalPages}>{t("Next")} →</button>
           </div>
         </div>
       )}
