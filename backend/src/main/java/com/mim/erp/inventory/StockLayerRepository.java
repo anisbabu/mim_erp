@@ -90,17 +90,22 @@ public interface StockLayerRepository extends JpaRepository<StockLayer, UUID> {
     """)
     List<VarianceRow> varianceCompanyWide();
 
-    /** Stock on hand grouped by supplier + product (joins across purchase module). */
+    /**
+     * Stock on hand grouped by supplier + product. A layer received on a GRN takes the
+     * PO's supplier; opening stock (no GRN) falls back to the product's own supplier.
+     * supplierId is null when neither is known.
+     */
     @Query(value = """
-        SELECT po.supplier_id AS supplierId, sl.product_id AS productId,
+        SELECT COALESCE(po.supplier_id, p.supplier_id) AS supplierId, sl.product_id AS productId,
                SUM(sl.qty_remaining) AS qty, SUM(sl.qty_remaining * sl.unit_cost) AS value
         FROM stock_layer sl
-        JOIN grn_line gl ON gl.id = sl.grn_line_id
-        JOIN goods_receipt gr ON gr.id = gl.grn_id
-        JOIN purchase_order po ON po.id = gr.po_id
+        JOIN product p ON p.id = sl.product_id
+        LEFT JOIN grn_line gl ON gl.id = sl.grn_line_id
+        LEFT JOIN goods_receipt gr ON gr.id = gl.grn_id
+        LEFT JOIN purchase_order po ON po.id = gr.po_id
         WHERE sl.qty_remaining > 0
-        GROUP BY po.supplier_id, sl.product_id
-        ORDER BY po.supplier_id, sl.product_id
+        GROUP BY COALESCE(po.supplier_id, p.supplier_id), sl.product_id
+        ORDER BY COALESCE(po.supplier_id, p.supplier_id) NULLS LAST, sl.product_id
     """, nativeQuery = true)
     List<SupplierStockRow> stockBySupplier();
 

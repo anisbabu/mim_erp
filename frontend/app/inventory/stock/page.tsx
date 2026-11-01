@@ -61,7 +61,7 @@ export default function StockPage() {
 
   const pName = (id: string) => products[id]?.fullName ?? products[id]?.name ?? id;
   const wName = (id: string) => warehouses[id]?.name ?? id;
-  const sName = (id: string) => suppliers[id]?.name ?? id;
+  const sName = (id: string | null) => (id ? suppliers[id]?.name ?? id : "No supplier");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

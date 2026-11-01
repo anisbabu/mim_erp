@@ -135,7 +135,7 @@ export type PickupView = { dcId: string; dcNo: string; date: string; warehouseNa
 
 export type WarehouseStock = { warehouseId: string; qty: number };
 export type StockRow = { productId: string; warehouseId: string; qty: number; value: number };
-export type SupplierStockRow = { supplierId: string; productId: string; qty: number; value: number };
+export type SupplierStockRow = { supplierId: string | null; productId: string; qty: number; value: number };
 export type StockStatusRow = { productId: string; onHand: number; committed: number; available: number; onOrder: number; value: number };
 export type CommittedRow = { soId: string; soNo: string; orderDate: string; customerId: string; customerName: string; qtyPending: number };
 export type StockSummaryRow = {
