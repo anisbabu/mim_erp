@@ -165,13 +165,14 @@ export type ChequeStatus = "PENDING" | "HOLD" | "CASHED" | "POSTED" | "BOUNCED" 
 export type Cheque = {
   id: string; paymentId?: string; chequeNo: string; bankName?: string; branchName?: string; customerId: string;
   amount: number; receiveDate: string; maturityDate: string;
-  status: ChequeStatus; note?: string;
+  status: ChequeStatus; note?: string; depositAccount?: string;
 };
+export type BounceReason = "INSUFFICIENT_FUNDS" | "SIGNATURE_MISMATCH" | "OTHER";
 
-export type ChequeEventType = "RECEIVED" | "DATE_CHANGED" | "HOLD" | "RESUMED" | "CASHED" | "POSTED" | "BOUNCED" | "EDITED" | "CANCELLED";
+export type ChequeEventType = "RECEIVED" | "DATE_CHANGED" | "HOLD" | "RESUMED" | "CASHED" | "POSTED" | "BOUNCED" | "EDITED" | "CANCELLED" | "RESUBMITTED";
 export type ChequeEvent = {
   id: string; chequeId: string; eventType: ChequeEventType; eventDate: string;
-  oldMaturityDate?: string; newMaturityDate?: string; requestedBy?: string; note?: string; changes?: string;
+  oldMaturityDate?: string; newMaturityDate?: string; requestedBy?: string; note?: string; changes?: string; reason?: BounceReason;
   userName?: string; createdAt: string;
 };
 
@@ -305,6 +306,18 @@ export const endpoints = {
   chequeStep:   (id: string, step: "hold" | "resume" | "cash" | "post" | "bounce" | "cancel", b: unknown) =>
     api.post<Cheque>(`/api/accounting/cheques/${id}/${step}`, b),
   chequeHistory: (id: string) => api.get<ChequeEvent[]>(`/api/accounting/cheques/${id}/history`),
+  chequeResubmit: (id: string, b: unknown) => api.post<Cheque>(`/api/accounting/cheques/${id}/resubmit`, b),
+  chequeBankAccounts: () => api.get<Account[]>("/api/accounting/cheques/bank-accounts"),
+  customerBalance: (customerId: string) =>
+    api.get<{ balance: number }>(`/api/accounting/cheques/customer-balance/${customerId}`),
+  chequeReceiptBlob: async (id: string): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/accounting/cheques/${id}/receipt`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Failed to generate cheque receipt");
+    return res.blob();
+  },
 
   // auth + users
   login: (username: string, password: string) =>

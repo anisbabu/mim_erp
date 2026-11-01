@@ -22,12 +22,14 @@ import java.util.UUID;
  *   PENDING → CASHED (bank confirmed) → POSTED (Dr Bank / Cr customer AR),
  *   or BOUNCED at any open step. Bouncing a POSTED cheque reverses the entry.
  *   A PENDING or HOLD cheque entered wrongly can be EDITED or CANCELLED.
+ *   A BOUNCED cheque can be RESUBMITTED (back to PENDING) when the customer says so.
  * Every step is logged in cheque_event with date, who and why.
  */
 @Service
 public class ChequeService {
 
     private static final String BANK = "1010";
+    private static final Set<String> BOUNCE_REASONS = Set.of("INSUFFICIENT_FUNDS", "SIGNATURE_MISMATCH", "OTHER");
 
     private final ChequeRepository cheques;
     private final ChequeEventRepository events;
@@ -36,19 +38,22 @@ public class ChequeService {
     private final LedgerService ledgers;
     private final CurrentUserService currentUser;
     private final CustomerRepository customers;
+    private final AccountRepository accounts;
+    private final AccountGroupRepository groups;
 
     public ChequeService(ChequeRepository cheques, ChequeEventRepository events, CashService cash,
                          AccountingService accounting, LedgerService ledgers, CurrentUserService currentUser,
-                         CustomerRepository customers) {
+                         CustomerRepository customers, AccountRepository accounts, AccountGroupRepository groups) {
         this.cheques = cheques; this.events = events; this.cash = cash;
         this.accounting = accounting; this.ledgers = ledgers; this.currentUser = currentUser;
-        this.customers = customers;
+        this.customers = customers; this.accounts = accounts; this.groups = groups;
     }
 
     @Transactional
     public Cheque record(UUID customerId, BigDecimal amount, String chequeNo,
                          String bankName, String branchName, LocalDate maturityDate, String note) {
         validate(customerId, amount, chequeNo, maturityDate);
+        rejectDuplicate(null, chequeNo, bankName);
 
         Cheque c = new Cheque();
         c.setChequeNo(chequeNo.trim());
@@ -72,6 +77,7 @@ public class ChequeService {
         Cheque c = get(id);
         require(c, Set.of("PENDING", "HOLD"), "Only a pending or held cheque can be edited");
         validate(customerId, amount, chequeNo, maturityDate);
+        rejectDuplicate(id, chequeNo, bankName);
         chequeNo = chequeNo.trim();
         bankName = blankToNull(bankName);
         branchName = blankToNull(branchName);
@@ -168,14 +174,18 @@ public class ChequeService {
         return c;
     }
 
-    /** Book the receipt: Dr Bank / Cr the customer's AR ledger, through a BANK/IN payment. */
+    /** Book the receipt: Dr the chosen bank ledger / Cr the customer's AR ledger, through a BANK/IN payment. */
     @Transactional
-    public Cheque post(UUID id, String note) {
+    public Cheque post(UUID id, String depositAccount, String note) {
         Cheque c = get(id);
         require(c, Set.of("CASHED"), "Only a cashed cheque can be posted");
+        String bank = depositAccount == null || depositAccount.isBlank() ? BANK : depositAccount.trim();
+        if (bankAccounts().stream().noneMatch(a -> a.getCode().equals(bank)))
+            throw new ApiException("Pick a bank account to deposit into");
         Payment payment = cash.record("IN", "CUSTOMER", c.getCustomerId(), c.getAmount(), "BANK",
-            "Cheque " + c.getChequeNo() + (note == null || note.isBlank() ? "" : " — " + note), BANK);
+            "Cheque " + c.getChequeNo() + (note == null || note.isBlank() ? "" : " — " + note), bank);
         c.setPaymentId(payment.getId());
+        c.setDepositAccount(bank);
         c.setStatus("POSTED");
         cheques.save(c);
         event(c, "POSTED", null, null, null, note);
@@ -183,8 +193,11 @@ public class ChequeService {
     }
 
     @Transactional
-    public Cheque markBounced(UUID id, String note) {
+    public Cheque markBounced(UUID id, String reason, String note) {
         Cheque c = get(id);
+        if (reason == null || !BOUNCE_REASONS.contains(reason)) throw new ApiException("Pick a bounce reason");
+        if ("OTHER".equals(reason) && (note == null || note.isBlank()))
+            throw new ApiException("Describe the reason when it is Other");
         if ("BOUNCED".equals(c.getStatus())) throw new ApiException("Cheque is already bounced");
         if ("CANCELLED".equals(c.getStatus())) throw new ApiException("A cancelled cheque cannot be bounced");
 
@@ -193,12 +206,45 @@ public class ChequeService {
             String arLedger = ledgers.customerLedger(c.getCustomerId()).getCode();
             accounting.post(LocalDate.now(), "Cheque bounced " + c.getChequeNo(),
                 "CHEQUE_BOUNCE", c.getId(),
-                List.of(Leg.debit(arLedger, c.getAmount()), Leg.credit(BANK, c.getAmount())));
+                List.of(Leg.debit(arLedger, c.getAmount()),
+                        Leg.credit(c.getDepositAccount() == null ? BANK : c.getDepositAccount(), c.getAmount())));
         }
         c.setStatus("BOUNCED");
         cheques.save(c);
-        event(c, "BOUNCED", null, null, null, note);
+        event(c, "BOUNCED", null, null, null, note, null, reason);
         return c;
+    }
+
+    /** Customer asked to present a bounced cheque again — it goes back to PENDING with a new maturity date. */
+    @Transactional
+    public Cheque resubmit(UUID id, LocalDate newMaturityDate, String note) {
+        Cheque c = get(id);
+        require(c, Set.of("BOUNCED"), "Only a bounced cheque can be submitted again");
+        if (newMaturityDate == null) throw new ApiException("New maturity date is required");
+        LocalDate old = c.getMaturityDate();
+        c.setMaturityDate(newMaturityDate);
+        c.setStatus("PENDING");
+        c.setPaymentId(null);
+        c.setDepositAccount(null);
+        cheques.save(c);
+        event(c, "RESUBMITTED", old, newMaturityDate, null, note);
+        return c;
+    }
+
+    /** Ledgers under the Bank Accounts head — where a cheque can be deposited. */
+    public List<Account> bankAccounts() {
+        return groups.findByCode("A-BK")
+            .map(g -> accounts.findByGroupIdAndActiveTrueOrderByCode(g.getId()))
+            .orElseGet(() -> accounts.findByCode(BANK).map(List::of).orElse(List.of()));
+    }
+
+    public BigDecimal customerBalance(UUID customerId) {
+        return ledgers.customerBalance(customerId);
+    }
+
+    public byte[] receiptPdf(UUID id) {
+        Cheque c = get(id);
+        return ChequeReceiptPdf.render(c, customers.findById(c.getCustomerId()).orElse(null));
     }
 
     public List<ChequeEvent> history(UUID chequeId) {
@@ -211,6 +257,11 @@ public class ChequeService {
 
     private void event(Cheque c, String type, LocalDate oldDate, LocalDate newDate, String requestedBy,
                        String note, String changes) {
+        event(c, type, oldDate, newDate, requestedBy, note, changes, null);
+    }
+
+    private void event(Cheque c, String type, LocalDate oldDate, LocalDate newDate, String requestedBy,
+                       String note, String changes, String reason) {
         ChequeEvent e = new ChequeEvent();
         e.setChequeId(c.getId());
         e.setEventType(type);
@@ -220,6 +271,7 @@ public class ChequeService {
         e.setRequestedBy(requestedBy);
         e.setNote(note);
         e.setChanges(changes);
+        e.setReason(reason);
         var me = currentUser.me();
         e.setUserId(me.getId());
         e.setUserName(me.getFullName() != null && !me.getFullName().isBlank() ? me.getFullName() : me.getUsername());
@@ -231,6 +283,18 @@ public class ChequeService {
         if (amount == null || amount.signum() <= 0) throw new ApiException("Amount must be positive");
         if (chequeNo == null || chequeNo.isBlank()) throw new ApiException("Cheque number is required");
         if (maturityDate == null) throw new ApiException("Maturity date is required");
+    }
+
+    /** Same cheque no. from the same bank twice is a typing mistake — unless the first one was cancelled. */
+    private void rejectDuplicate(UUID selfId, String chequeNo, String bankName) {
+        String bank = blankToNull(bankName);
+        cheques.findByChequeNoIgnoreCase(chequeNo.trim()).stream()
+            .filter(o -> !o.getId().equals(selfId) && !"CANCELLED".equals(o.getStatus()))
+            .filter(o -> bank == null || o.getBankName() == null || o.getBankName().equalsIgnoreCase(bank))
+            .findFirst()
+            .ifPresent(o -> { throw new ApiException("Cheque " + o.getChequeNo()
+                + (o.getBankName() == null ? "" : " of " + o.getBankName())
+                + " is already recorded (" + o.getStatus().toLowerCase() + ", " + customerName(o.getCustomerId()) + ")"); });
     }
 
     private static void diff(List<String> changes, String label, Object oldVal, Object newVal) {

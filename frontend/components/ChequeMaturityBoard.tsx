@@ -29,12 +29,12 @@ export const STATUS_LABEL: Record<ChequeStatus, string> = {
 export const EVENT_CHIP: Record<ChequeEventType, string> = {
   RECEIVED: "chip-pending", DATE_CHANGED: "chip-soon", HOLD: "chip-hold", RESUMED: "chip-pending",
   CASHED: "chip-cashed", POSTED: "chip-posted", BOUNCED: "chip-bounced",
-  EDITED: "chip-later", CANCELLED: "chip-cancelled",
+  EDITED: "chip-later", CANCELLED: "chip-cancelled", RESUBMITTED: "chip-pending",
 };
 export const EVENT_LABEL: Record<ChequeEventType, string> = {
   RECEIVED: "Received", DATE_CHANGED: "Maturity date changed", HOLD: "Requested not to submit",
   RESUMED: "Resumed", CASHED: "Cashed", POSTED: "Posted", BOUNCED: "Bounced",
-  EDITED: "Edited", CANCELLED: "Cancelled",
+  EDITED: "Edited", CANCELLED: "Cancelled", RESUBMITTED: "Submitted again",
 };
 
 /** Maturity urgency chip for an open cheque. */

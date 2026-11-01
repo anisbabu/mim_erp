@@ -1,9 +1,11 @@
 package com.mim.erp.accounting;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -18,9 +20,26 @@ public class ChequeController {
                                 String bankName, String branchName, LocalDate maturityDate, String note) {}
     public record DateRequest(LocalDate newMaturityDate, String requestedBy, String note) {}
     public record StepRequest(String requestedBy, String note) {}
+    public record PostRequest(String depositAccount, String note) {}
+    public record BounceRequest(String reason, String note) {}
 
     @GetMapping
     public List<Cheque> list() { return cheques.list(); }
+
+    @GetMapping("/bank-accounts")
+    public List<Account> bankAccounts() { return cheques.bankAccounts(); }
+
+    @GetMapping("/customer-balance/{customerId}")
+    public Map<String, BigDecimal> customerBalance(@PathVariable UUID customerId) {
+        return Map.of("balance", cheques.customerBalance(customerId));
+    }
+
+    @GetMapping(value = "/{id}/receipt", produces = "application/pdf")
+    public ResponseEntity<byte[]> receipt(@PathVariable UUID id) {
+        return ResponseEntity.ok()
+            .header("Content-Disposition", "inline; filename=\"cheque-receipt-" + id + ".pdf\"")
+            .body(cheques.receiptPdf(id));
+    }
 
     @PostMapping
     public Cheque record(@RequestBody ChequeRequest r) {
@@ -50,10 +69,15 @@ public class ChequeController {
     public Cheque cash(@PathVariable UUID id, @RequestBody StepRequest r) { return cheques.markCashed(id, r.note()); }
 
     @PostMapping("/{id}/post")
-    public Cheque post(@PathVariable UUID id, @RequestBody StepRequest r) { return cheques.post(id, r.note()); }
+    public Cheque post(@PathVariable UUID id, @RequestBody PostRequest r) { return cheques.post(id, r.depositAccount(), r.note()); }
 
     @PostMapping("/{id}/bounce")
-    public Cheque bounce(@PathVariable UUID id, @RequestBody StepRequest r) { return cheques.markBounced(id, r.note()); }
+    public Cheque bounce(@PathVariable UUID id, @RequestBody BounceRequest r) { return cheques.markBounced(id, r.reason(), r.note()); }
+
+    @PostMapping("/{id}/resubmit")
+    public Cheque resubmit(@PathVariable UUID id, @RequestBody DateRequest r) {
+        return cheques.resubmit(id, r.newMaturityDate(), r.note());
+    }
 
     @GetMapping("/{id}/history")
     public List<ChequeEvent> history(@PathVariable UUID id) { return cheques.history(id); }

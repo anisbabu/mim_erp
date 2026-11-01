@@ -22,6 +22,7 @@ public class Cheque {
     private LocalDate receiveDate;
     private LocalDate maturityDate;
     private String status;         // PENDING | HOLD | CASHED | POSTED | BOUNCED | CANCELLED
+    private String depositAccount; // bank ledger code it was posted to
     private String note;
     @Column(insertable = false, updatable = false) private OffsetDateTime createdAt;
 }

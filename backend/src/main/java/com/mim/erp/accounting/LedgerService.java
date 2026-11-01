@@ -71,6 +71,23 @@ public class LedgerService {
         });
     }
 
+    /** A customer's current receivable: opening of the current year + this year's movement (Dr − Cr). */
+    public java.math.BigDecimal customerBalance(UUID customerId) {
+        Account a = accounts.findByPartyTypeAndPartyId("CUSTOMER", customerId).orElse(null);
+        if (a == null) return java.math.BigDecimal.ZERO;
+        FinancialYear fy = years.findByIsCurrentTrue().orElse(null);
+        String fyId = fy == null ? null : fy.getId().toString();
+        String start = fy == null ? "1900-01-01" : fy.getStartDate().toString();
+        String end = fy == null ? "2999-12-31" : fy.getEndDate().toString();
+        return jdbc.queryForObject("""
+            select coalesce((select debit - credit from opening_balance
+                             where account_id = ? and financial_year_id = ?::uuid), 0)
+                 + coalesce((select sum(jl.debit - jl.credit)
+                             from journal_line jl join journal_entry je on je.id = jl.journal_id
+                             where jl.account_id = ? and je.entry_date between ?::date and ?::date), 0)
+        """, java.math.BigDecimal.class, a.getId(), fyId, a.getId(), start, end);
+    }
+
     // ---- COA reads ----
     public List<AccountGroup> listGroups() { return groups.findAll(); }
 

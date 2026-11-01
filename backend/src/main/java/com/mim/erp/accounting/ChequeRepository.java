@@ -7,4 +7,5 @@ import java.util.UUID;
 public interface ChequeRepository extends JpaRepository<Cheque, UUID> {
     List<Cheque> findAllByOrderByMaturityDateAsc();
     List<Cheque> findByStatusOrderByMaturityDateAsc(String status);
+    List<Cheque> findByChequeNoIgnoreCase(String chequeNo);
 }
