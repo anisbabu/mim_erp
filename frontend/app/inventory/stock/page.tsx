@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
+import { useI18n } from "@/lib/i18n";
 import { endpoints, type StockRow, type SupplierStockRow, type StockStatusRow, type StockSummaryRow,
   type Product, type Warehouse, type Supplier } from "@/lib/api";
 
@@ -10,6 +11,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 const monthStart = () => today().slice(0, 8) + "01";
 
 export default function StockPage() {
+  const { t, lang, dn } = useI18n();
   const [rows, setRows]           = useState<StockRow[]>([]);
   const [supplierRows, setSupplierRows] = useState<SupplierStockRow[]>([]);
   const [statusRows, setStatusRows] = useState<StockStatusRow[]>([]);
@@ -59,9 +61,13 @@ export default function StockPage() {
     return Array.from(m.entries()).map(([warehouseId, v]) => ({ warehouseId, ...v }));
   }, [rows]);
 
-  const pName = (id: string) => products[id]?.fullName ?? products[id]?.name ?? id;
-  const wName = (id: string) => warehouses[id]?.name ?? id;
-  const sName = (id: string | null) => (id ? suppliers[id]?.name ?? id : "No supplier");
+  const pName = (id: string) => {
+    const p = products[id];
+    if (!p) return id;
+    return lang === "bn" && p.nameBn ? p.nameBn : p.fullName ?? p.name;
+  };
+  const wName = (id: string) => (warehouses[id] ? dn(warehouses[id]) : id);
+  const sName = (id: string | null) => (id ? (suppliers[id] ? dn(suppliers[id]) : id) : t("No supplier"));
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -83,7 +89,7 @@ export default function StockPage() {
     // supplier
     return !q ? supplierRows : supplierRows.filter((r) =>
       sName(r.supplierId).toLowerCase().includes(q) || pName(r.productId).toLowerCase().includes(q));
-  }, [view, search, rows, byProduct, byWarehouse, supplierRows, summaryRows, products, warehouses, suppliers]);
+  }, [view, search, rows, byProduct, byWarehouse, supplierRows, summaryRows, products, warehouses, suppliers, lang]);
 
   const totalValue  = (filtered as any[]).reduce((s: number, r: any) => s + Number(r.value ?? r.closingValue ?? 0), 0);
   const sumTotals = useMemo(() => {
@@ -112,22 +118,22 @@ export default function StockPage() {
   }
 
   const tabs: { key: View; label: string }[] = [
-    { key: "all",       label: "All" },
-    { key: "product",   label: "By Product" },
-    { key: "warehouse", label: "By Warehouse" },
-    { key: "supplier",  label: "By Supplier" },
-    { key: "summary",   label: "Summary" },
+    { key: "all",       label: t("All") },
+    { key: "product",   label: t("By Product") },
+    { key: "warehouse", label: t("By Warehouse") },
+    { key: "supplier",  label: t("By Supplier") },
+    { key: "summary",   label: t("Summary") },
   ];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <h1 className="page-title">Stock on hand</h1>
+        <h1 className="page-title">{t("Stock on hand")}</h1>
         <button className="btn" onClick={downloadPdf} disabled={downloading}>
-          {downloading ? "Generating…" : "Download PDF"}
+          {downloading ? t("Generating…") : t("Download PDF")}
         </button>
       </div>
-      <p className="text-sm text-[#6b6960] mb-4">Live quantity and FIFO value per product and warehouse.</p>
+      <p className="text-sm text-[#6b6960] mb-4">{t("Live quantity and FIFO value per product and warehouse.")}</p>
 
       {/* view tabs */}
       <div className="flex gap-1 mb-4">
@@ -146,14 +152,14 @@ export default function StockPage() {
 
       {view === "summary" && (
         <div className="flex flex-wrap items-end gap-3 mb-3">
-          <label className="field"><span>From</span>
+          <label className="field"><span>{t("From")}</span>
             <input type="date" className="inp" value={sumFrom} onChange={(e) => setSumFrom(e.target.value)} /></label>
-          <label className="field"><span>To</span>
+          <label className="field"><span>{t("To")}</span>
             <input type="date" className="inp" value={sumTo} onChange={(e) => setSumTo(e.target.value)} /></label>
-          <label className="field"><span>Warehouse</span>
+          <label className="field"><span>{t("Warehouse")}</span>
             <select className="inp" value={sumWh} onChange={(e) => setSumWh(e.target.value)}>
-              <option value="">All warehouses</option>
-              {Object.values(warehouses).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              <option value="">{t("All warehouses")}</option>
+              {Object.values(warehouses).map((w) => <option key={w.id} value={w.id}>{dn(w)}</option>)}
             </select></label>
           {sumErr && <span className="text-sm text-red-700">{sumErr}</span>}
         </div>
@@ -162,11 +168,11 @@ export default function StockPage() {
       <input
         className="inp mb-4 max-w-sm"
         placeholder={
-          view === "all"       ? "Search product or warehouse…" :
-          view === "product"   ? "Search product…" :
-          view === "warehouse" ? "Search warehouse…" :
-          view === "summary"   ? "Search product or group…" :
-                                 "Search supplier or product…"
+          view === "all"       ? t("Search product or warehouse…") :
+          view === "product"   ? t("Search product…") :
+          view === "warehouse" ? t("Search warehouse…") :
+          view === "summary"   ? t("Search product or group…") :
+                                 t("Search supplier or product…")
         }
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -177,9 +183,9 @@ export default function StockPage() {
         {view === "all" && (
           <div className="table-wrap">
           <table className="tbl">
-            <thead><tr><th>Product</th><th>Warehouse</th><th className="text-right">Qty</th><th className="text-right">Value (cost)</th></tr></thead>
+            <thead><tr><th>{t("Product")}</th><th>{t("Warehouse")}</th><th className="text-right">{t("Qty")}</th><th className="text-right">{t("Value (cost)")}</th></tr></thead>
             <tbody>
-              {pageItems.length === 0 && <tr><td colSpan={4} className="text-[#6b6960]">{search ? "No matching stock." : "No stock yet."}</td></tr>}
+              {pageItems.length === 0 && <tr><td colSpan={4} className="text-[#6b6960]">{search ? t("No matching stock.") : t("No stock yet.")}</td></tr>}
               {(pageItems as StockRow[]).map((r, i) => (
                 <tr key={i}>
                   <td>{pName(r.productId)}</td>
@@ -190,7 +196,7 @@ export default function StockPage() {
               ))}
             </tbody>
             {filtered.length > 0 && <tfoot><tr>
-              <td colSpan={3} className="text-right font-medium">{search ? "Filtered total" : "Total"}</td>
+              <td colSpan={3} className="text-right font-medium">{search ? t("Filtered total") : t("Total")}</td>
               <td className="text-right font-medium tabular-nums">{totalValue.toFixed(2)}</td>
             </tr></tfoot>}
           </table>
@@ -202,15 +208,15 @@ export default function StockPage() {
           <div className="table-wrap">
           <table className="tbl">
             <thead><tr>
-              <th>Product</th>
-              <th className="text-right">On hand</th>
-              <th className="text-right" title="Sold but not yet picked up by the customer">Committed</th>
-              <th className="text-right" title="On hand minus committed">Available</th>
-              <th className="text-right" title="Still due from suppliers on open purchase orders">On order</th>
-              <th className="text-right">Value (cost)</th>
+              <th>{t("Product")}</th>
+              <th className="text-right">{t("On hand")}</th>
+              <th className="text-right" title={t("Sold but not yet picked up by the customer")}>{t("Committed")}</th>
+              <th className="text-right" title={t("On hand minus committed")}>{t("Available")}</th>
+              <th className="text-right" title={t("Still due from suppliers on open purchase orders")}>{t("On order")}</th>
+              <th className="text-right">{t("Value (cost)")}</th>
             </tr></thead>
             <tbody>
-              {pageItems.length === 0 && <tr><td colSpan={6} className="text-[#6b6960]">{search ? "No matching products." : "No stock yet."}</td></tr>}
+              {pageItems.length === 0 && <tr><td colSpan={6} className="text-[#6b6960]">{search ? t("No matching products.") : t("No stock yet.")}</td></tr>}
               {(pageItems as StockStatusRow[]).map((r, i) => (
                 <tr key={i}>
                   <td>{pName(r.productId)}</td>
@@ -225,7 +231,7 @@ export default function StockPage() {
               ))}
             </tbody>
             {filtered.length > 0 && <tfoot><tr>
-              <td colSpan={5} className="text-right font-medium">{search ? "Filtered total" : "Total"}</td>
+              <td colSpan={5} className="text-right font-medium">{search ? t("Filtered total") : t("Total")}</td>
               <td className="text-right font-medium tabular-nums">{totalValue.toFixed(2)}</td>
             </tr></tfoot>}
           </table>
@@ -236,9 +242,9 @@ export default function StockPage() {
         {view === "warehouse" && (
           <div className="table-wrap">
           <table className="tbl">
-            <thead><tr><th>Warehouse</th><th className="text-right">Total Qty</th><th className="text-right">Total Value (cost)</th></tr></thead>
+            <thead><tr><th>{t("Warehouse")}</th><th className="text-right">{t("Total Qty")}</th><th className="text-right">{t("Total Value (cost)")}</th></tr></thead>
             <tbody>
-              {pageItems.length === 0 && <tr><td colSpan={3} className="text-[#6b6960]">{search ? "No matching warehouses." : "No stock yet."}</td></tr>}
+              {pageItems.length === 0 && <tr><td colSpan={3} className="text-[#6b6960]">{search ? t("No matching warehouses.") : t("No stock yet.")}</td></tr>}
               {(pageItems as { warehouseId: string; qty: number; value: number }[]).map((r, i) => (
                 <tr key={i}>
                   <td>{wName(r.warehouseId)}</td>
@@ -248,7 +254,7 @@ export default function StockPage() {
               ))}
             </tbody>
             {filtered.length > 0 && <tfoot><tr>
-              <td className="text-right font-medium">{search ? "Filtered total" : "Total"}</td>
+              <td className="text-right font-medium">{search ? t("Filtered total") : t("Total")}</td>
               <td colSpan={2} className="text-right font-medium tabular-nums">{totalValue.toFixed(2)}</td>
             </tr></tfoot>}
           </table>
@@ -259,9 +265,9 @@ export default function StockPage() {
         {view === "supplier" && (
           <div className="table-wrap">
           <table className="tbl">
-            <thead><tr><th>Supplier</th><th>Product</th><th className="text-right">Qty</th><th className="text-right">Value (cost)</th></tr></thead>
+            <thead><tr><th>{t("Supplier")}</th><th>{t("Product")}</th><th className="text-right">{t("Qty")}</th><th className="text-right">{t("Value (cost)")}</th></tr></thead>
             <tbody>
-              {pageItems.length === 0 && <tr><td colSpan={4} className="text-[#6b6960]">{search ? "No matching results." : "No stock yet."}</td></tr>}
+              {pageItems.length === 0 && <tr><td colSpan={4} className="text-[#6b6960]">{search ? t("No matching results.") : t("No stock yet.")}</td></tr>}
               {(pageItems as SupplierStockRow[]).map((r, i) => (
                 <tr key={i}>
                   <td>{sName(r.supplierId)}</td>
@@ -272,7 +278,7 @@ export default function StockPage() {
               ))}
             </tbody>
             {filtered.length > 0 && <tfoot><tr>
-              <td colSpan={3} className="text-right font-medium">{search ? "Filtered total" : "Total"}</td>
+              <td colSpan={3} className="text-right font-medium">{search ? t("Filtered total") : t("Total")}</td>
               <td className="text-right font-medium tabular-nums">{totalValue.toFixed(2)}</td>
             </tr></tfoot>}
           </table>
@@ -285,19 +291,19 @@ export default function StockPage() {
           <table className="tbl">
             <thead>
               <tr>
-                <th rowSpan={2}>Product</th><th rowSpan={2}>Group</th>
-                <th colSpan={2} className="text-center">Opening</th>
-                <th colSpan={2} className="text-center">Inward</th>
-                <th colSpan={2} className="text-center">Outward</th>
-                <th colSpan={2} className="text-center">Closing</th>
+                <th rowSpan={2}>{t("Product")}</th><th rowSpan={2}>{t("Group")}</th>
+                <th colSpan={2} className="text-center">{t("Opening")}</th>
+                <th colSpan={2} className="text-center">{t("Inward")}</th>
+                <th colSpan={2} className="text-center">{t("Outward")}</th>
+                <th colSpan={2} className="text-center">{t("Closing")}</th>
               </tr>
               <tr>
                 {["Qty", "Value", "Qty", "Value", "Qty", "Value", "Qty", "Value"].map((h, i) =>
-                  <th key={i} className="text-right">{h}</th>)}
+                  <th key={i} className="text-right">{t(h)}</th>)}
               </tr>
             </thead>
             <tbody>
-              {pageItems.length === 0 && <tr><td colSpan={10} className="text-[#6b6960]">{search ? "No matching products." : "No stock movements in this period."}</td></tr>}
+              {pageItems.length === 0 && <tr><td colSpan={10} className="text-[#6b6960]">{search ? t("No matching products.") : t("No stock movements in this period.")}</td></tr>}
               {(pageItems as StockSummaryRow[]).map((r, i) => (
                 <tr key={i}>
                   <td>{pName(r.productId)}</td>
@@ -314,7 +320,7 @@ export default function StockPage() {
               ))}
             </tbody>
             {filtered.length > 0 && <tfoot><tr>
-              <td colSpan={2} className="text-right font-medium">{search ? "Filtered total" : "Total"}</td>
+              <td colSpan={2} className="text-right font-medium">{search ? t("Filtered total") : t("Total")}</td>
               <td /><td className="text-right font-medium tabular-nums">{sumTotals.openingValue.toFixed(2)}</td>
               <td /><td className="text-right font-medium tabular-nums">{sumTotals.inwardValue.toFixed(2)}</td>
               <td /><td className="text-right font-medium tabular-nums">{sumTotals.outwardValue.toFixed(2)}</td>
@@ -327,14 +333,14 @@ export default function StockPage() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm text-[#6b6960]">
-          <span>{filtered.length} rows · page {page} of {totalPages}</span>
+          <span>{filtered.length} {t("rows")} · {t("page")} {page} {t("of")} {totalPages}</span>
           <div className="flex gap-2">
             <button className="btn-ghost px-3 py-1"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}>← Prev</button>
+              disabled={page === 1}>← {t("Prev")}</button>
             <button className="btn-ghost px-3 py-1"
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}>Next →</button>
+              disabled={page === totalPages}>{t("Next")} →</button>
           </div>
         </div>
       )}
