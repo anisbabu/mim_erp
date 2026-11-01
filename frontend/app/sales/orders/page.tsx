@@ -9,7 +9,7 @@ const PAGE_SIZE = 5;
 type FulfillDraft = { warehouseId: string; qty: string };
 
 export default function SalesOrdersPage() {
-  const { t, dn } = useI18n();
+  const { t, dn, lang } = useI18n();
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [search, setSearch] = useState("");
@@ -223,17 +223,17 @@ export default function SalesOrdersPage() {
                             <span className="text-[12px] text-[#6b6960] w-[110px]">{t("Dispatch token")}</span>
                             <button className="btn-ghost btn-sm" disabled={wtBusy || notYetFulfilled}
                                     title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Print dispatch token")}
-                                    onClick={() => openDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey)}>
+                                    onClick={() => openDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey)}>
                               {wtBusy ? "…" : "🖨"}
                             </button>
                             <button className="btn-ghost btn-sm" disabled={wtBusy || notYetFulfilled}
                                     title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Download dispatch token")}
-                                    onClick={() => downloadDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey, `dispatch-${o.soNo}.pdf`)}>
+                                    onClick={() => downloadDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey, `dispatch-${o.soNo}.pdf`)}>
                               ↓
                             </button>
                             <button className="btn btn-sm" disabled={wtBusy || notYetFulfilled}
                                     title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Share dispatch token")}
-                                    onClick={() => shareDoc(() => endpoints.warehouseTokenBlob(o.id), wtKey, `dispatch-${o.soNo}.pdf`, `Dispatch Token ${o.soNo}`)}>
+                                    onClick={() => shareDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey, `dispatch-${o.soNo}.pdf`, `Dispatch Token ${o.soNo}`)}>
                               ↗
                             </button>
                           </div>
@@ -242,17 +242,17 @@ export default function SalesOrdersPage() {
                             <span className="text-[12px] text-[#6b6960] w-[70px]">{t("Challan")}</span>
                             <button className="btn-ghost btn-sm" disabled={dcBusy || notYetFulfilled}
                                     title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Print challan")}
-                                    onClick={() => openDoc(() => endpoints.orderChallanBlob(o.id), dcKey)}>
+                                    onClick={() => openDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey)}>
                               {dcBusy ? "…" : "🖨"}
                             </button>
                             <button className="btn-ghost btn-sm" disabled={dcBusy || notYetFulfilled}
                                     title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Download challan")}
-                                    onClick={() => downloadDoc(() => endpoints.orderChallanBlob(o.id), dcKey, `challan-${o.soNo}.pdf`)}>
+                                    onClick={() => downloadDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey, `challan-${o.soNo}.pdf`)}>
                               ↓
                             </button>
                             <button className="btn btn-sm" disabled={dcBusy || notYetFulfilled}
                                     title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Share challan")}
-                                    onClick={() => shareDoc(() => endpoints.orderChallanBlob(o.id), dcKey, `challan-${o.soNo}.pdf`, `Challan ${o.soNo}`)}>
+                                    onClick={() => shareDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey, `challan-${o.soNo}.pdf`, `Challan ${o.soNo}`)}>
                               ↗
                             </button>
                           </div>
@@ -260,15 +260,15 @@ export default function SalesOrdersPage() {
                           <div className="flex items-center gap-2">
                             <span className="text-[12px] text-[#6b6960] w-[60px]">{t("Invoice")}</span>
                             <button className="btn-ghost btn-sm" disabled={invBusy} title={t("Print invoice")}
-                                    onClick={() => openDoc(() => endpoints.invoiceBlob(o.id), invKey)}>
+                                    onClick={() => openDoc(() => endpoints.invoiceBlob(o.id, lang), invKey)}>
                               {invBusy ? "…" : "🖨"}
                             </button>
                             <button className="btn-ghost btn-sm" disabled={invBusy} title={t("Download invoice")}
-                                    onClick={() => downloadDoc(() => endpoints.invoiceBlob(o.id), invKey, `${o.soNo}.pdf`)}>
+                                    onClick={() => downloadDoc(() => endpoints.invoiceBlob(o.id, lang), invKey, `${o.soNo}.pdf`)}>
                               ↓
                             </button>
                             <button className="btn btn-sm" disabled={invBusy} title={t("Share invoice")}
-                                    onClick={() => shareDoc(() => endpoints.invoiceBlob(o.id), invKey, `${o.soNo}.pdf`, `Invoice ${o.soNo}`)}>
+                                    onClick={() => shareDoc(() => endpoints.invoiceBlob(o.id, lang), invKey, `${o.soNo}.pdf`, `Invoice ${o.soNo}`)}>
                               ↗
                             </button>
                           </div>
@@ -318,15 +318,15 @@ export default function SalesOrdersPage() {
                                     <span className="text-[12px] text-[#6b6960]">{p.warehouseName}</span>
                                     <span className="text-[13px]">{itemsText}</span>
                                     <button className="btn-ghost btn-sm" disabled={pBusy} title={t("Print this pickup's challan")}
-                                            onClick={() => openDoc(() => endpoints.challanBlob(p.dcId), pKey)}>
+                                            onClick={() => openDoc(() => endpoints.challanBlob(p.dcId, lang), pKey)}>
                                       {pBusy ? "…" : "🖨"}
                                     </button>
                                     <button className="btn-ghost btn-sm" disabled={pBusy} title={t("Download this pickup's challan")}
-                                            onClick={() => downloadDoc(() => endpoints.challanBlob(p.dcId), pKey, `${p.dcNo}.pdf`)}>
+                                            onClick={() => downloadDoc(() => endpoints.challanBlob(p.dcId, lang), pKey, `${p.dcNo}.pdf`)}>
                                       ↓
                                     </button>
                                     <button className="btn btn-sm" disabled={pBusy} title={t("Share this pickup's challan")}
-                                            onClick={() => shareDoc(() => endpoints.challanBlob(p.dcId), pKey, `${p.dcNo}.pdf`, `Challan ${p.dcNo}`)}>
+                                            onClick={() => shareDoc(() => endpoints.challanBlob(p.dcId, lang), pKey, `${p.dcNo}.pdf`, `Challan ${p.dcNo}`)}>
                                       ↗
                                     </button>
                                   </div>

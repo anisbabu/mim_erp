@@ -247,17 +247,17 @@ export const endpoints = {
   orderPickups:  (soId: string) => api.get<PickupView[]>(`/api/sales/orders/${soId}/pickups`),
   openChallans: () => api.get<DeliveryChallan[]>("/api/sales/challans/open"),
   allChallans:  () => api.get<DeliveryChallan[]>("/api/sales/challans"),
-  invoiceBlob:  async (soId: string): Promise<Blob> => {
+  invoiceBlob:  async (soId: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/sales/orders/${soId}/invoice`, {
+    const res = await fetch(`${BASE}/api/sales/orders/${soId}/invoice?lang=${lang}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error("Failed to generate invoice");
     return res.blob();
   },
-  warehouseTokenBlob: async (soId: string): Promise<Blob> => {
+  warehouseTokenBlob: async (soId: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/sales/orders/${soId}/warehouse-token`, {
+    const res = await fetch(`${BASE}/api/sales/orders/${soId}/warehouse-token?lang=${lang}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) {
@@ -267,9 +267,9 @@ export const endpoints = {
     }
     return res.blob();
   },
-  orderChallanBlob: async (soId: string): Promise<Blob> => {
+  orderChallanBlob: async (soId: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/sales/orders/${soId}/challan`, {
+    const res = await fetch(`${BASE}/api/sales/orders/${soId}/challan?lang=${lang}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) {
@@ -279,9 +279,9 @@ export const endpoints = {
     }
     return res.blob();
   },
-  challanBlob: async (dcId: string): Promise<Blob> => {
+  challanBlob: async (dcId: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/sales/challans/${dcId}/pdf`, {
+    const res = await fetch(`${BASE}/api/sales/challans/${dcId}/pdf?lang=${lang}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) {
@@ -310,9 +310,9 @@ export const endpoints = {
   chequeBankAccounts: () => api.get<Account[]>("/api/accounting/cheques/bank-accounts"),
   customerBalance: (customerId: string) =>
     api.get<{ balance: number }>(`/api/accounting/cheques/customer-balance/${customerId}`),
-  chequeReceiptBlob: async (id: string): Promise<Blob> => {
+  chequeReceiptBlob: async (id: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/accounting/cheques/${id}/receipt`, {
+    const res = await fetch(`${BASE}/api/accounting/cheques/${id}/receipt?lang=${lang}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error("Failed to generate cheque receipt");

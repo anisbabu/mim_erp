@@ -35,10 +35,10 @@ public class ChequeController {
     }
 
     @GetMapping(value = "/{id}/receipt", produces = "application/pdf")
-    public ResponseEntity<byte[]> receipt(@PathVariable UUID id) {
+    public ResponseEntity<byte[]> receipt(@PathVariable UUID id, @RequestParam(defaultValue = "en") String lang) {
         return ResponseEntity.ok()
-            .header("Content-Disposition", "inline; filename=\"cheque-receipt-" + id + ".pdf\"")
-            .body(cheques.receiptPdf(id));
+            .header("Content-Disposition", "inline; filename=\"cheque-receipt-" + id + ("bn".equalsIgnoreCase(lang) ? "-bn" : "") + ".pdf\"")
+            .body(cheques.receiptPdf(id, "bn".equalsIgnoreCase(lang)));
     }
 
     @PostMapping

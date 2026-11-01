@@ -53,7 +53,7 @@ function findDuplicate(cheques: Cheque[], chequeNo: string, bankName: string, se
 }
 
 export default function ChequesPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [cheques, setCheques] = useState<Cheque[]>([]);
   const [bankAccounts, setBankAccounts] = useState<Account[]>([]);
@@ -238,7 +238,7 @@ export default function ChequesPage() {
 
   async function openReceipt(id: string) {
     try {
-      const blob = await endpoints.chequeReceiptBlob(id);
+      const blob = await endpoints.chequeReceiptBlob(id, lang);
       window.open(URL.createObjectURL(blob), "_blank");
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
   }

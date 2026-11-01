@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n";
 const PAGE_SIZE = 20;
 
 export default function ChallanListPage() {
-  const { t, dn } = useI18n();
+  const { t, dn, lang } = useI18n();
   const [challans, setChallans] = useState<DeliveryChallan[]>([]);
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [search, setSearch] = useState("");
@@ -43,7 +43,7 @@ export default function ChallanListPage() {
   async function fetchBlob(dcId: string): Promise<{ blob: Blob; url: string } | null> {
     setBusy(dcId);
     try {
-      const blob = await endpoints.challanBlob(dcId);
+      const blob = await endpoints.challanBlob(dcId, lang);
       const url = URL.createObjectURL(blob);
       beep();
       return { blob, url };

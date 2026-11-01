@@ -247,9 +247,9 @@ public class ChequeService {
         return ledgers.customerBalance(customerId);
     }
 
-    public byte[] receiptPdf(UUID id) {
+    public byte[] receiptPdf(UUID id, boolean bn) {
         Cheque c = get(id);
-        return ChequeReceiptPdf.render(c, customers.findById(c.getCustomerId()).orElse(null));
+        return ChequeReceiptPdf.render(c, customers.findById(c.getCustomerId()).orElse(null), bn);
     }
 
     public List<ChequeEvent> history(UUID chequeId) {

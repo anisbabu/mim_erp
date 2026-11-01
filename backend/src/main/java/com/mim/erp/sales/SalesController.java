@@ -2,6 +2,7 @@ package com.mim.erp.sales;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.mim.erp.common.PdfKit;
 import java.util.UUID;
 
 @RestController
@@ -67,9 +68,9 @@ public class SalesController {
 
     /** Download a sales invoice as PDF. */
     @GetMapping(value = "/orders/{soId}/invoice", produces = "application/pdf")
-    public ResponseEntity<byte[]> invoice(@PathVariable UUID soId) {
-        byte[] pdf = service.generateInvoicePdf(soId);
-        String filename = "invoice-" + soId + ".pdf";
+    public ResponseEntity<byte[]> invoice(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang) {
+        byte[] pdf = service.generateInvoicePdf(soId, PdfKit.isBn(lang));
+        String filename = "invoice-" + soId + sfx(lang) + ".pdf";
         return ResponseEntity.ok()
             .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
             .body(pdf);
@@ -77,29 +78,31 @@ public class SalesController {
 
     /** Warehouse dispatch token — one page per warehouse DC. */
     @GetMapping(value = "/orders/{soId}/warehouse-token", produces = "application/pdf")
-    public ResponseEntity<byte[]> warehouseToken(@PathVariable UUID soId) {
-        byte[] pdf = service.generateWarehouseTokenPdf(soId);
+    public ResponseEntity<byte[]> warehouseToken(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang) {
+        byte[] pdf = service.generateWarehouseTokenPdf(soId, PdfKit.isBn(lang));
         return ResponseEntity.ok()
-            .header("Content-Disposition", "attachment; filename=\"dispatch-token-" + soId + ".pdf\"")
+            .header("Content-Disposition", "attachment; filename=\"dispatch-token-" + soId + sfx(lang) + ".pdf\"")
             .body(pdf);
     }
 
     /** Delivery challan PDF for all challans under a sales order. */
     @GetMapping(value = "/orders/{soId}/challan", produces = "application/pdf")
-    public ResponseEntity<byte[]> orderChallan(@PathVariable UUID soId) {
-        byte[] pdf = service.generateOrderChallanPdf(soId);
+    public ResponseEntity<byte[]> orderChallan(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang) {
+        byte[] pdf = service.generateOrderChallanPdf(soId, PdfKit.isBn(lang));
         return ResponseEntity.ok()
-            .header("Content-Disposition", "attachment; filename=\"challan-" + soId + ".pdf\"")
+            .header("Content-Disposition", "attachment; filename=\"challan-" + soId + sfx(lang) + ".pdf\"")
             .body(pdf);
     }
 
     /** Download a delivery challan as PDF. */
     @GetMapping(value = "/challans/{dcId}/pdf", produces = "application/pdf")
-    public ResponseEntity<byte[]> challanPdf(@PathVariable UUID dcId) {
-        byte[] pdf = service.generateChallanPdf(dcId);
-        String filename = "challan-" + dcId + ".pdf";
+    public ResponseEntity<byte[]> challanPdf(@PathVariable UUID dcId, @RequestParam(defaultValue = "en") String lang) {
+        byte[] pdf = service.generateChallanPdf(dcId, PdfKit.isBn(lang));
+        String filename = "challan-" + dcId + sfx(lang) + ".pdf";
         return ResponseEntity.ok()
             .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
             .body(pdf);
     }
+
+    private static String sfx(String lang) { return PdfKit.isBn(lang) ? "-bn" : ""; }
 }
