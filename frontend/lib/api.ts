@@ -93,7 +93,7 @@ export type AccountGroup = {
 };
 export type LedgerRow = {
   id: string; code: string; name: string; name_bn?: string; type: string;
-  group_id?: string; party_type?: string; is_system?: boolean;
+  group_id?: string; party_type?: string; is_system?: boolean; default_deposit?: boolean;
   opening_debit: number; opening_credit: number;
   period_debit: number; period_credit: number; closing: number;
 };

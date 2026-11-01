@@ -15,8 +15,8 @@ export default function ChartOfAccountsPage() {
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   // forms
-  const [lf, setLf] = useState<{ code: string; name: string; nameBn: string; groupId: string }>(
-    { code: "", name: "", nameBn: "", groupId: "" });
+  const EMPTY_LF = { code: "", name: "", nameBn: "", groupId: "", defaultDeposit: false };
+  const [lf, setLf] = useState<{ code: string; name: string; nameBn: string; groupId: string; defaultDeposit: boolean }>(EMPTY_LF);
   const [gf, setGf] = useState<{ code: string; name: string; nameBn: string; nature: string; parentId: string }>(
     { code: "", name: "", nameBn: "", nature: "ASSET", parentId: "" });
   const [editId, setEditId] = useState<string | null>(null);
@@ -30,6 +30,8 @@ export default function ChartOfAccountsPage() {
   const groupById = useMemo(() => Object.fromEntries(groups.map((g) => [g.id, g])), [groups]);
   const gname = (g?: AccountGroup) => (g ? (lang === "bn" && g.nameBn ? g.nameBn : g.name) : "—");
   const lname = (l: LedgerRow) => (lang === "bn" && l.name_bn ? l.name_bn : l.name);
+  // only ledgers under the Bank Accounts head can be the default deposit bank for cheques
+  const isBankHead = groupById[lf.groupId]?.code === "A-BK";
 
   // ledgers grouped under their head
   const grouped = useMemo(() => {
@@ -45,14 +47,15 @@ export default function ChartOfAccountsPage() {
     setMsg(null);
     if (!lf.code || !lf.name || !lf.groupId) { setMsg({ kind: "err", text: "Code, name and head are required." }); return; }
     try {
-      if (editId) await endpoints.updateLedger(editId, { name: lf.name, nameBn: lf.nameBn, groupId: lf.groupId, active: true });
-      else await endpoints.createLedger({ code: lf.code, name: lf.name, nameBn: lf.nameBn, groupId: lf.groupId });
-      setLf({ code: "", name: "", nameBn: "", groupId: "" }); setEditId(null);
+      const defaultDeposit = isBankHead && lf.defaultDeposit;
+      if (editId) await endpoints.updateLedger(editId, { name: lf.name, nameBn: lf.nameBn, groupId: lf.groupId, active: true, defaultDeposit });
+      else await endpoints.createLedger({ code: lf.code, name: lf.name, nameBn: lf.nameBn, groupId: lf.groupId, defaultDeposit });
+      setLf(EMPTY_LF); setEditId(null);
       setMsg({ kind: "ok", text: t("Saved.") }); load();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
   }
   function editLedger(l: LedgerRow) {
-    setEditId(l.id); setLf({ code: l.code, name: l.name, nameBn: l.name_bn ?? "", groupId: l.group_id ?? "" });
+    setEditId(l.id); setLf({ code: l.code, name: l.name, nameBn: l.name_bn ?? "", groupId: l.group_id ?? "", defaultDeposit: !!l.default_deposit });
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   async function removeLedger(id: string) {
@@ -95,10 +98,17 @@ export default function ChartOfAccountsPage() {
               <input className="inp" value={lf.name} onChange={(e) => setLf({ ...lf, name: e.target.value })} /></div>
             <div className="field"><label>{t("Name (Bangla)")}</label>
               <input className="inp" value={lf.nameBn} onChange={(e) => setLf({ ...lf, nameBn: e.target.value })} /></div>
+            {isBankHead && (
+              <label className="flex items-center gap-2 text-sm" style={{ gridColumn: "span 2" }}>
+                <input type="checkbox" checked={lf.defaultDeposit} onChange={(e) => setLf({ ...lf, defaultDeposit: e.target.checked })} />
+                {t("Default bank for cheques")}
+                <span className="text-[12px] muted">— {t("cheques are posted here unless another bank is picked")}</span>
+              </label>
+            )}
           </div>
           <div className="mt-4 flex gap-2">
             <button className="btn" onClick={addLedger}>{editId ? t("Update") : t("Add")}</button>
-            {editId && <button className="btn-ghost" onClick={() => { setEditId(null); setLf({ code: "", name: "", nameBn: "", groupId: "" }); }}>{t("Cancel")}</button>}
+            {editId && <button className="btn-ghost" onClick={() => { setEditId(null); setLf(EMPTY_LF); }}>{t("Cancel")}</button>}
           </div>
         </div>
 
@@ -157,7 +167,8 @@ export default function ChartOfAccountsPage() {
                   {rows.map((l) => (
                     <tr key={l.id}>
                       <td className="font-mono text-[13px]">{l.code}</td>
-                      <td>{lname(l)}{l.party_type && <span className="chip ml-2 bg-brand-soft text-brand">{l.party_type.toLowerCase()}</span>}</td>
+                      <td>{lname(l)}{l.party_type && <span className="chip ml-2 bg-brand-soft text-brand">{l.party_type.toLowerCase()}</span>}
+                        {l.default_deposit && <span className="chip ml-2 chip-posted">{t("Default for cheques")}</span>}</td>
                       <td className="num">{(Number(l.opening_debit) - Number(l.opening_credit)).toFixed(2)}</td>
                       <td className="num">{Number(l.period_debit).toFixed(2)}</td>
                       <td className="num">{Number(l.period_credit).toFixed(2)}</td>

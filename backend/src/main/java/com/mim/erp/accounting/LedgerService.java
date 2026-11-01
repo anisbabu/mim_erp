@@ -98,7 +98,7 @@ public class LedgerService {
         String start = fy == null ? "1900-01-01" : fy.getStartDate().toString();
         String end = fy == null ? "2999-12-31" : fy.getEndDate().toString();
         return jdbc.queryForList("""
-            select a.id, a.code, a.name, a.name_bn, a.type, a.group_id, a.party_type, a.is_system,
+            select a.id, a.code, a.name, a.name_bn, a.type, a.group_id, a.party_type, a.is_system, a.default_deposit,
                    coalesce(ob.debit,0) as opening_debit, coalesce(ob.credit,0) as opening_credit,
                    coalesce(mv.debit,0) as period_debit, coalesce(mv.credit,0) as period_credit,
                    (coalesce(ob.debit,0) - coalesce(ob.credit,0)
@@ -130,7 +130,26 @@ public class LedgerService {
         AccountGroup g = groups.findById(a.getGroupId()).orElseThrow(() -> new ApiException("Group not found"));
         a.setId(null); a.setSystem(false);
         a.setType(g.getNature());   // ledger nature follows its group
-        return accounts.save(a);
+        boolean makeDefault = a.isDefaultDeposit();
+        a.setDefaultDeposit(false);
+        a = accounts.save(a);
+        applyDefaultDeposit(a, makeDefault);
+        return a;
+    }
+
+    /**
+     * Only one bank ledger is the default a cheque is deposited to. Setting it here
+     * clears the previous one; it is refused outside the Bank Accounts head.
+     */
+    private void applyDefaultDeposit(Account a, boolean makeDefault) {
+        if (!makeDefault) { a.setDefaultDeposit(false); return; }
+        UUID bankHead = groups.findByCode("A-BK").map(AccountGroup::getId).orElse(null);
+        if (bankHead == null || !bankHead.equals(a.getGroupId()))
+            throw new ApiException("Only a ledger under Bank Accounts can be the default for cheques");
+        if (!a.isActive()) throw new ApiException("An inactive ledger can't be the default for cheques");
+        jdbc.update("update account set default_deposit = false where default_deposit and id <> ?", a.getId());
+        a.setDefaultDeposit(true);
+        accounts.save(a);
     }
 
     @Transactional
@@ -142,7 +161,9 @@ public class LedgerService {
             a.setGroupId(g.getId()); a.setType(g.getNature());
         }
         a.setActive(in.isActive());
-        return accounts.save(a);
+        a = accounts.save(a);
+        applyDefaultDeposit(a, in.isDefaultDeposit());
+        return a;
     }
 
     @Transactional
