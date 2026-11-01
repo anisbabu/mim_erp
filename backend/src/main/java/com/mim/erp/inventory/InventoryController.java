@@ -119,17 +119,17 @@ public class InventoryController {
         warehouses.findAll().forEach(w -> warehouseNames.put(w.getId(), w.getName()));
 
         try {
-            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 28.35f, 42.52f);
+            Document doc = new Document(new Rectangle(595f, 842f), 28.35f, 28.35f, 28.35f, 36f); // A4
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter.getInstance(doc, out);
             doc.open();
 
-            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14);
-            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
-            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
-            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 8);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Font.NORMAL, Color.WHITE);
-            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8);
+            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
+            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
+            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
+            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
 
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
             co.setAlignment(Element.ALIGN_CENTER);
@@ -140,7 +140,7 @@ public class InventoryController {
             doc.add(title);
 
             Paragraph dateP = new Paragraph("As of " + LocalDate.now(),
-                FontFactory.getFont(FontFactory.HELVETICA, 8, Font.NORMAL, new Color(0x55,0x55,0x55)));
+                FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, new Color(0x55,0x55,0x55)));
             dateP.setAlignment(Element.ALIGN_CENTER);
             dateP.setSpacingAfter(10);
             doc.add(dateP);
@@ -148,7 +148,7 @@ public class InventoryController {
             Color teal = new Color(0x0f, 0x76, 0x6e);
             PdfPTable tbl = new PdfPTable(4);
             tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{4.4f, 2.6f, 1.2f, 2.0f});
+            tbl.setWidths(new float[]{5.2f, 2.6f, 1.4f, 2.2f});
             tbl.setHeaderRows(1);
             tbl.setSpacingAfter(8);
 
