@@ -9,27 +9,32 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * Cheques received from customers. Recording a cheque books the usual
- * BANK/IN payment (Dr Cash / Cr AR) via CashService, then keeps the
- * physical-cheque details (number, bank, maturity) alongside it so the
- * office can watch for cheques coming due. A bounce reverses the receipt.
+ * Cheques received from customers. A cheque is tracked, not booked, until
+ * it is posted:
+ *   PENDING ⇄ HOLD (customer asked not to submit), maturity date changes,
+ *   PENDING → CASHED (bank confirmed) → POSTED (Dr Bank / Cr customer AR),
+ *   or BOUNCED at any open step. Bouncing a POSTED cheque reverses the entry.
+ * Every step is logged in cheque_event with date, who and why.
  */
 @Service
 public class ChequeService {
 
+    private static final String BANK = "1010";
+
     private final ChequeRepository cheques;
-    private final ChequeExtensionRepository extensions;
+    private final ChequeEventRepository events;
     private final CashService cash;
     private final AccountingService accounting;
     private final LedgerService ledgers;
     private final CurrentUserService currentUser;
 
-    public ChequeService(ChequeRepository cheques, ChequeExtensionRepository extensions, CashService cash,
+    public ChequeService(ChequeRepository cheques, ChequeEventRepository events, CashService cash,
                          AccountingService accounting, LedgerService ledgers, CurrentUserService currentUser) {
-        this.cheques = cheques; this.extensions = extensions; this.cash = cash;
+        this.cheques = cheques; this.events = events; this.cash = cash;
         this.accounting = accounting; this.ledgers = ledgers; this.currentUser = currentUser;
     }
 
@@ -37,83 +42,129 @@ public class ChequeService {
     public Cheque record(UUID customerId, BigDecimal amount, String chequeNo,
                          String bankName, LocalDate maturityDate, String note) {
         if (customerId == null) throw new ApiException("Customer is required");
+        if (amount == null || amount.signum() <= 0) throw new ApiException("Amount must be positive");
         if (chequeNo == null || chequeNo.isBlank()) throw new ApiException("Cheque number is required");
         if (maturityDate == null) throw new ApiException("Maturity date is required");
 
-        Payment payment = cash.record("IN", "CUSTOMER", customerId, amount, "BANK", note);
-
         Cheque c = new Cheque();
-        c.setPaymentId(payment.getId());
-        c.setChequeNo(chequeNo);
+        c.setChequeNo(chequeNo.trim());
         c.setBankName(bankName);
         c.setCustomerId(customerId);
         c.setAmount(amount);
-        c.setReceiveDate(payment.getPaymentDate());
+        c.setReceiveDate(LocalDate.now());
         c.setMaturityDate(maturityDate);
         c.setStatus("PENDING");
         c.setNote(note);
-        return cheques.save(c);
+        cheques.save(c);
+        event(c, "RECEIVED", null, null, null, note);
+        return c;
     }
 
     public List<Cheque> list() {
         return cheques.findAllByOrderByMaturityDateAsc();
     }
 
-    private static boolean isOpen(String status) {
-        return "PENDING".equals(status) || "EXTENDED".equals(status);
-    }
-
     @Transactional
-    public Cheque markCleared(UUID id) {
+    public Cheque changeDate(UUID id, LocalDate newMaturityDate, String requestedBy, String note) {
         Cheque c = get(id);
-        if (!isOpen(c.getStatus())) throw new ApiException("Only a pending cheque can be cleared");
-        c.setStatus("CLEARED");
-        return cheques.save(c);
-    }
+        require(c, Set.of("PENDING", "HOLD"), "Only a pending or held cheque can have its maturity date changed");
+        if (newMaturityDate == null) throw new ApiException("New maturity date is required");
+        if (newMaturityDate.equals(c.getMaturityDate()))
+            throw new ApiException("New maturity date is the same as the current one");
+        if (requestedBy == null || requestedBy.isBlank()) throw new ApiException("Requested by is required");
 
-    @Transactional
-    public Cheque markBounced(UUID id) {
-        Cheque c = get(id);
-        if (!isOpen(c.getStatus())) throw new ApiException("Only a pending cheque can be bounced");
-        c.setStatus("BOUNCED");
+        LocalDate old = c.getMaturityDate();
+        c.setMaturityDate(newMaturityDate);
+        c.setStatus("PENDING");
         cheques.save(c);
-
-        // Reverse the original receipt — the cash never actually landed.
-        String arLedger = ledgers.customerLedger(c.getCustomerId()).getCode();
-        accounting.post(LocalDate.now(), "Cheque bounced " + c.getChequeNo(),
-            "CHEQUE_BOUNCE", c.getId(),
-            List.of(Leg.debit(arLedger, c.getAmount()), Leg.credit("1000", c.getAmount())));
+        event(c, "DATE_CHANGED", old, newMaturityDate, requestedBy, note);
         return c;
     }
 
     @Transactional
-    public Cheque extendMaturity(UUID id, LocalDate newMaturityDate, String requestedBy, String note) {
+    public Cheque hold(UUID id, String requestedBy, String note) {
         Cheque c = get(id);
-        if (!isOpen(c.getStatus())) throw new ApiException("Only a pending cheque can have its maturity extended");
-        if (newMaturityDate == null) throw new ApiException("New maturity date is required");
-        if (!newMaturityDate.isAfter(c.getMaturityDate()))
-            throw new ApiException("New maturity date must be after the current maturity date");
-        if (requestedBy == null || requestedBy.isBlank())
-            throw new ApiException("Requested by is required");
-
-        ChequeExtension ext = new ChequeExtension();
-        ext.setChequeId(c.getId());
-        ext.setOldMaturityDate(c.getMaturityDate());
-        ext.setNewMaturityDate(newMaturityDate);
-        ext.setRequestedBy(requestedBy);
-        ext.setNote(note);
-        var me = currentUser.me();
-        ext.setExtendedBy(me.getId());
-        ext.setExtendedByName(me.getFullName() != null && !me.getFullName().isBlank() ? me.getFullName() : me.getUsername());
-        extensions.save(ext);
-
-        c.setMaturityDate(newMaturityDate);
-        c.setStatus("EXTENDED");
-        return cheques.save(c);
+        require(c, Set.of("PENDING"), "Only a pending cheque can be put on hold");
+        if (requestedBy == null || requestedBy.isBlank()) throw new ApiException("Requested by is required");
+        c.setStatus("HOLD");
+        cheques.save(c);
+        event(c, "HOLD", null, null, requestedBy, note);
+        return c;
     }
 
-    public List<ChequeExtension> extensionHistory(UUID chequeId) {
-        return extensions.findByChequeIdOrderByExtendedAtDesc(chequeId);
+    @Transactional
+    public Cheque resume(UUID id, String note) {
+        Cheque c = get(id);
+        require(c, Set.of("HOLD"), "Only a held cheque can be resumed");
+        c.setStatus("PENDING");
+        cheques.save(c);
+        event(c, "RESUMED", null, null, null, note);
+        return c;
+    }
+
+    @Transactional
+    public Cheque markCashed(UUID id, String note) {
+        Cheque c = get(id);
+        require(c, Set.of("PENDING"), "Only a pending cheque can be marked cashed");
+        c.setStatus("CASHED");
+        cheques.save(c);
+        event(c, "CASHED", null, null, null, note);
+        return c;
+    }
+
+    /** Book the receipt: Dr Bank / Cr the customer's AR ledger, through a BANK/IN payment. */
+    @Transactional
+    public Cheque post(UUID id, String note) {
+        Cheque c = get(id);
+        require(c, Set.of("CASHED"), "Only a cashed cheque can be posted");
+        Payment payment = cash.record("IN", "CUSTOMER", c.getCustomerId(), c.getAmount(), "BANK",
+            "Cheque " + c.getChequeNo() + (note == null || note.isBlank() ? "" : " — " + note), BANK);
+        c.setPaymentId(payment.getId());
+        c.setStatus("POSTED");
+        cheques.save(c);
+        event(c, "POSTED", null, null, null, note);
+        return c;
+    }
+
+    @Transactional
+    public Cheque markBounced(UUID id, String note) {
+        Cheque c = get(id);
+        if ("BOUNCED".equals(c.getStatus())) throw new ApiException("Cheque is already bounced");
+
+        if ("POSTED".equals(c.getStatus())) {
+            // The receipt was booked — reverse it, the money never stayed in the bank.
+            String arLedger = ledgers.customerLedger(c.getCustomerId()).getCode();
+            accounting.post(LocalDate.now(), "Cheque bounced " + c.getChequeNo(),
+                "CHEQUE_BOUNCE", c.getId(),
+                List.of(Leg.debit(arLedger, c.getAmount()), Leg.credit(BANK, c.getAmount())));
+        }
+        c.setStatus("BOUNCED");
+        cheques.save(c);
+        event(c, "BOUNCED", null, null, null, note);
+        return c;
+    }
+
+    public List<ChequeEvent> history(UUID chequeId) {
+        return events.findByChequeIdOrderByCreatedAtDesc(chequeId);
+    }
+
+    private void event(Cheque c, String type, LocalDate oldDate, LocalDate newDate, String requestedBy, String note) {
+        ChequeEvent e = new ChequeEvent();
+        e.setChequeId(c.getId());
+        e.setEventType(type);
+        e.setEventDate(LocalDate.now());
+        e.setOldMaturityDate(oldDate);
+        e.setNewMaturityDate(newDate);
+        e.setRequestedBy(requestedBy);
+        e.setNote(note);
+        var me = currentUser.me();
+        e.setUserId(me.getId());
+        e.setUserName(me.getFullName() != null && !me.getFullName().isBlank() ? me.getFullName() : me.getUsername());
+        events.save(e);
+    }
+
+    private static void require(Cheque c, Set<String> allowed, String message) {
+        if (!allowed.contains(c.getStatus())) throw new ApiException(message);
     }
 
     private Cheque get(UUID id) {

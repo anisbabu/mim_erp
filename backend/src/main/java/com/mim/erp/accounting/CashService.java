@@ -37,6 +37,13 @@ public class CashService {
     @Transactional
     public Payment record(String direction, String partyType, UUID partyId,
                           BigDecimal amount, String method, String note) {
+        return record(direction, partyType, partyId, amount, method, note, "1000");
+    }
+
+    /** Same as {@link #record}, but the money side lands on {@code cashAccount} (e.g. "1010" Bank). */
+    @Transactional
+    public Payment record(String direction, String partyType, UUID partyId,
+                          BigDecimal amount, String method, String note, String cashAccount) {
         if (amount == null || amount.signum() <= 0)
             throw new ApiException("Payment amount must be positive");
 
@@ -55,12 +62,12 @@ public class CashService {
             String apLedger = partyId != null ? ledgers.supplierLedger(partyId).getCode() : "2000";
             accounting.post(saved.getPaymentDate(), "Payment to supplier " + saved.getPaymentNo(),
                 "PAYMENT", saved.getId(),
-                List.of(Leg.debit(apLedger, amount), Leg.credit("1000", amount)));
+                List.of(Leg.debit(apLedger, amount), Leg.credit(cashAccount, amount)));
         } else if ("IN".equals(direction)) {  // receive from customer, settle that customer's AR ledger
             String arLedger = partyId != null ? ledgers.customerLedger(partyId).getCode() : "1100";
             accounting.post(saved.getPaymentDate(), "Receipt from customer " + saved.getPaymentNo(),
                 "RECEIPT", saved.getId(),
-                List.of(Leg.debit("1000", amount), Leg.credit(arLedger, amount)));
+                List.of(Leg.debit(cashAccount, amount), Leg.credit(arLedger, amount)));
         } else {
             throw new ApiException("Payment direction must be IN or OUT");
         }

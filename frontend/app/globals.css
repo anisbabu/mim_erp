@@ -29,8 +29,27 @@
   --chip-open-fg:      #166534;
   --chip-other-bg:     #f3f4f6;
   --chip-other-fg:     #6b7280;
+  /* cheque status / maturity */
+  --st-pending-bg:     #e0f2fe;  --st-pending-fg:  #075985;
+  --st-hold-bg:        #ede9fe;  --st-hold-fg:     #5b21b6;
+  --st-cashed-bg:      #ccfbf1;  --st-cashed-fg:   #115e59;
+  --st-posted-bg:      #dcfce7;  --st-posted-fg:   #166534;
+  --st-bounced-bg:     #fee2e2;  --st-bounced-fg:  #991b1b;
+  --st-overdue-bg:     #fef2f2;  --st-overdue-fg:  #b91c1c;  --st-overdue-bd: #fca5a5;
+  --st-today-bg:       #fff7ed;  --st-today-fg:    #c2410c;  --st-today-bd:   #fdba74;
+  --st-soon-bg:        #fffbeb;  --st-soon-fg:     #a16207;  --st-soon-bd:    #fcd34d;
+  --st-later-bg:       #f0fdfa;  --st-later-fg:    #0f766e;  --st-later-bd:   #99f6e4;
 }
 html.dark {
+  --st-pending-bg:     #0c4a6e;  --st-pending-fg:  #bae6fd;
+  --st-hold-bg:        #4c1d95;  --st-hold-fg:     #ddd6fe;
+  --st-cashed-bg:      #134e4a;  --st-cashed-fg:   #99f6e4;
+  --st-posted-bg:      #064e3b;  --st-posted-fg:   #a7f3d0;
+  --st-bounced-bg:     #4c0519;  --st-bounced-fg:  #fecdd3;
+  --st-overdue-bg:     #4c0519;  --st-overdue-fg:  #fecdd3;  --st-overdue-bd: #9f1239;
+  --st-today-bg:       #431407;  --st-today-fg:    #fed7aa;  --st-today-bd:   #c2410c;
+  --st-soon-bg:        #422006;  --st-soon-fg:     #fde68a;  --st-soon-bd:    #a16207;
+  --st-later-bg:       #134e4a;  --st-later-fg:    #99f6e4;  --st-later-bd:   #0f766e;
   --bg:                #0e1d5c;
   --surface:           #2440b0;
   --text:              #e8eeff;
@@ -209,6 +228,27 @@ html.dark {
   .chip {
     @apply inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold;
   }
+  .chip-pending { background: var(--st-pending-bg); color: var(--st-pending-fg); }
+  .chip-hold    { background: var(--st-hold-bg);    color: var(--st-hold-fg); }
+  .chip-cashed  { background: var(--st-cashed-bg);  color: var(--st-cashed-fg); }
+  .chip-posted  { background: var(--st-posted-bg);  color: var(--st-posted-fg); }
+  .chip-bounced { background: var(--st-bounced-bg); color: var(--st-bounced-fg); }
+  .chip-overdue { background: var(--st-overdue-bg); color: var(--st-overdue-fg); }
+  .chip-today   { background: var(--st-today-bg);   color: var(--st-today-fg); }
+  .chip-soon    { background: var(--st-soon-bg);    color: var(--st-soon-fg); }
+  .chip-later   { background: var(--st-later-bg);   color: var(--st-later-fg); }
+
+  /* Cheque maturity tiles */
+  .mat-tile {
+    @apply rounded-lg border px-3 py-2.5 text-left transition-shadow cursor-pointer;
+    border-color: var(--border); background: var(--surface);
+  }
+  .mat-tile:hover { box-shadow: 0 1px 4px rgb(0 0 0 / 0.08); }
+  .mat-tile.is-active { box-shadow: 0 0 0 2px #0f766e; }
+  .mat-overdue { background: var(--st-overdue-bg); color: var(--st-overdue-fg); border-color: var(--st-overdue-bd); }
+  .mat-today   { background: var(--st-today-bg);   color: var(--st-today-fg);   border-color: var(--st-today-bd); }
+  .mat-soon    { background: var(--st-soon-bg);    color: var(--st-soon-fg);    border-color: var(--st-soon-bd); }
+  .mat-later   { background: var(--st-later-bg);   color: var(--st-later-fg);   border-color: var(--st-later-bd); }
 }
 
 /* narrow phones: collapse multi-column overrides */

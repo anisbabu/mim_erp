@@ -161,15 +161,18 @@ export type BalanceSheet = {
 };
 export type TrialRow = { code: string; name: string; type: string; total_debit: number; total_credit: number };
 
+export type ChequeStatus = "PENDING" | "HOLD" | "CASHED" | "POSTED" | "BOUNCED";
 export type Cheque = {
-  id: string; paymentId: string; chequeNo: string; bankName?: string; customerId: string;
+  id: string; paymentId?: string; chequeNo: string; bankName?: string; customerId: string;
   amount: number; receiveDate: string; maturityDate: string;
-  status: "PENDING" | "CLEARED" | "BOUNCED" | "EXTENDED"; note?: string;
+  status: ChequeStatus; note?: string;
 };
 
-export type ChequeExtension = {
-  id: string; chequeId: string; oldMaturityDate: string; newMaturityDate: string;
-  requestedBy: string; note?: string; extendedByName: string; extendedAt: string;
+export type ChequeEventType = "RECEIVED" | "DATE_CHANGED" | "HOLD" | "RESUMED" | "CASHED" | "POSTED" | "BOUNCED";
+export type ChequeEvent = {
+  id: string; chequeId: string; eventType: ChequeEventType; eventDate: string;
+  oldMaturityDate?: string; newMaturityDate?: string; requestedBy?: string; note?: string;
+  userName?: string; createdAt: string;
 };
 
 export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
@@ -297,10 +300,10 @@ export const endpoints = {
   pettyCash:    (b: unknown) => api.post("/api/accounting/petty-cash", b),
   cheques:      () => api.get<Cheque[]>("/api/accounting/cheques"),
   recordCheque: (b: unknown) => api.post<Cheque>("/api/accounting/cheques", b),
-  clearCheque:  (id: string) => api.post<Cheque>(`/api/accounting/cheques/${id}/clear`, {}),
-  bounceCheque: (id: string) => api.post<Cheque>(`/api/accounting/cheques/${id}/bounce`, {}),
-  extendCheque: (id: string, b: unknown) => api.post<Cheque>(`/api/accounting/cheques/${id}/extend`, b),
-  chequeExtensions: (id: string) => api.get<ChequeExtension[]>(`/api/accounting/cheques/${id}/extensions`),
+  chequeDate:   (id: string, b: unknown) => api.post<Cheque>(`/api/accounting/cheques/${id}/date`, b),
+  chequeStep:   (id: string, step: "hold" | "resume" | "cash" | "post" | "bounce", b: unknown) =>
+    api.post<Cheque>(`/api/accounting/cheques/${id}/${step}`, b),
+  chequeHistory: (id: string) => api.get<ChequeEvent[]>(`/api/accounting/cheques/${id}/history`),
 
   // auth + users
   login: (username: string, password: string) =>
