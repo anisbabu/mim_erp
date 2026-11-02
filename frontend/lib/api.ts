@@ -53,7 +53,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     } catch { /* ignore */ }
     throw new Error(msg);
   }
-  return res.status === 204 ? (undefined as T) : res.json();
+  if (res.status === 204) return undefined as T;
+  // DELETE handlers return 200 with an empty body; avoid res.json() throwing on it
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const api = {
