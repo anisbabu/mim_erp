@@ -1,6 +1,8 @@
 package com.mim.erp.master;
 
 import com.mim.erp.common.ApiException;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -29,15 +31,17 @@ public class MasterController {
     }
 
     // ---- reads ----
-    @GetMapping("/products")   public List<Product>   products()   { return products.findAllByOrderByCreatedAtDesc(); }
-    @GetMapping("/warehouses") public List<Warehouse> warehouses() { return warehouses.findAll(); }
-    @GetMapping("/suppliers")  public List<Supplier>  suppliers()  { return suppliers.findAll(); }
-    @GetMapping("/supplier-groups") public List<SupplierGroup> supplierGroups() { return supplierGroups.findAll(); }
-    @GetMapping("/shops")      public List<Shop>      shops()      { return shops.findAll(); }
-    @GetMapping("/customers")  public List<Customer>  customers()  { return customers.findAll(); }
+    @GetMapping("/products")   @Cacheable(value = MasterCache.NAME, key = "'products'")   public List<Product>   products()   { return products.findAllByOrderByCreatedAtDesc(); }
+    @GetMapping("/warehouses") @Cacheable(value = MasterCache.NAME, key = "'warehouses'") public List<Warehouse> warehouses() { return warehouses.findAll(); }
+    @GetMapping("/suppliers")  @Cacheable(value = MasterCache.NAME, key = "'suppliers'")  public List<Supplier>  suppliers()  { return suppliers.findAll(); }
+    @GetMapping("/supplier-groups") @Cacheable(value = MasterCache.NAME, key = "'supplier-groups'") public List<SupplierGroup> supplierGroups() { return supplierGroups.findAll(); }
+    @GetMapping("/shops")      @Cacheable(value = MasterCache.NAME, key = "'shops'")      public List<Shop>      shops()      { return shops.findAll(); }
+    @GetMapping("/customers")  @Cacheable(value = MasterCache.NAME, key = "'customers'")  public List<Customer>  customers()  { return customers.findAll(); }
 
     // ---- create ----
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/products")  public Product   saveProduct(@RequestBody Product p)   { return products.save(p); }
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/suppliers")
     public Supplier saveSupplier(@RequestBody Supplier s) {
         if (s.getCode() == null || s.getCode().isBlank()) s.setCode(nextSupplierCode());
@@ -54,13 +58,17 @@ public class MasterController {
         }
         return String.format("SUP-%04d", max + 1);
     }
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/supplier-groups") public SupplierGroup saveSupplierGroup(@RequestBody SupplierGroup g) { return supplierGroups.save(g); }
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/customers") public Customer  saveCustomer(@RequestBody Customer c) {
         if ("PARTY".equals(c.getType()) && c.getCreditLimit() == null)
             throw new ApiException("Party customers need a credit limit");
         return customers.save(c);
     }
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/warehouses") public Warehouse saveWarehouse(@RequestBody Warehouse w) { w.setName(upper(w.getName())); return warehouses.save(w); }
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/shops")      public Shop      saveShop(@RequestBody Shop s)           { checkShopAmounts(s); return shops.save(s); }
 
     private static String upper(String s) { return s == null ? null : s.trim().toUpperCase(Locale.ROOT); }
@@ -78,6 +86,7 @@ public class MasterController {
     }
 
     // ---- update ----
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PutMapping("/shops/{id}")
     public Shop updateShop(@PathVariable UUID id, @RequestBody Shop in) {
         Shop s = shops.findById(id).orElseThrow(() -> new ApiException("Shop not found"));
@@ -94,6 +103,7 @@ public class MasterController {
         return shops.save(s);
     }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PutMapping("/warehouses/{id}")
     public Warehouse updateWarehouse(@PathVariable UUID id, @RequestBody Warehouse in) {
         Warehouse w = warehouses.findById(id).orElseThrow(() -> new ApiException("Warehouse not found"));
@@ -104,6 +114,7 @@ public class MasterController {
         return warehouses.save(w);
     }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PutMapping("/products/{id}")
     public Product updateProduct(@PathVariable UUID id, @RequestBody Product in) {
         Product p = products.findById(id).orElseThrow(() -> new ApiException("Product not found"));
@@ -121,6 +132,7 @@ public class MasterController {
         return products.save(p);
     }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PutMapping("/suppliers/{id}")
     public Supplier updateSupplier(@PathVariable UUID id, @RequestBody Supplier in) {
         Supplier s = suppliers.findById(id).orElseThrow(() -> new ApiException("Supplier not found"));
@@ -129,6 +141,7 @@ public class MasterController {
         return suppliers.save(s);
     }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PutMapping("/supplier-groups/{id}")
     public SupplierGroup updateSupplierGroup(@PathVariable UUID id, @RequestBody SupplierGroup in) {
         SupplierGroup g = supplierGroups.findById(id).orElseThrow(() -> new ApiException("Supplier group not found"));
@@ -136,6 +149,7 @@ public class MasterController {
         return supplierGroups.save(g);
     }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PutMapping("/customers/{id}")
     public Customer updateCustomer(@PathVariable UUID id, @RequestBody Customer in) {
         Customer c = customers.findById(id).orElseThrow(() -> new ApiException("Customer not found"));
@@ -152,21 +166,27 @@ public class MasterController {
     }
 
     // ---- delete (guards against rows still referenced by transactions) ----
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @DeleteMapping("/shops/{id}")
     public void deleteShop(@PathVariable UUID id) { guardedDelete(() -> shops.deleteById(id), "shop"); }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @DeleteMapping("/warehouses/{id}")
     public void deleteWarehouse(@PathVariable UUID id) { guardedDelete(() -> warehouses.deleteById(id), "warehouse"); }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @DeleteMapping("/products/{id}")
     public void deleteProduct(@PathVariable UUID id) { guardedDelete(() -> products.deleteById(id), "product"); }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @DeleteMapping("/suppliers/{id}")
     public void deleteSupplier(@PathVariable UUID id) { guardedDelete(() -> suppliers.deleteById(id), "supplier"); }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @DeleteMapping("/supplier-groups/{id}")
     public void deleteSupplierGroup(@PathVariable UUID id) { guardedDelete(() -> supplierGroups.deleteById(id), "supplier group"); }
 
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @DeleteMapping("/customers/{id}")
     public void deleteCustomer(@PathVariable UUID id) { guardedDelete(() -> customers.deleteById(id), "customer"); }
 

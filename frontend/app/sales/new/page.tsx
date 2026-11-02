@@ -54,10 +54,19 @@ export default function NewSalePage() {
     endpoints.users()
       .then((u) => {
         setAuthorisers(u.filter((x) => x.active && (x.role === "MANAGER" || x.role === "ADMIN")));
-        setSalespeople(u.filter((x) => x.active && x.role === "SALESPERSON"));
+        // admins and managers sell too; only accountants are left out
+        setSalespeople(u.filter((x) => x.active && x.role !== "ACCOUNTANT")
+          .sort((p, q) => (p.fullName || p.username).localeCompare(q.fullName || q.username)));
       })
       .catch(() => {});
   }, []);
+
+  // a manager/admin is usually the seller: preselect themselves (still changeable)
+  useEffect(() => {
+    if (!user || user.role === "SALESPERSON" || salespersonId) return;
+    const me = salespeople.find((x) => x.username === user.username);
+    if (me) setSalespersonId(me.id);
+  }, [salespeople, user, salespersonId]);
 
   const productById   = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
   const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);

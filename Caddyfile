@@ -1,0 +1,5 @@
+# HTTPS reverse proxy: certificates are issued and renewed automatically for $DOMAIN
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy frontend:3000
+}

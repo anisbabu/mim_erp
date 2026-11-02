@@ -552,6 +552,13 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Reminder sent": { en: "Reminder sent", bn: "রিমাইন্ডার পাঠানো হয়েছে" },
   "Reminder failed": { en: "Reminder failed", bn: "রিমাইন্ডার ব্যর্থ" },
   "Remind": { en: "Remind", bn: "রিমাইন্ড" },
+  "New Sub Ledger": { en: "New Sub Ledger", bn: "নতুন উপ-খতিয়ান" },
+  "New Ledger": { en: "New Ledger", bn: "নতুন খতিয়ান" },
+  "Sub Ledger": { en: "Sub Ledger", bn: "উপ-খতিয়ান" },
+  "Parent ledger (optional)": { en: "Parent ledger (optional)", bn: "প্যারেন্ট খতিয়ান (ঐচ্ছিক)" },
+  "Code, name and ledger are required.": { en: "Code, name and ledger are required.", bn: "কোড, নাম ও খতিয়ান আবশ্যক।" },
+  "Ledger code and name are required.": { en: "Ledger code and name are required.", bn: "খতিয়ানের কোড ও নাম আবশ্যক।" },
+  "Ledgers and their sub ledgers, with live balances for the current financial year.": { en: "Ledgers and their sub ledgers, with live balances for the current financial year.", bn: "খতিয়ান ও তার উপ-খতিয়ানসমূহ, চলতি অর্থবছরের সরাসরি ব্যালেন্সসহ।" },
 };
 
 type I18n = {

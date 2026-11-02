@@ -45,7 +45,7 @@ export default function ChartOfAccountsPage() {
 
   async function addLedger() {
     setMsg(null);
-    if (!lf.code || !lf.name || !lf.groupId) { setMsg({ kind: "err", text: "Code, name and head are required." }); return; }
+    if (!lf.code || !lf.name || !lf.groupId) { setMsg({ kind: "err", text: t("Code, name and ledger are required.") }); return; }
     try {
       const defaultDeposit = isBankHead && lf.defaultDeposit;
       if (editId) await endpoints.updateLedger(editId, { name: lf.name, nameBn: lf.nameBn, groupId: lf.groupId, active: true, defaultDeposit });
@@ -65,7 +65,7 @@ export default function ChartOfAccountsPage() {
   }
   async function addGroup() {
     setMsg(null);
-    if (!gf.code || !gf.name) { setMsg({ kind: "err", text: "Head code and name are required." }); return; }
+    if (!gf.code || !gf.name) { setMsg({ kind: "err", text: t("Ledger code and name are required.") }); return; }
     try {
       await endpoints.createGroup({ code: gf.code, name: gf.name, nameBn: gf.nameBn,
         nature: gf.nature as AccountGroup["nature"], parentId: gf.parentId || undefined });
@@ -80,16 +80,39 @@ export default function ChartOfAccountsPage() {
   return (
     <div>
       <h1 className="page-title mb-1">{t("Chart of accounts")}</h1>
-      <p className="text-sm muted mb-6">Account heads and their ledgers, with live balances for the current financial year.</p>
+      <p className="text-sm muted mb-6">{t("Ledgers and their sub ledgers, with live balances for the current financial year.")}</p>
 
       <div className="grid lg:grid-cols-2 gap-4 mb-6">
-        {/* new ledger */}
+        {/* new Ledger (account head) */}
         <div className="card p-5">
-          <div className="section-label mb-3">{t("New ledger")}</div>
+          <div className="section-label mb-3">{t("New Ledger")}</div>
+          <div className="form-grid cols-2">
+            <div className="field"><label>{t("Code")}</label>
+              <input className="inp" value={gf.code} onChange={(e) => setGf({ ...gf, code: e.target.value })} /></div>
+            <div className="field"><label>{t("Nature")}</label>
+              <select className="inp" value={gf.nature} onChange={(e) => setGf({ ...gf, nature: e.target.value })}>
+                {NATURES.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select></div>
+            <div className="field"><label>{t("Name")}</label>
+              <input className="inp" value={gf.name} onChange={(e) => setGf({ ...gf, name: e.target.value })} /></div>
+            <div className="field"><label>{t("Name (Bangla)")}</label>
+              <input className="inp" value={gf.nameBn} onChange={(e) => setGf({ ...gf, nameBn: e.target.value })} /></div>
+            <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Parent ledger (optional)")}</label>
+              <select className="inp" value={gf.parentId} onChange={(e) => setGf({ ...gf, parentId: e.target.value })}>
+                <option value="">— top level —</option>
+                {headOrder.map((g) => <option key={g.id} value={g.id}>{g.code} · {gname(g)}</option>)}
+              </select></div>
+          </div>
+          <div className="mt-4"><button className="btn" onClick={addGroup}>{t("Add")}</button></div>
+        </div>
+
+        {/* new Sub Ledger */}
+        <div className="card p-5">
+          <div className="section-label mb-3">{t("New Sub Ledger")}</div>
           <div className="form-grid cols-2">
             <div className="field"><label>{t("Code")}</label>
               <input className="inp" value={lf.code} disabled={!!editId} onChange={(e) => setLf({ ...lf, code: e.target.value })} /></div>
-            <div className="field"><label>{t("Account head")}</label>
+            <div className="field"><label>{t("Ledger")}</label>
               <select className="inp" value={lf.groupId} onChange={(e) => setLf({ ...lf, groupId: e.target.value })}>
                 <option value="">—</option>
                 {headOrder.map((g) => <option key={g.id} value={g.id}>{g.code} · {gname(g)}</option>)}
@@ -110,29 +133,6 @@ export default function ChartOfAccountsPage() {
             <button className="btn" onClick={addLedger}>{editId ? t("Update") : t("Add")}</button>
             {editId && <button className="btn-ghost" onClick={() => { setEditId(null); setLf(EMPTY_LF); }}>{t("Cancel")}</button>}
           </div>
-        </div>
-
-        {/* new head */}
-        <div className="card p-5">
-          <div className="section-label mb-3">{t("New head")}</div>
-          <div className="form-grid cols-2">
-            <div className="field"><label>{t("Code")}</label>
-              <input className="inp" value={gf.code} onChange={(e) => setGf({ ...gf, code: e.target.value })} /></div>
-            <div className="field"><label>{t("Nature")}</label>
-              <select className="inp" value={gf.nature} onChange={(e) => setGf({ ...gf, nature: e.target.value })}>
-                {NATURES.map((n) => <option key={n} value={n}>{n}</option>)}
-              </select></div>
-            <div className="field"><label>{t("Name")}</label>
-              <input className="inp" value={gf.name} onChange={(e) => setGf({ ...gf, name: e.target.value })} /></div>
-            <div className="field"><label>{t("Name (Bangla)")}</label>
-              <input className="inp" value={gf.nameBn} onChange={(e) => setGf({ ...gf, nameBn: e.target.value })} /></div>
-            <div className="field" style={{ gridColumn: "span 2" }}><label>Parent head (optional)</label>
-              <select className="inp" value={gf.parentId} onChange={(e) => setGf({ ...gf, parentId: e.target.value })}>
-                <option value="">— top level —</option>
-                {headOrder.map((g) => <option key={g.id} value={g.id}>{g.code} · {gname(g)}</option>)}
-              </select></div>
-          </div>
-          <div className="mt-4"><button className="btn" onClick={addGroup}>{t("Add")}</button></div>
         </div>
       </div>
 
@@ -156,12 +156,17 @@ export default function ChartOfAccountsPage() {
                 </div>
                 <div className="num text-sm font-medium">{headTotal.toFixed(2)}</div>
               </div>
-              <table className="tbl">
+              {/* fixed layout + shared widths keep every head's columns on the same vertical lines */}
+              <table className="tbl" style={{ tableLayout: "fixed", minWidth: 760 }}>
+                <colgroup>
+                  <col style={{ width: 110 }} /><col /><col style={{ width: 130 }} /><col style={{ width: 130 }} />
+                  <col style={{ width: 130 }} /><col style={{ width: 150 }} /><col style={{ width: 90 }} />
+                </colgroup>
                 <thead><tr>
-                  <th>{t("Code")}</th><th>{t("Ledger")}</th>
-                  <th className="text-right">{t("Opening")}</th>
-                  <th className="text-right">{t("Debit")}</th><th className="text-right">{t("Credit")}</th>
-                  <th className="text-right">{t("Closing balance")}</th><th></th>
+                  <th style={{ textAlign: "left" }}>{t("Code")}</th><th style={{ textAlign: "left" }}>{t("Sub Ledger")}</th>
+                  <th style={{ textAlign: "right" }}>{t("Opening")}</th>
+                  <th style={{ textAlign: "right" }}>{t("Debit")}</th><th style={{ textAlign: "right" }}>{t("Credit")}</th>
+                  <th style={{ textAlign: "right" }}>{t("Closing balance")}</th><th></th>
                 </tr></thead>
                 <tbody>
                   {rows.map((l) => (
