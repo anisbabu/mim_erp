@@ -50,7 +50,8 @@ if ($Data) {
       $tableArgs += " -t $t"
     }
   } else {
-    $tableArgs = " -T flyway_schema_history"
+    # Skip Flyway history and local scratch tables (not created by any migration, so absent on the server)
+    $tableArgs = " -T flyway_schema_history -T '*_backup*' -T cat_match -T color_match -T color_dict"
   }
 
   $dumpName = "mim_data.sql.gz"
