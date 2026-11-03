@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type FinancialYear, type LedgerRow, type OpeningBalance } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import PageHeader from "@/components/PageHeader";
 
 export default function FinancialYearPage() {
   const { t, lang } = useI18n();
@@ -70,8 +71,8 @@ export default function FinancialYearPage() {
 
   return (
     <div>
-      <h1 className="page-title mb-1">{t("Financial year")}</h1>
-      <p className="text-sm muted mb-6">Opening balances for the current year carry forward from last year's closing. Debits should equal credits.</p>
+      <PageHeader crumbs={["Accounting", "Setup"]} title={t("Financial year")}
+        subtitle={t("Opening balances for the current year carry forward from last year's closing. Debits should equal credits.")} />
 
       {/* years */}
       <div className="card table-wrap mb-6">

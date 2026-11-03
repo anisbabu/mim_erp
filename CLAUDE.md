@@ -36,5 +36,12 @@ Default admin: `admin` / `admin123`. Old Neon DB = env `DB_URL`/`DB_USER`/`DB_PA
 - Hint rows under inputs: fixed `h-4 leading-4` so row height never jumps.
 - Theme tokens `--bg --surface --text --muted --border --input-bg`; dark mode via `html.dark`. Brand teal `#0f766e` / `bg-brand`.
 
+## UI standard (lists and forms)
+- Every page starts with `components/PageHeader.tsx`: breadcrumb (`["Accounting","Setup"]`), title, one-line subtitle, primary actions on the right.
+- List pages: toolbar row (search, filter chips, secondary toggles) above one `.card .table-wrap` table; numbers right-aligned `.num`; totals/status as `.chip`.
+- Create/edit forms: right-hand `components/Drawer.tsx` (Save/Cancel in footer, Enter saves, Esc closes), required marked `*`, inline errors in the fixed `h-4` hint row. Long transaction forms (journal, payment) stay as a page `.card`.
+- Sidebar: `Shell.tsx` groups with captions (Setup / Transactions / Reports), lucide icon per item, collapsible groups; add `also:` paths so a hub page stays highlighted.
+- Terms: Group (totals only) / Ledger (posted to); Receipts & payments; Financial reports. All text through `t()` with EN + BN.
+
 ## Don't read
 `document/` (dumps, CSV backups), `node_modules`, `.next`, `target`, lockfiles — blocked in `.claude/settings.json`.

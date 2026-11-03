@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import PageHeader from "@/components/PageHeader";
 import TrialBalancePage from "../accounting/trial-balance/page";
 import PnlPage from "../accounting/pnl/page";
 import BalanceSheetPage from "../accounting/balance-sheet/page";
@@ -33,8 +34,9 @@ export default function ReportsPage() {
 
   return (
     <div>
-      <h1 className="page-title mb-1">{t("Reports")}</h1>
-      <div className="flex flex-wrap gap-2 my-4">
+      <PageHeader crumbs={["Accounting", "Reports"]} title={t("Financial reports")}
+        subtitle={t("Trial balance, profit & loss and balance sheet for the current financial year.")} />
+      <div className="flex flex-wrap gap-2 mb-4">
         {TABS.map((x) => (
           <button key={x.key} onClick={() => pick(x.key)}
             className={x.key === tab ? "btn" : "btn-ghost"}>

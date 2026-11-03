@@ -4,6 +4,7 @@ import {
   endpoints, fmtDate, type Account, type BounceReason, type Customer, type Cheque, type ChequeReminderSettings, type ChequeEvent, type ChequeStatus,
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import PageHeader from "@/components/PageHeader";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { BD_BANKS } from "@/lib/banks";
 import ChequeMaturityBoard, {
@@ -273,10 +274,8 @@ export default function ChequesPage() {
 
   return (
     <div>
-      <h1 className="page-title mb-1">{t("Cheques received")}</h1>
-      <p className="text-sm muted mb-6">
-        {t("Record a customer cheque and follow it to maturity. Accounting is posted only when you post a cashed cheque.")}
-      </p>
+      <PageHeader crumbs={["Accounting", "Transactions"]} title={t("Cheques received")}
+        subtitle={t("Record a customer cheque and follow it to maturity. Accounting is posted only when you post a cashed cheque.")} />
 
       {rem && (
         <div className="card p-4 mb-4 flex flex-wrap items-center gap-4 text-sm">

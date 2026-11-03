@@ -39,6 +39,20 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Cheques received": { en: "Cheques received", bn: "প্রাপ্ত চেক" },
   "Petty cash": { en: "Petty cash", bn: "খুচরা নগদ" },
   "Reports": { en: "Reports", bn: "রিপোর্ট" },
+  // accounting menu
+  "Setup": { en: "Setup", bn: "সেটআপ" },
+  "Transactions": { en: "Transactions", bn: "লেনদেন" },
+  "Receipts & payments": { en: "Receipts & payments", bn: "প্রাপ্তি ও পরিশোধ" },
+  "Financial reports": { en: "Financial reports", bn: "আর্থিক প্রতিবেদন" },
+  "Opening balances for the current year carry forward from last year's closing. Debits should equal credits.": {
+    en: "Opening balances for the current year carry forward from last year's closing. Debits should equal credits.",
+    bn: "চলতি বছরের প্রারম্ভিক জের গত বছরের সমাপনী জের থেকে আসে। ডেবিট ও ক্রেডিট সমান হওয়া উচিত।" },
+  "Post a manual double-entry journal. Debits must equal credits.": {
+    en: "Post a manual double-entry journal. Debits must equal credits.",
+    bn: "ম্যানুয়াল দ্বি-মুখী জার্নাল এন্ট্রি দিন। ডেবিট ও ক্রেডিট সমান হতে হবে।" },
+  "Trial balance, profit & loss and balance sheet for the current financial year.": {
+    en: "Trial balance, profit & loss and balance sheet for the current financial year.",
+    bn: "চলতি অর্থবছরের রেওয়ামিল, লাভ-ক্ষতি ও স্থিতিপত্র।" },
   // chart of accounts (group / ledger)
   "Inactive": { en: "Inactive", bn: "নিষ্ক্রিয়" },
   "System": { en: "System", bn: "সিস্টেম" },

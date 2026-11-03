@@ -7,48 +7,64 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { endpoints, type Role, type Shop } from "@/lib/api";
+import {
+  ArrowLeftRight, Banknote, BarChart3, BookOpen, Boxes, Building2, CalendarRange, ChevronDown, ChevronRight,
+  ClipboardList, FileText, Landmark, LayoutDashboard, ListTree, Package, PackageCheck, ReceiptText, Scale,
+  ShoppingCart, Store, Truck, UserCog, Users, Wallet, Warehouse, type LucideIcon,
+} from "lucide-react";
 
-type Item = { href: string; label: string; roles: Role[] };
+type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[] };
+type Heading = { heading: string };          // small caption that splits a group into sub-sections
+type Entry = Item | Heading;
+const isHeading = (e: Entry): e is Heading => "heading" in e;
 const ALL: Role[] = ["SALESPERSON", "MANAGER", "ACCOUNTANT", "ADMIN"];
+const SALES: Role[] = ["SALESPERSON", "MANAGER", "ADMIN"];
+const BOOKS: Role[] = ["ACCOUNTANT", "ADMIN"];
 
-const groups: { label: string; items: Item[] }[] = [
-  { label: "", items: [{ href: "/", label: "Dashboard", roles: ALL }] },
+const groups: { label: string; items: Entry[] }[] = [
+  { label: "", items: [{ href: "/", label: "Dashboard", roles: ALL, icon: LayoutDashboard }] },
   { label: "Purchase", items: [
-    { href: "/purchase/orders/new", label: "New purchase order", roles: ["MANAGER", "ADMIN"] },
-    { href: "/purchase/orders", label: "Purchase orders", roles: ["MANAGER", "ADMIN"] },
-    { href: "/purchase/receive", label: "Receive goods", roles: ["MANAGER", "ADMIN"] },
+    { href: "/purchase/orders/new", label: "New purchase order", roles: ["MANAGER", "ADMIN"], icon: ShoppingCart },
+    { href: "/purchase/orders", label: "Purchase orders", roles: ["MANAGER", "ADMIN"], icon: ClipboardList },
+    { href: "/purchase/receive", label: "Receive goods", roles: ["MANAGER", "ADMIN"], icon: PackageCheck },
   ]},
   { label: "Inventory", items: [
-    { href: "/inventory/stock", label: "Stock on hand", roles: ALL },
-    { href: "/inventory/variance", label: "Price variance", roles: ["MANAGER", "ACCOUNTANT", "ADMIN"] },
-    { href: "/inventory/adjust", label: "Stock adjustment", roles: ["MANAGER", "ADMIN"] },
+    { href: "/inventory/stock", label: "Stock on hand", roles: ALL, icon: Boxes },
+    { href: "/inventory/variance", label: "Price variance", roles: ["MANAGER", "ACCOUNTANT", "ADMIN"], icon: Scale },
+    { href: "/inventory/adjust", label: "Stock adjustment", roles: ["MANAGER", "ADMIN"], icon: ArrowLeftRight },
   ]},
   { label: "Sales", items: [
-    { href: "/sales/new", label: "Sales Order", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/orders", label: "Sales Orders List", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/challan", label: "Challan", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/challans", label: "Challan list", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
-    { href: "/sales/consolidate", label: "Day-end consolidate", roles: ["SALESPERSON", "MANAGER", "ADMIN"] },
+    { href: "/sales/new", label: "Sales Order", roles: SALES, icon: ReceiptText },
+    { href: "/sales/orders", label: "Sales Orders List", roles: SALES, icon: ClipboardList },
+    { href: "/sales/challan", label: "Challan", roles: SALES, icon: Truck },
+    { href: "/sales/challans", label: "Challan list", roles: SALES, icon: FileText },
+    { href: "/sales/consolidate", label: "Day-end consolidate", roles: SALES, icon: CalendarRange },
   ]},
   { label: "Accounting", items: [
-    { href: "/accounting/coa", label: "Chart of accounts", roles: ["ACCOUNTANT", "ADMIN"] },
-    { href: "/accounting/financial-year", label: "Financial year", roles: ["ACCOUNTANT", "ADMIN"] },
-    { href: "/accounting/journal", label: "Journal entry", roles: ["ACCOUNTANT", "ADMIN"] },
-    { href: "/accounting/payments", label: "Payments & receipts", roles: ["ACCOUNTANT", "ADMIN"] },
-    { href: "/accounting/cheques", label: "Cheques received", roles: ["ACCOUNTANT", "ADMIN"] },
-    { href: "/accounting/petty-cash", label: "Petty cash", roles: ["ACCOUNTANT", "ADMIN"] },
-    { href: "/reports", label: "Reports", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"] },
+    { heading: "Setup" },
+    { href: "/accounting/coa", label: "Chart of accounts", roles: BOOKS, icon: ListTree },
+    { href: "/accounting/financial-year", label: "Financial year", roles: BOOKS, icon: CalendarRange },
+    { heading: "Transactions" },
+    { href: "/accounting/journal", label: "Journal entry", roles: BOOKS, icon: BookOpen },
+    { href: "/accounting/payments", label: "Receipts & payments", roles: BOOKS, icon: Banknote },
+    { href: "/accounting/cheques", label: "Cheques received", roles: BOOKS, icon: Landmark },
+    { href: "/accounting/petty-cash", label: "Petty cash", roles: BOOKS, icon: Wallet },
+    { heading: "Reports" },
+    { href: "/reports", label: "Financial reports", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: BarChart3,
+      also: ["/accounting/trial-balance", "/accounting/pnl", "/accounting/balance-sheet"] },
   ]},
   { label: "Administration", items: [
-    { href: "/admin/users", label: "Users", roles: ["ADMIN"] },
-    { href: "/hr/employees", label: "Employees", roles: ["ADMIN", "ACCOUNTANT"] },
-    { href: "/master/products", label: "Products", roles: ["ADMIN"] },
-    { href: "/master/suppliers", label: "Suppliers", roles: ["ADMIN"] },
-    { href: "/master/customers", label: "Customers", roles: ["ADMIN"] },
-    { href: "/master/shops", label: "Shops", roles: ["ADMIN"] },
-    { href: "/master/warehouses", label: "Warehouses", roles: ["ADMIN"] },
+    { href: "/admin/users", label: "Users", roles: ["ADMIN"], icon: UserCog },
+    { href: "/hr/employees", label: "Employees", roles: ["ADMIN", "ACCOUNTANT"], icon: Users },
+    { href: "/master/products", label: "Products", roles: ["ADMIN"], icon: Package },
+    { href: "/master/suppliers", label: "Suppliers", roles: ["ADMIN"], icon: Building2 },
+    { href: "/master/customers", label: "Customers", roles: ["ADMIN"], icon: Users },
+    { href: "/master/shops", label: "Shops", roles: ["ADMIN"], icon: Store },
+    { href: "/master/warehouses", label: "Warehouses", roles: ["ADMIN"], icon: Warehouse },
   ]},
 ];
+
+const NAV_CLOSED_KEY = "mim_nav_closed";
 
 type Theme = "light" | "dark";
 const THEME_KEY   = "mim_theme";
@@ -67,6 +83,14 @@ export default function Shell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [theme,     setTheme]     = useState<Theme>("light");
   const [shops,     setShops]     = useState<Shop[]>([]);
+  const [closedGroups, setClosedGroups] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(NAV_CLOSED_KEY);
+      if (raw) setClosedGroups(new Set(JSON.parse(raw) as string[]));
+    } catch { /* ignore */ }
+  }, []);
 
   // load shop names for the header switcher (only useful when assigned >1 shop)
   useEffect(() => {
@@ -158,9 +182,29 @@ export default function Shell({ children }: { children: ReactNode }) {
   if (!ready) return <div className="min-h-screen flex items-center justify-center muted">{t("Loading…")}</div>;
   if (!user) return <>{children}</>;
 
+  // role filter; a sub-section caption stays only if at least one item under it is visible
   const visible = groups
-    .map((g) => ({ ...g, items: g.items.filter((it) => it.roles.includes(user.role)) }))
-    .filter((g) => g.items.length > 0);
+    .map((g) => {
+      const kept: Entry[] = [];
+      g.items.forEach((e) => {
+        if (isHeading(e)) kept.push(e);
+        else if (e.roles.includes(user.role)) kept.push(e);
+      });
+      const items = kept.filter((e, i) => !isHeading(e) || (kept[i + 1] !== undefined && !isHeading(kept[i + 1])));
+      return { ...g, items };
+    })
+    .filter((g) => g.items.some((e) => !isHeading(e)));
+
+  const isActive = (n: Item) =>
+    pathname === n.href || (n.href !== "/" && pathname.startsWith(n.href + "/")) || !!n.also?.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  function toggleGroup(label: string) {
+    setClosedGroups((prev) => {
+      const next = new Set(prev);
+      next.has(label) ? next.delete(label) : next.add(label);
+      try { localStorage.setItem(NAV_CLOSED_KEY, JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }
 
   const sidebar = (isMobile = false) => (
     <aside
@@ -188,32 +232,53 @@ export default function Shell({ children }: { children: ReactNode }) {
 
       {/* nav */}
       <nav className="flex flex-col gap-2 flex-1 overflow-y-auto px-1.5 py-2">
-        {visible.map((g, i) => (
-          <div key={i}>
-            {g.label && !collapsed && (
-              <div className="section-label px-2 mb-0.5 mt-1">{t(g.label)}</div>
-            )}
-            {(!collapsed || isMobile) && (
-              <div className="flex flex-col gap-0.5">
-                {g.items.map((n) => {
-                  const active = pathname === n.href;
-                  return (
-                    <Link key={n.href} href={n.href} onClick={() => setOpenNav(false)}
-                      className="px-2 py-1 rounded text-[12px] transition-colors"
-                      style={{
-                        background: active ? "#0f766e" : "transparent",
-                        color: active ? "#fff" : "var(--aside-text)",
-                        fontWeight: active ? 600 : 500,
-                        whiteSpace: "nowrap", overflow: "hidden",
-                      }}>
-                      {t(n.label)}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ))}
+        {visible.map((g, i) => {
+          const rail = collapsed && !isMobile;                          // icon-only rail
+          const hasActive = g.items.some((e) => !isHeading(e) && isActive(e));
+          const open = rail || !g.label || !closedGroups.has(g.label) || hasActive;
+          return (
+            <div key={i}>
+              {g.label && !rail && (
+                <button type="button" onClick={() => toggleGroup(g.label)} aria-expanded={open}
+                  className="w-full flex items-center justify-between px-2 mb-0.5 mt-1 section-label"
+                  style={{ borderLeft: "2px solid #0f766e", cursor: "pointer", textAlign: "left" }}>
+                  <span>{t(g.label)}</span>
+                  {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                </button>
+              )}
+              {rail && g.label && <div className="mx-2 my-1 border-t border-ashdark" />}
+              {open && (
+                <div className="flex flex-col gap-0.5">
+                  {g.items.map((n, j) => {
+                    if (isHeading(n)) {
+                      return rail ? null : (
+                        <div key={`h${j}`} className="px-2 pt-2 pb-0.5 text-[10px] uppercase tracking-wider font-semibold muted">
+                          {t(n.heading)}
+                        </div>
+                      );
+                    }
+                    const active = isActive(n);
+                    const Icon = n.icon;
+                    return (
+                      <Link key={n.href} href={n.href} onClick={() => setOpenNav(false)} title={rail ? t(n.label) : undefined}
+                        aria-current={active ? "page" : undefined}
+                        className={`${rail ? "justify-center px-0" : "px-2"} py-1.5 rounded text-[12px] transition-colors flex items-center gap-2`}
+                        style={{
+                          background: active ? "#0f766e" : "transparent",
+                          color: active ? "#fff" : "var(--aside-text)",
+                          fontWeight: active ? 600 : 500,
+                          whiteSpace: "nowrap", overflow: "hidden",
+                        }}>
+                        <Icon size={15} strokeWidth={active ? 2.2 : 1.8} className="shrink-0" />
+                        {!rail && <span className="truncate">{t(n.label)}</span>}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
       {/* user footer */}

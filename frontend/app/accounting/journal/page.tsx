@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type LedgerRow, type JournalEntryView } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import PageHeader from "@/components/PageHeader";
 import { TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 
@@ -58,8 +59,8 @@ export default function JournalPage() {
 
   return (
     <div>
-      <h1 className="page-title mb-1">{t("Journal entry")}</h1>
-      <p className="text-sm muted mb-6">Post a manual double-entry journal. Debits must equal credits.</p>
+      <PageHeader crumbs={["Accounting", "Transactions"]} title={t("Journal entry")}
+        subtitle={t("Post a manual double-entry journal. Debits must equal credits.")} />
 
       <div className="card p-5 mb-6">
         <div className="form-grid cols-2 mb-4">

@@ -5,6 +5,7 @@ import { endpoints, type AccountGroup, type LedgerRow } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
 import Drawer from "@/components/Drawer";
+import PageHeader from "@/components/PageHeader";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 
 type Nature = AccountGroup["nature"];
@@ -378,16 +379,12 @@ export default function ChartOfAccountsPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
-        <div>
-          <h1 className="page-title mb-1">{t("Chart of accounts")}</h1>
-          <p className="text-sm muted">{t("Groups add up their ledgers; entries are posted to ledgers only. Balances are for the current financial year.")}</p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader crumbs={["Accounting", "Setup"]} title={t("Chart of accounts")}
+        subtitle={t("Groups add up their ledgers; entries are posted to ledgers only. Balances are for the current financial year.")}
+        actions={<>
           <button className="btn-ghost" onClick={() => openNewGroup()}>+ {t("New group")}</button>
           <button className="btn" onClick={() => openNewLedger()}>+ {t("New ledger")}</button>
-        </div>
-      </div>
+        </>} />
 
       {msg && <div className={`note mb-3 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
 

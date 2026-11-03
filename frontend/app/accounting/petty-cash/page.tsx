@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import PageHeader from "@/components/PageHeader";
 import { endpoints, type Shop, type Account } from "@/lib/api";
 
 export default function PettyCashPage() {
@@ -34,8 +35,8 @@ export default function PettyCashPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="page-title mb-1">{t("Petty cash voucher")}</h1>
-      <p className="text-sm text-[#6b6960] mb-6">{t("Record a small shop expense paid from the petty-cash float (imprest system).")}</p>
+      <PageHeader crumbs={["Accounting", "Transactions"]} title={t("Petty cash voucher")}
+        subtitle={t("Record a small shop expense paid from the petty-cash float (imprest system).")} />
       <div className="space-y-4">
         <div>
           <label className="text-xs text-[#6b6960]">{t("Shop")}</label>

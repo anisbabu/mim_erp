@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import PageHeader from "@/components/PageHeader";
 import { endpoints, type Supplier, type Customer } from "@/lib/api";
 
 export default function PaymentsPage() {
@@ -38,10 +39,8 @@ export default function PaymentsPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="page-title mb-1">{t("Payments & receipts")}</h1>
-      <p className="text-sm text-[#6b6960] mb-6">
-        {t("Pay a supplier to settle payables, or receive from a customer to settle receivables. Each posts a balanced entry.")}
-      </p>
+      <PageHeader crumbs={["Accounting", "Transactions"]} title={t("Receipts & payments")}
+        subtitle={t("Pay a supplier to settle payables, or receive from a customer to settle receivables. Each posts a balanced entry.")} />
       <div className="flex gap-1 mb-5 text-sm">
         {(["OUT", "IN"] as const).map((d) => (
           <button key={d} onClick={() => { setDirection(d); setPartyId(""); }}
