@@ -8,7 +8,7 @@ export type Lang = "en" | "bn";
 // Add keys here and use t("key") anywhere. Missing bn falls back to the key.
 const DICT: Record<string, { en: string; bn: string }> = {
   // app / chrome
-  "MIM Enterprise": { en: "MIM Enterprise", bn: "এমআইএম এন্টারপ্রাইজ" },
+  "MIM Enterprise": { en: "MIM Enterprise", bn: "মিম এন্টারপ্রাইজ" },
   "Plywood & Hardware": { en: "Plywood & Hardware", bn: "প্লাইউড ও হার্ডওয়্যার" },
   "Sign in": { en: "Sign in", bn: "সাইন ইন" },
   "Sign out": { en: "Sign out", bn: "সাইন আউট" },
