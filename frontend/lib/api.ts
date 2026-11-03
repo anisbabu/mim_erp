@@ -104,6 +104,7 @@ export type LedgerRow = {
 export type PaymentRow = {
   id: string; payment_no: string; direction: "IN" | "OUT"; party_type: string; party_id: string;
   amount: number; method: string; note?: string; payment_date: string;
+  bank_account_no?: string; bank_branch?: string;
   party_code?: string; party_name?: string; party_name_bn?: string;
 };
 export type FinancialYear = {

@@ -18,6 +18,8 @@ public class Payment {
     @Column(name = "party_id") private UUID partyId;
     private BigDecimal amount;
     private String method;         // CASH | BANK
+    private String bankAccountNo;
+    private String bankBranch;
     private String note;
     private LocalDate paymentDate;
 }

@@ -21,6 +21,8 @@ export default function PaymentsPage() {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<"CASH" | "BANK">("CASH");
   const [note, setNote] = useState("");
+  const [bankAcc, setBankAcc] = useState("");
+  const [bankBranch, setBankBranch] = useState("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -52,14 +54,17 @@ export default function PaymentsPage() {
   async function submit() {
     setMsg(null);
     if (!partyId || !(Number(amount) > 0)) { setMsg({ kind: "err", text: t("Select a party and enter an amount.") }); return; }
+    if (method === "BANK" && !bankAcc.trim()) { setMsg({ kind: "err", text: t("Enter the bank account number.") }); return; }
     setBusy(true);
     try {
       const p: any = await endpoints.payment({
         direction: tab, partyType: isPay ? "SUPPLIER" : "CUSTOMER",
         partyId, amount: Number(amount), method, note,
+        bankAccountNo: method === "BANK" ? bankAcc.trim() : undefined,
+        bankBranch: method === "BANK" ? bankBranch.trim() : undefined,
       });
       setMsg({ kind: "ok", text: `${isPay ? t("Payment") : t("Receipt")} ${p.paymentNo} ${t("recorded.")}` });
-      setAmount(""); setNote(""); setPartyId("");
+      setAmount(""); setNote(""); setPartyId(""); setBankAcc(""); setBankBranch("");
       loadList(tab);
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
   }
@@ -90,6 +95,12 @@ export default function PaymentsPage() {
             <select className="inp" value={method} onChange={(e) => setMethod(e.target.value as "CASH" | "BANK")}>
               <option value="CASH">{t("Cash")}</option><option value="BANK">{t("Bank")}</option>
             </select></div>
+          {method === "BANK" && (<>
+            <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Bank account number")} *</label>
+              <input className="inp" value={bankAcc} onChange={(e) => setBankAcc(e.target.value)} /></div>
+            <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Bank branch")}</label>
+              <input className="inp" value={bankBranch} onChange={(e) => setBankBranch(e.target.value)} /></div>
+          </>)}
           <div className="field" style={{ gridColumn: "span 4" }}><label>{t("Note (optional)")}</label>
             <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} /></div>
         </div>
@@ -126,7 +137,8 @@ export default function PaymentsPage() {
                 <td className="font-mono text-[13px]">{r.payment_no}</td>
                 <td>{fmtDate(r.payment_date)}</td>
                 <td>{pname(r)}{r.party_code && <span className="chip ml-2 bg-slate-100 text-slate-500">{r.party_code}</span>}</td>
-                <td><span className="chip bg-slate-100 text-slate-600">{r.method === "BANK" ? t("Bank") : t("Cash")}</span></td>
+                <td><span className="chip bg-slate-100 text-slate-600">{r.method === "BANK" ? t("Bank") : t("Cash")}</span>
+                  {r.method === "BANK" && r.bank_account_no && <div className="text-[12px] muted mt-1">{r.bank_account_no}{r.bank_branch ? ` · ${r.bank_branch}` : ""}</div>}</td>
                 <td className="muted">{r.note ?? ""}</td>
                 <td className="num font-medium">{money(r.amount)}</td>
               </tr>

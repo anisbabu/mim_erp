@@ -15,7 +15,8 @@ public class CashController {
     public CashController(CashService cash) { this.cash = cash; }
 
     public record PaymentRequest(String direction, String partyType, UUID partyId,
-                                 BigDecimal amount, String method, String note) {}
+                                 BigDecimal amount, String method, String note,
+                                 String bankAccountNo, String bankBranch) {}
     public record PettyCashRequest(UUID shopId, BigDecimal amount,
                                    UUID expenseAccountId, String description) {}
 
@@ -27,7 +28,8 @@ public class CashController {
 
     @PostMapping("/payments")
     public Payment payment(@RequestBody PaymentRequest r) {
-        return cash.record(r.direction(), r.partyType(), r.partyId(), r.amount(), r.method(), r.note());
+        return cash.record(r.direction(), r.partyType(), r.partyId(), r.amount(), r.method(), r.note(),
+            r.bankAccountNo(), r.bankBranch());
     }
 
     @PostMapping("/petty-cash")

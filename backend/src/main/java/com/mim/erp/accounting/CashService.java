@@ -41,18 +41,23 @@ public class CashService {
     /** Cash goes to Cash (1000); a bank payment goes to the default bank ledger, else Bank (1010). */
     @Transactional
     public Payment record(String direction, String partyType, UUID partyId,
-                          BigDecimal amount, String method, String note) {
+                          BigDecimal amount, String method, String note,
+                          String bankAccountNo, String bankBranch) {
+        boolean bank = "BANK".equals(method);
+        if (bank && (bankAccountNo == null || bankAccountNo.isBlank()))
+            throw new ApiException("Bank account number is required for bank payments");
         String account = "BANK".equals(method)
             ? accounts.findFirstByDefaultDepositTrue().map(Account::getCode).orElse("1010")
             : "1000";
-        return record(direction, partyType, partyId, amount, method, note, account);
+        return record(direction, partyType, partyId, amount, method, note, account,
+            bank ? bankAccountNo.trim() : null, bank && bankBranch != null && !bankBranch.isBlank() ? bankBranch.trim() : null);
     }
 
     /** Past receipts (IN) or payments (OUT), newest first, with the party's name. */
     public List<Map<String, Object>> list(String direction, int limit) {
         if (!"IN".equals(direction) && !"OUT".equals(direction)) throw new ApiException("Direction must be IN or OUT");
         return jdbc.queryForList("""
-            select p.id, p.payment_no, p.direction, p.party_type, p.party_id, p.amount, p.method, p.note, p.payment_date,
+            select p.id, p.payment_no, p.direction, p.party_type, p.party_id, p.amount, p.method, p.note, p.payment_date, p.bank_account_no, p.bank_branch,
                    coalesce(c.code, s.code) as party_code,
                    coalesce(c.name, s.name) as party_name,
                    coalesce(c.name_bn, s.name_bn) as party_name_bn
@@ -69,6 +74,13 @@ public class CashService {
     @Transactional
     public Payment record(String direction, String partyType, UUID partyId,
                           BigDecimal amount, String method, String note, String cashAccount) {
+        return record(direction, partyType, partyId, amount, method, note, cashAccount, null, null);
+    }
+
+    @Transactional
+    public Payment record(String direction, String partyType, UUID partyId,
+                          BigDecimal amount, String method, String note, String cashAccount,
+                          String bankAccountNo, String bankBranch) {
         if (amount == null || amount.signum() <= 0)
             throw new ApiException("Payment amount must be positive");
 
@@ -80,6 +92,8 @@ public class CashService {
         p.setAmount(amount);
         p.setMethod(method == null ? "CASH" : method);
         p.setNote(note);
+        p.setBankAccountNo(bankAccountNo);
+        p.setBankBranch(bankBranch);
         p.setPaymentDate(LocalDate.now());
         Payment saved = payments.save(p);
 
