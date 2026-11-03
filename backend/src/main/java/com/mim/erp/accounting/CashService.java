@@ -3,12 +3,14 @@ package com.mim.erp.accounting;
 import com.mim.erp.accounting.AccountingService.Leg;
 import com.mim.erp.common.ApiException;
 import com.mim.erp.common.DocNumberService;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -27,17 +29,40 @@ public class CashService {
     private final LedgerService ledgers;
     private final DocNumberService docNo;
 
+    private final JdbcTemplate jdbc;
+
     public CashService(PaymentRepository payments, PettyCashVoucherRepository vouchers,
                        AccountRepository accounts, AccountingService accounting,
-                       LedgerService ledgers, DocNumberService docNo) {
+                       LedgerService ledgers, DocNumberService docNo, JdbcTemplate jdbc) {
         this.payments = payments; this.vouchers = vouchers; this.accounts = accounts;
-        this.accounting = accounting; this.ledgers = ledgers; this.docNo = docNo;
+        this.accounting = accounting; this.ledgers = ledgers; this.docNo = docNo; this.jdbc = jdbc;
     }
 
+    /** Cash goes to Cash (1000); a bank payment goes to the default bank ledger, else Bank (1010). */
     @Transactional
     public Payment record(String direction, String partyType, UUID partyId,
                           BigDecimal amount, String method, String note) {
-        return record(direction, partyType, partyId, amount, method, note, "1000");
+        String account = "BANK".equals(method)
+            ? accounts.findFirstByDefaultDepositTrue().map(Account::getCode).orElse("1010")
+            : "1000";
+        return record(direction, partyType, partyId, amount, method, note, account);
+    }
+
+    /** Past receipts (IN) or payments (OUT), newest first, with the party's name. */
+    public List<Map<String, Object>> list(String direction, int limit) {
+        if (!"IN".equals(direction) && !"OUT".equals(direction)) throw new ApiException("Direction must be IN or OUT");
+        return jdbc.queryForList("""
+            select p.id, p.payment_no, p.direction, p.party_type, p.party_id, p.amount, p.method, p.note, p.payment_date,
+                   coalesce(c.code, s.code) as party_code,
+                   coalesce(c.name, s.name) as party_name,
+                   coalesce(c.name_bn, s.name_bn) as party_name_bn
+            from payment p
+            left join customer c on p.party_type = 'CUSTOMER' and c.id = p.party_id
+            left join supplier s on p.party_type = 'SUPPLIER' and s.id = p.party_id
+            where p.direction = ?
+            order by p.payment_date desc, p.created_at desc
+            limit ?
+        """, direction, Math.max(1, Math.min(limit, 1000)));
     }
 
     /** Same as {@link #record}, but the money side lands on {@code cashAccount} (e.g. "1010" Bank). */

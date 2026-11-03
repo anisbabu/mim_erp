@@ -101,6 +101,11 @@ export type LedgerRow = {
   opening_debit: number; opening_credit: number;
   period_debit: number; period_credit: number; closing: number;
 };
+export type PaymentRow = {
+  id: string; payment_no: string; direction: "IN" | "OUT"; party_type: string; party_id: string;
+  amount: number; method: string; note?: string; payment_date: string;
+  party_code?: string; party_name?: string; party_name_bn?: string;
+};
 export type FinancialYear = {
   id: string; name: string; startDate: string; endDate: string;
   status: "OPEN" | "CLOSED"; current?: boolean;
@@ -304,6 +309,8 @@ export const endpoints = {
   profitLoss:   () => api.get<PnL>("/api/accounting/profit-loss"),
   balanceSheet: () => api.get<BalanceSheet>("/api/accounting/balance-sheet"),
   payment:      (b: unknown) => api.post("/api/accounting/payments", b),
+  paymentList:  (direction: "IN" | "OUT", limit = 200) =>
+                  api.get<PaymentRow[]>(`/api/accounting/payments?direction=${direction}&limit=${limit}`),
   pettyCash:    (b: unknown) => api.post("/api/accounting/petty-cash", b),
   cheques:      () => api.get<Cheque[]>("/api/accounting/cheques"),
   recordCheque: (b: unknown) => api.post<Cheque>("/api/accounting/cheques", b),

@@ -39,6 +39,19 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Cheques received": { en: "Cheques received", bn: "প্রাপ্ত চেক" },
   "Petty cash": { en: "Petty cash", bn: "খুচরা নগদ" },
   "Reports": { en: "Reports", bn: "রিপোর্ট" },
+  // receipts & payments
+  "No.": { en: "No.", bn: "নং" },
+  "New payment": { en: "New payment", bn: "নতুন পরিশোধ" },
+  "New receipt": { en: "New receipt", bn: "নতুন প্রাপ্তি" },
+  "Past payments": { en: "Past payments", bn: "পূর্বের পরিশোধ" },
+  "Past receipts": { en: "Past receipts", bn: "পূর্বের প্রাপ্তি" },
+  "No payments yet.": { en: "No payments yet.", bn: "এখনও কোনো পরিশোধ নেই।" },
+  "No receipts yet.": { en: "No receipts yet.", bn: "এখনও কোনো প্রাপ্তি নেই।" },
+  "Dr Supplier ledger · Cr Cash / Bank": { en: "Dr Supplier ledger · Cr Cash / Bank", bn: "ডেবিট সরবরাহকারী · ক্রেডিট ক্যাশ / ব্যাংক" },
+  "Dr Cash / Bank · Cr Customer ledger": { en: "Dr Cash / Bank · Cr Customer ledger", bn: "ডেবিট ক্যাশ / ব্যাংক · ক্রেডিট গ্রাহক" },
+  "Receive from a customer to settle receivables, or pay a supplier to settle payables. Each posts a balanced entry.": {
+    en: "Receive from a customer to settle receivables, or pay a supplier to settle payables. Each posts a balanced entry.",
+    bn: "গ্রাহকের কাছ থেকে প্রাপ্তি নিয়ে পাওনা মেটান, বা সরবরাহকারীকে পরিশোধ করে দেনা মেটান। প্রতিটি ভারসাম্যপূর্ণ এন্ট্রি তৈরি করে।" },
   // accounting menu
   "Setup": { en: "Setup", bn: "সেটআপ" },
   "Transactions": { en: "Transactions", bn: "লেনদেন" },
