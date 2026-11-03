@@ -38,6 +38,7 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Payments & receipts": { en: "Payments & receipts", bn: "পরিশোধ ও প্রাপ্তি" },
   "Cheques received": { en: "Cheques received", bn: "প্রাপ্ত চেক" },
   "Petty cash": { en: "Petty cash", bn: "খুচরা নগদ" },
+  "Reports": { en: "Reports", bn: "রিপোর্ট" },
   "Trial balance": { en: "Trial balance", bn: "রেওয়ামিল" },
   "Profit & loss": { en: "Profit & loss", bn: "লাভ-ক্ষতি" },
   "Balance sheet": { en: "Balance sheet", bn: "স্থিতিপত্র" },

@@ -37,9 +37,7 @@ const groups: { label: string; items: Item[] }[] = [
     { href: "/accounting/payments", label: "Payments & receipts", roles: ["ACCOUNTANT", "ADMIN"] },
     { href: "/accounting/cheques", label: "Cheques received", roles: ["ACCOUNTANT", "ADMIN"] },
     { href: "/accounting/petty-cash", label: "Petty cash", roles: ["ACCOUNTANT", "ADMIN"] },
-    { href: "/accounting/trial-balance", label: "Trial balance", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"] },
-    { href: "/accounting/pnl", label: "Profit & loss", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"] },
-    { href: "/accounting/balance-sheet", label: "Balance sheet", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"] },
+    { href: "/reports", label: "Reports", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"] },
   ]},
   { label: "Administration", items: [
     { href: "/admin/users", label: "Users", roles: ["ADMIN"] },
