@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type TrialBalanceReport } from "@/lib/api";
 import { downloadCsv, fmtMoney } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
-import { ClosedBanner, ReportTitle, Toolbar, YearSelect, useYears } from "./ReportKit";
+import { ClosedBanner, ReportTitle, Toolbar, YearSelect, savePdf, useYears } from "./ReportKit";
 
 export default function TrialBalance() {
   const { t, lang } = useI18n();
@@ -36,7 +36,7 @@ export default function TrialBalance() {
   const num = (v: number) => fmtMoney(v);
   return (
     <div>
-      <Toolbar onExport={exportCsv}>
+      <Toolbar onExport={exportCsv} onPdf={() => savePdf(() => endpoints.reportPdf("trial-balance", yearId, lang), `trial-balance-${tb?.yearName ?? ""}${lang === "bn" ? "-bn" : ""}.pdf`, setErr)}>
         <YearSelect years={years} value={yearId} onChange={setYearId} />
         <label className="h-10 flex items-center gap-2 text-sm cursor-pointer">
           <input type="checkbox" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} />

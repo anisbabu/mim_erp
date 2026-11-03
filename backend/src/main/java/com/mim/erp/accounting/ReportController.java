@@ -1,5 +1,6 @@
 package com.mim.erp.accounting;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -34,6 +35,33 @@ public class ReportController {
     @GetMapping("/statements/profit-or-loss")     public Map<String, Object> pnl(@RequestParam(required = false) String yearId) { return statements.profitOrLoss(id(yearId)); }
     @GetMapping("/statements/changes-in-equity")  public Map<String, Object> equity(@RequestParam(required = false) String yearId) { return statements.changesInEquity(id(yearId)); }
     @GetMapping("/statements/cash-flows")         public Map<String, Object> cash(@RequestParam(required = false) String yearId) { return statements.cashFlows(id(yearId)); }
+
+    // ---- PDF versions (same data as the screen; lang = en | bn)
+    @GetMapping(value = "/statements/{kind}/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> statementPdf(@PathVariable String kind, @RequestParam(required = false) String yearId,
+                                               @RequestParam(defaultValue = "en") String lang) {
+        boolean bn = "bn".equalsIgnoreCase(lang);
+        UUID y = id(yearId);
+        byte[] pdf = switch (kind) {
+            case "financial-position" -> StatementPdf.statement(statements.financialPosition(y), bn, true);
+            case "profit-or-loss" -> StatementPdf.statement(statements.profitOrLoss(y), bn, false);
+            case "cash-flows" -> StatementPdf.statement(statements.cashFlows(y), bn, false);
+            case "changes-in-equity" -> StatementPdf.equity(statements.changesInEquity(y), bn);
+            default -> throw new com.mim.erp.common.ApiException("Unknown statement: " + kind);
+        };
+        return pdfResponse(pdf, kind + (bn ? "-bn" : ""));
+    }
+
+    @GetMapping(value = "/trial-balance/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> trialBalancePdf(@RequestParam(required = false) String yearId,
+                                                  @RequestParam(defaultValue = "en") String lang) {
+        boolean bn = "bn".equalsIgnoreCase(lang);
+        return pdfResponse(StatementPdf.trialBalance(reports.trialBalance(id(yearId)), bn), "trial-balance" + (bn ? "-bn" : ""));
+    }
+
+    private static ResponseEntity<byte[]> pdfResponse(byte[] pdf, String name) {
+        return ResponseEntity.ok().header("Content-Disposition", "inline; filename=\"" + name + ".pdf\"").body(pdf);
+    }
 
     // ---- ledgers
     @GetMapping("/reports/ledger")

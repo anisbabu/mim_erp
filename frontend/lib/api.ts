@@ -396,6 +396,15 @@ export const endpoints = {
   chequeBankAccounts: () => api.get<Account[]>("/api/accounting/cheques/bank-accounts"),
   customerBalance: (customerId: string) =>
     api.get<{ balance: number }>(`/api/accounting/cheques/customer-balance/${customerId}`),
+  reportPdf: async (path: "statements/financial-position" | "statements/profit-or-loss" | "statements/cash-flows"
+                    | "statements/changes-in-equity" | "trial-balance", yearId: string, lang: "en" | "bn"): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/accounting/${path}/pdf?yearId=${yearId}&lang=${lang}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Failed to generate the PDF");
+    return res.blob();
+  },
   chequeReceiptBlob: async (id: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
     const res = await fetch(`${BASE}/api/accounting/cheques/${id}/receipt?lang=${lang}`, {

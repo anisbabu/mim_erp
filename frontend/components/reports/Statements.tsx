@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { endpoints, fmtDate, type EquityStatement, type Statement } from "@/lib/api";
 import { downloadCsv, fmtMoney } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
-import { ClosedBanner, ReportTitle, Toolbar, YearSelect, useYears } from "./ReportKit";
+import { ClosedBanner, ReportTitle, Toolbar, YearSelect, savePdf, useYears } from "./ReportKit";
 
 export type StatementKind = "financial-position" | "profit-or-loss" | "changes-in-equity" | "cash-flows";
 
@@ -59,7 +59,7 @@ export default function Statements({ kind }: { kind: StatementKind }) {
 
   return (
     <div>
-      <Toolbar onExport={exportCsv}>
+      <Toolbar onExport={exportCsv} onPdf={() => savePdf(() => endpoints.reportPdf(`statements/${kind}`, yearId, lang), `${kind}-${year?.name ?? ""}${lang === "bn" ? "-bn" : ""}.pdf`, setErr)}>
         <YearSelect years={years} value={yearId} onChange={setYearId} />
       </Toolbar>
       <ClosedBanner status={(stmt?.yearStatus ?? eq?.yearStatus) as string | undefined} />
