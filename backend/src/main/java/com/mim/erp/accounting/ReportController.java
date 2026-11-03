@@ -76,6 +76,33 @@ public class ReportController {
         return reports.aging(type, date(asOf, LocalDate.now()));
     }
 
+    @GetMapping(value = "/reports/ledger/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> ledgerPdf(@RequestParam String accountId, @RequestParam(required = false) String from,
+                                            @RequestParam(required = false) String to, @RequestParam(defaultValue = "en") String lang) {
+        boolean bn = com.mim.erp.common.PdfKit.isBn(lang);
+        return pdfResponse(StatementPdf.ledger(ledger(accountId, from, to), bn), "general-ledger" + (bn ? "-bn" : ""));
+    }
+
+    @GetMapping(value = "/reports/aging/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> agingPdf(@RequestParam(defaultValue = "CUSTOMER") String type, @RequestParam(required = false) String asOf,
+                                           @RequestParam(defaultValue = "en") String lang) {
+        boolean bn = com.mim.erp.common.PdfKit.isBn(lang);
+        return pdfResponse(StatementPdf.aging(aging(type, asOf), bn), "aging-" + type.toLowerCase() + (bn ? "-bn" : ""));
+    }
+
+    @GetMapping(value = "/reports/tax/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> taxPdf(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+                                         @RequestParam(defaultValue = "en") String lang) {
+        boolean bn = com.mim.erp.common.PdfKit.isBn(lang);
+        return pdfResponse(StatementPdf.tax(tax(from, to), bn), "vat-ait" + (bn ? "-bn" : ""));
+    }
+
+    @GetMapping(value = "/reports/checks/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> checksPdf(@RequestParam(defaultValue = "en") String lang) {
+        boolean bn = com.mim.erp.common.PdfKit.isBn(lang);
+        return pdfResponse(StatementPdf.checks(controls.checks(), bn), "control-checks" + (bn ? "-bn" : ""));
+    }
+
     // ---- controls
     @GetMapping("/reports/checks") public Map<String, Object> checks() { return controls.checks(); }
 

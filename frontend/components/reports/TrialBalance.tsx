@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type TrialBalanceReport } from "@/lib/api";
-import { downloadCsv, fmtMoney } from "@/lib/fmt";
+import { fmtMoney } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import { ClosedBanner, ReportTitle, Toolbar, YearSelect, savePdf, useYears } from "./ReportKit";
 
@@ -24,19 +24,10 @@ export default function TrialBalance() {
     [tb, hideZero]);
   const nm = (r: { name: string; name_bn?: string }) => (lang === "bn" && r.name_bn ? r.name_bn : r.name);
 
-  function exportCsv() {
-    if (!tb) return;
-    downloadCsv(`trial-balance-${tb.yearName}.csv`, [
-      ["Code", "Ledger", "Opening Dr", "Opening Cr", "Movement Dr", "Movement Cr", "Closing Dr", "Closing Cr"],
-      ...rows.map((r) => [r.code, nm(r), r.opening_debit, r.opening_credit, r.period_debit, r.period_credit, r.closing_debit, r.closing_credit]),
-      ["", "Total", tb.openingDebit, tb.openingCredit, tb.periodDebit, tb.periodCredit, tb.closingDebit, tb.closingCredit],
-    ]);
-  }
-
   const num = (v: number) => fmtMoney(v);
   return (
     <div>
-      <Toolbar onExport={exportCsv} onPdf={() => savePdf(() => endpoints.reportPdf("trial-balance", yearId, lang), `trial-balance-${tb?.yearName ?? ""}${lang === "bn" ? "-bn" : ""}.pdf`, setErr)}>
+      <Toolbar onPdf={() => savePdf(() => endpoints.reportPdf("trial-balance", yearId, lang), `trial-balance-${tb?.yearName ?? ""}${lang === "bn" ? "-bn" : ""}.pdf`, setErr)}>
         <YearSelect years={years} value={yearId} onChange={setYearId} />
         <label className="h-10 flex items-center gap-2 text-sm cursor-pointer">
           <input type="checkbox" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} />

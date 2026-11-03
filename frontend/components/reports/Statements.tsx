@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { endpoints, fmtDate, type EquityStatement, type Statement } from "@/lib/api";
-import { downloadCsv, fmtMoney } from "@/lib/fmt";
+import { fmtMoney } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import { ClosedBanner, ReportTitle, Toolbar, YearSelect, savePdf, useYears } from "./ReportKit";
 
@@ -42,24 +42,9 @@ export default function Statements({ kind }: { kind: StatementKind }) {
   const dateLine = (to: string, from: string) =>
     isPosition ? `${t("As at")} ${fmtDate(to)}` : `${t("For the year ended")} ${fmtDate(to)}  (${fmtDate(from)} – ${fmtDate(to)})`;
 
-  function exportCsv() {
-    if (stmt) {
-      const cmp = stmt.priorYearName !== null;
-      downloadCsv(`${kind}-${stmt.yearName}.csv`, [
-        [t(NAMES[kind]), stmt.yearName, cmp ? stmt.priorYearName : ""],
-        ...stmt.rows.filter((r) => r.kind !== "gap").map((r) =>
-          [pick(r.label, r.labelBn), r.amount ?? "", cmp ? r.prior ?? "" : ""]),
-      ]);
-    } else if (eq) {
-      downloadCsv(`${kind}-${eq.yearName}.csv`, [
-        ["", ...eq.columns], ...eq.rows.map((r) => [pick(r.label, r.labelBn), ...r.values]),
-      ]);
-    }
-  }
-
   return (
     <div>
-      <Toolbar onExport={exportCsv} onPdf={() => savePdf(() => endpoints.reportPdf(`statements/${kind}`, yearId, lang), `${kind}-${year?.name ?? ""}${lang === "bn" ? "-bn" : ""}.pdf`, setErr)}>
+      <Toolbar onPdf={() => savePdf(() => endpoints.reportPdf(`statements/${kind}`, yearId, lang), `${kind}-${year?.name ?? ""}${lang === "bn" ? "-bn" : ""}.pdf`, setErr)}>
         <YearSelect years={years} value={yearId} onChange={setYearId} />
       </Toolbar>
       <ClosedBanner status={(stmt?.yearStatus ?? eq?.yearStatus) as string | undefined} />

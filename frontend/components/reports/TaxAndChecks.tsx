@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { endpoints, fmtDate, type ChecksReport, type TaxSummary } from "@/lib/api";
-import { downloadCsv, fmtMoney, today } from "@/lib/fmt";
+import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
-import { ReportTitle, StatusChip, Toolbar } from "./ReportKit";
+import { ReportTitle, StatusChip, Toolbar, savePdf } from "./ReportKit";
 
 export function TaxReport() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState(today());
   const [tax, setTax] = useState<TaxSummary | null>(null);
@@ -32,7 +32,7 @@ export function TaxReport() {
 
   return (
     <div>
-      <Toolbar onExport={tax ? () => downloadCsv(`vat-ait-${from}_${to}.csv`, [["Item", "Amount"], ...rows.map((r) => [t(r[0]), r[1]])]) : undefined}>
+      <Toolbar onPdf={tax ? () => savePdf(() => endpoints.reportPdfQuery("reports/tax", `from=${from}&to=${to}`, lang), `vat-ait-${from}-${to}${lang === "bn" ? "-bn" : ""}.pdf`, setErr) : undefined}>
         <div className="field"><label>{t("From")}</label>
           <input className="inp" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
         <div className="field"><label>{t("To")}</label>
@@ -60,7 +60,7 @@ export function TaxReport() {
 }
 
 export function ChecksReport() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [rep, setRep] = useState<ChecksReport | null>(null);
   const [err, setErr] = useState("");
   const load = () => { setRep(null); setErr(""); endpoints.checks().then(setRep).catch((e) => setErr(e.message)); };
@@ -68,7 +68,7 @@ export function ChecksReport() {
 
   return (
     <div>
-      <Toolbar>
+      <Toolbar onPdf={rep ? () => savePdf(() => endpoints.reportPdfQuery("reports/checks", "", lang), `control-checks${lang === "bn" ? "-bn" : ""}.pdf`, setErr) : undefined}>
         <button className="btn-ghost btn-sm" onClick={load}>{t("Run checks again")}</button>
       </Toolbar>
       {err && <div className="note note-err mb-3">{err}</div>}

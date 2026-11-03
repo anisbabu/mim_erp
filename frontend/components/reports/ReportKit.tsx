@@ -45,15 +45,14 @@ export function YearSelect({ years, value, onChange }: {
   );
 }
 
-/** Filter bar above a report: controls on the left, Print / Export on the right. */
-export function Toolbar({ children, onExport, onPdf }: { children: ReactNode; onExport?: () => void; onPdf?: () => void }) {
+/** Filter bar above a report: controls on the left, PDF / Print on the right. */
+export function Toolbar({ children, onPdf }: { children: ReactNode; onPdf?: () => void }) {
   const { t } = useI18n();
   return (
     <div className="no-print flex flex-wrap items-end justify-between gap-3 mb-4">
       <div className="flex flex-wrap items-end gap-3">{children}</div>
       <div className="flex gap-2">
         {onPdf && <button className="btn btn-sm" onClick={onPdf}>{t("Download PDF")}</button>}
-        {onExport && <button className="btn-ghost btn-sm" onClick={onExport}>{t("Export CSV")}</button>}
         <button className="btn-ghost btn-sm" onClick={() => window.print()}>{t("Print")}</button>
       </div>
     </div>

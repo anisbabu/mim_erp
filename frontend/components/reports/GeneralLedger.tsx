@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type GeneralLedger, type LedgerRow } from "@/lib/api";
-import { downloadCsv, fmtDrCr, fmtMoney, today } from "@/lib/fmt";
+import { fmtDrCr, fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
-import { ReportTitle, Toolbar } from "./ReportKit";
+import { ReportTitle, Toolbar, savePdf } from "./ReportKit";
 
 export default function GeneralLedgerReport() {
   const { t, lang } = useI18n();
@@ -33,19 +33,9 @@ export default function GeneralLedgerReport() {
 
   const name = gl ? (lang === "bn" && gl.account.name_bn ? gl.account.name_bn : gl.account.name) : "";
 
-  function exportCsv() {
-    if (!gl) return;
-    downloadCsv(`ledger-${gl.account.code}.csv`, [
-      ["Date", "Voucher", "Narration", "Debit", "Credit", "Balance (Dr+/Cr-)"],
-      ["", "", "Opening balance", "", "", gl.openingBalance],
-      ...gl.rows.map((r) => [r.date, r.entryNo, r.narration ?? "", r.debit, r.credit, r.balance]),
-      ["", "", "Total / closing", gl.totalDebit, gl.totalCredit, gl.closingBalance],
-    ]);
-  }
-
   return (
     <div>
-      <Toolbar onExport={gl ? exportCsv : undefined}>
+      <Toolbar onPdf={gl ? () => savePdf(() => endpoints.reportPdfQuery("reports/ledger", `accountId=${accountId}&from=${from}&to=${to}`, lang), `general-ledger-${gl.account.code}${lang === "bn" ? "-bn" : ""}.pdf`, setErr) : undefined}>
         <div className="field" style={{ minWidth: 300 }}><label>{t("Ledger")}</label>
           <SearchSelect options={opts} value={accountId} onChange={setAccountId} placeholder={t("Search…")} /></div>
         <div className="field"><label>{t("From")}</label>

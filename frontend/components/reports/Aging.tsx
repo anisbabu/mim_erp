@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { endpoints, fmtDate, type AgingReport } from "@/lib/api";
-import { downloadCsv, fmtMoney, today } from "@/lib/fmt";
+import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
-import { ReportTitle, Toolbar } from "./ReportKit";
+import { ReportTitle, Toolbar, savePdf } from "./ReportKit";
 
 export default function Aging({ type }: { type: "CUSTOMER" | "SUPPLIER" }) {
   const { t, lang } = useI18n();
@@ -22,18 +22,9 @@ export default function Aging({ type }: { type: "CUSTOMER" | "SUPPLIER" }) {
   const title = cust ? t("Receivables aging") : t("Payables aging");
   const nm = (r: { name: string; nameBn?: string }) => (lang === "bn" && r.nameBn ? r.nameBn : r.name);
 
-  function exportCsv() {
-    if (!rep) return;
-    downloadCsv(`aging-${type.toLowerCase()}-${asOf}.csv`, [
-      ["Code", cust ? "Customer" : "Supplier", "0-30", "31-60", "61-90", "90+", "Advance / unapplied", "Total outstanding"],
-      ...rep.rows.map((r) => [r.code, nm(r), r.current, r.d31_60, r.d61_90, r.over90, r.unapplied, r.total]),
-      ["", "Total", rep.totals.current, rep.totals.d31_60, rep.totals.d61_90, rep.totals.over90, rep.totals.unapplied, rep.totals.total],
-    ]);
-  }
-
   return (
     <div>
-      <Toolbar onExport={rep ? exportCsv : undefined}>
+      <Toolbar onPdf={rep ? () => savePdf(() => endpoints.reportPdfQuery("reports/aging", `type=${type}&asOf=${asOf}`, lang), `aging-${type.toLowerCase()}-${asOf}${lang === "bn" ? "-bn" : ""}.pdf`, setErr) : undefined}>
         <div className="field"><label>{t("As at")}</label>
           <input className="inp" type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} /></div>
       </Toolbar>

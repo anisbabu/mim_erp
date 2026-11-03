@@ -261,6 +261,171 @@ final class StatementPdf {
         }
     }
 
+    // ------------------------------------------------------------------ general ledger (account statement)
+    @SuppressWarnings("unchecked")
+    static byte[] ledger(Map<String, Object> gl, boolean bn) {
+        try {
+            Ctx x = new Ctx(com.lowagie.text.PageSize.A4, bn);
+            PdfKit k = x.kit;
+            Map<String, Object> a = (Map<String, Object>) gl.get("account");
+            header(x, (bn ? "খতিয়ান: " : "General ledger: ") + a.get("code") + " · " + pick(bn, a.get("name"), a.get("name_bn")),
+                date(gl.get("from")) + " – " + date(gl.get("to")), bn ? "অঙ্ক বাংলাদেশি টাকায়" : "Amounts in BDT");
+            float[] ratio = {1.3f, 1.8f, 4f, 1.6f, 1.6f, 1.8f};
+            float[] w = k.cols(ratio);
+            PdfPTable t = new PdfPTable(ratio);
+            t.setWidthPercentage(100);
+            t.setHeaderRows(1);
+            String[] heads = bn
+                ? new String[]{"তারিখ", "ভাউচার", "বিবরণ", "ডেবিট", "ক্রেডিট", "জের"}
+                : new String[]{"Date", "Voucher", "Narration", "Debit", "Credit", "Balance"};
+            for (int i = 0; i < 6; i++) t.addCell(head(k, heads[i], i < 3 ? Element.ALIGN_LEFT : Element.ALIGN_RIGHT, w[i]));
+            PdfPCell ob = cell(k, bn ? "প্রারম্ভিক জের" : "Opening balance", true, Element.ALIGN_LEFT, w[0] + w[1] + w[2] + w[3] + w[4], 0, 0, 0, 0.4f);
+            ob.setColspan(5);
+            t.addCell(ob);
+            t.addCell(cell(k, drCr(gl.get("openingBalance")), true, Element.ALIGN_RIGHT, w[5], 0, 0, 0, 0.4f));
+            for (Map<String, Object> r : (List<Map<String, Object>>) gl.get("rows")) {
+                t.addCell(cell(k, date(r.get("date")), false, Element.ALIGN_LEFT, w[0], 0, 0, 0, 0.4f));
+                t.addCell(cell(k, String.valueOf(r.get("entryNo")), false, Element.ALIGN_LEFT, w[1], 0, 0, 0, 0.4f));
+                t.addCell(cell(k, r.get("narration") == null ? "" : r.get("narration").toString(), false, Element.ALIGN_LEFT, w[2], 0, 0, 0, 0.4f));
+                t.addCell(cell(k, money(r.get("debit")), false, Element.ALIGN_RIGHT, w[3], 0, 0, 0, 0.4f));
+                t.addCell(cell(k, money(r.get("credit")), false, Element.ALIGN_RIGHT, w[4], 0, 0, 0, 0.4f));
+                t.addCell(cell(k, drCr(r.get("balance")), false, Element.ALIGN_RIGHT, w[5], 0, 0, 0, 0.4f));
+            }
+            PdfPCell lab = cell(k, bn ? "মোট / সমাপনী জের" : "Total / closing balance", true, Element.ALIGN_LEFT, w[0] + w[1] + w[2], 0, 0.8f, 2f, 0);
+            lab.setColspan(3);
+            t.addCell(lab);
+            t.addCell(cell(k, money(gl.get("totalDebit")), true, Element.ALIGN_RIGHT, w[3], 0, 0.8f, 2f, 0));
+            t.addCell(cell(k, money(gl.get("totalCredit")), true, Element.ALIGN_RIGHT, w[4], 0, 0.8f, 2f, 0));
+            t.addCell(cell(k, drCr(gl.get("closingBalance")), true, Element.ALIGN_RIGHT, w[5], 0, 0.8f, 2f, 0));
+            x.doc.add(t);
+            return x.close();
+        } catch (Exception e) {
+            throw new ApiException("Could not create the PDF: " + e.getMessage());
+        }
+    }
+
+    /** Signed running balance as "1,234.00 Dr" / "1,234.00 Cr". */
+    private static String drCr(Object o) {
+        BigDecimal v = o instanceof BigDecimal b ? b : new BigDecimal(String.valueOf(o));
+        if (v.abs().compareTo(new BigDecimal("0.005")) < 0) return "-";
+        return MONEY.format(v.abs()) + (v.signum() > 0 ? " Dr" : " Cr");
+    }
+
+    // ------------------------------------------------------------------ receivables / payables aging (landscape)
+    @SuppressWarnings("unchecked")
+    static byte[] aging(Map<String, Object> rep, boolean bn) {
+        try {
+            boolean cust = "CUSTOMER".equals(rep.get("partyType"));
+            Ctx x = new Ctx(com.lowagie.text.PageSize.A4.rotate(), bn);
+            PdfKit k = x.kit;
+            header(x, cust ? (bn ? "প্রাপ্য বয়সভিত্তিক বিশ্লেষণ" : "Receivables aging") : (bn ? "দেনা বয়সভিত্তিক বিশ্লেষণ" : "Payables aging"),
+                (bn ? "তারিখ অনুযায়ী " : "As at ") + date(rep.get("asOf")),
+                bn ? "অঙ্ক বাংলাদেশি টাকায়। চালান তারিখ থেকে হিসাব; পরিশোধ প্রথমে পুরনো চালান মেটায়।"
+                   : "Amounts in BDT. Aged from invoice date; payments clear the oldest invoices first.");
+            float[] ratio = {1.2f, 4f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f, 1.7f};
+            float[] w = k.cols(ratio);
+            PdfPTable t = new PdfPTable(ratio);
+            t.setWidthPercentage(100);
+            t.setHeaderRows(1);
+            String[] heads = bn
+                ? new String[]{"কোড", cust ? "গ্রাহক" : "সরবরাহকারী", "০–৩০ দিন", "৩১–৬০", "৬১–৯০", "৯০+", "অগ্রিম", "বকেয়া"}
+                : new String[]{"Code", cust ? "Customer" : "Supplier", "0-30 days", "31-60", "61-90", "90+", "Advance", "Outstanding"};
+            for (int i = 0; i < 8; i++) t.addCell(head(k, heads[i], i < 2 ? Element.ALIGN_LEFT : Element.ALIGN_RIGHT, w[i]));
+            String[] keys = {"current", "d31_60", "d61_90", "over90", "unapplied", "total"};
+            List<Map<String, Object>> rows = (List<Map<String, Object>>) rep.get("rows");
+            for (Map<String, Object> r : rows) {
+                t.addCell(cell(k, String.valueOf(r.get("code")), false, Element.ALIGN_LEFT, w[0], 0, 0, 0, 0.4f));
+                t.addCell(cell(k, pick(bn, r.get("name"), r.get("nameBn")), false, Element.ALIGN_LEFT, w[1], 0, 0, 0, 0.4f));
+                for (int i = 0; i < 6; i++) t.addCell(cell(k, money(r.get(keys[i])), i == 5, Element.ALIGN_RIGHT, w[i + 2], 0, 0, 0, 0.4f));
+            }
+            if (rows.isEmpty()) {
+                PdfPCell none = cell(k, bn ? "কিছু বকেয়া নেই।" : "Nothing outstanding.", false, Element.ALIGN_LEFT, k.pageWidth(), 0, 0, 0, 0.4f);
+                none.setColspan(8);
+                t.addCell(none);
+            }
+            Map<String, Object> tot = (Map<String, Object>) rep.get("totals");
+            PdfPCell lab = cell(k, bn ? "মোট" : "Total", true, Element.ALIGN_LEFT, w[0] + w[1], 0, 0.8f, 2f, 0);
+            lab.setColspan(2);
+            t.addCell(lab);
+            for (int i = 0; i < 6; i++) t.addCell(cell(k, money(tot.get(keys[i])), true, Element.ALIGN_RIGHT, w[i + 2], 0, 0.8f, 2f, 0));
+            x.doc.add(t);
+            return x.close();
+        } catch (Exception e) {
+            throw new ApiException("Could not create the PDF: " + e.getMessage());
+        }
+    }
+
+    // ------------------------------------------------------------------ VAT and AIT summary
+    static byte[] tax(Map<String, Object> s, boolean bn) {
+        try {
+            Ctx x = new Ctx(com.lowagie.text.PageSize.A4, bn);
+            PdfKit k = x.kit;
+            header(x, bn ? "ভ্যাট ও এআইটি সারসংক্ষেপ" : "VAT and AIT summary",
+                date(s.get("from")) + " – " + date(s.get("to")), bn ? "অঙ্ক বাংলাদেশি টাকায়" : "Amounts in BDT");
+            float[] ratio = {6f, 2f};
+            float[] w = k.cols(ratio);
+            PdfPTable t = new PdfPTable(ratio);
+            t.setWidthPercentage(100);
+            t.addCell(head(k, bn ? "বিবরণ" : "Particulars", Element.ALIGN_LEFT, w[0]));
+            t.addCell(head(k, bn ? "পরিমাণ" : "Amount", Element.ALIGN_RIGHT, w[1]));
+            String[][] lines = {
+                {"outputVat", "Output VAT collected (ledger 2100)", "আদায়কৃত আউটপুট ভ্যাট (খতিয়ান ২১০০)", "0"},
+                {"inputVat", "Less: input VAT paid on purchases (ledger 1450)", "বাদ: ক্রয়ে প্রদত্ত ইনপুট ভ্যাট (খতিয়ান ১৪৫০)", "0"},
+                {"netVatPayable", "Net VAT payable / (refundable)", "নিট প্রদেয় / (ফেরতযোগ্য) ভ্যাট", "1"},
+                {"aitWithheld", "AIT / TDS withheld from payees, payable to NBR (ledger 2120)", "প্রাপকের কাছ থেকে কর্তিত এআইটি/টিডিএস, এনবিআরকে প্রদেয় (খতিয়ান ২১২০)", "0"},
+                {"aitPaid", "Advance income tax suffered on our sales (ledger 1460)", "বিক্রয়ে অগ্রিম আয়কর (খতিয়ান ১৪৬০)", "0"}};
+            for (String[] l : lines) {
+                boolean strong = "1".equals(l[3]);
+                t.addCell(cell(k, bn ? l[2] : l[1], strong, Element.ALIGN_LEFT, w[0], 0, strong ? 0.8f : 0, strong ? 1.5f : 0, strong ? 0 : 0.4f));
+                t.addCell(cell(k, money(s.get(l[0])), strong, Element.ALIGN_RIGHT, w[1], 0, strong ? 0.8f : 0, strong ? 1.5f : 0, strong ? 0 : 0.4f));
+            }
+            x.doc.add(t);
+            x.doc.add(k.para(bn
+                ? "এই অঙ্কগুলো ভ্যাট ও এআইটি খতিয়ানের পোস্টিং থেকে এসেছে। জার্নাল এন্ট্রির মাধ্যমে এই খতিয়ানে ভ্যাট ও এআইটি লিপিবদ্ধ করুন।"
+                : "These figures come from postings to the VAT and AIT ledgers. Record VAT and AIT with a journal entry against these ledgers.",
+                false, true, 8, Color.GRAY, Element.ALIGN_LEFT, 12, 0));
+            return x.close();
+        } catch (Exception e) {
+            throw new ApiException("Could not create the PDF: " + e.getMessage());
+        }
+    }
+
+    // ------------------------------------------------------------------ accounting control checks
+    @SuppressWarnings("unchecked")
+    static byte[] checks(Map<String, Object> rep, boolean bn) {
+        try {
+            Ctx x = new Ctx(com.lowagie.text.PageSize.A4, bn);
+            PdfKit k = x.kit;
+            boolean ok = Boolean.TRUE.equals(rep.get("ok"));
+            header(x, bn ? "হিসাব নিয়ন্ত্রণ যাচাই" : "Accounting control checks",
+                (bn ? "তারিখ অনুযায়ী " : "As at ") + date(rep.get("asOf")),
+                ok ? (bn ? "সব অখণ্ডতা যাচাই সফল।" : "All integrity checks passed.")
+                   : (bn ? "কিছু যাচাই ব্যর্থ - FAIL চিহ্নিত আইটেম দেখুন।" : "Some checks failed - review the items marked FAIL."));
+            float[] ratio = {1f, 8f};
+            float[] w = k.cols(ratio);
+            PdfPTable t = new PdfPTable(ratio);
+            t.setWidthPercentage(100);
+            t.addCell(head(k, bn ? "অবস্থা" : "Status", Element.ALIGN_LEFT, w[0]));
+            t.addCell(head(k, bn ? "যাচাই" : "Check", Element.ALIGN_LEFT, w[1]));
+            for (Map<String, Object> c : (List<Map<String, Object>>) rep.get("checks")) {
+                String status = String.valueOf(c.get("status"));
+                t.addCell(cell(k, status, true, Element.ALIGN_LEFT, w[0], 0, 0, 0, 0.4f));
+                StringBuilder sb = new StringBuilder(String.valueOf(c.get("title"))).append('\n').append(c.get("detail"));
+                Map<String, Object> fig = (Map<String, Object>) c.get("figures");
+                if (fig != null && !fig.isEmpty()) {
+                    sb.append('\n');
+                    fig.forEach((key, v) -> sb.append(key).append(": ")
+                        .append(v instanceof Number ? MONEY.format(new BigDecimal(v.toString())) : v).append("   "));
+                }
+                t.addCell(cell(k, sb.toString().trim(), false, Element.ALIGN_LEFT, w[1], 0, 0, 0, 0.4f));
+            }
+            x.doc.add(t);
+            return x.close();
+        } catch (Exception e) {
+            throw new ApiException("Could not create the PDF: " + e.getMessage());
+        }
+    }
+
     private static String titleBn(String en) {
         return switch (en) {
             case "Statement of financial position" -> "আর্থিক অবস্থার বিবরণী";

@@ -405,6 +405,15 @@ export const endpoints = {
     if (!res.ok) throw new Error("Failed to generate the PDF");
     return res.blob();
   },
+  /** PDF of a non-year report; `query` is the already-encoded query string without lang. */
+  reportPdfQuery: async (path: "reports/ledger" | "reports/aging" | "reports/tax" | "reports/checks", query: string, lang: "en" | "bn"): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/accounting/${path}/pdf?${query}${query ? "&" : ""}lang=${lang}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Failed to generate the PDF");
+    return res.blob();
+  },
   chequeReceiptBlob: async (id: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
     const res = await fetch(`${BASE}/api/accounting/cheques/${id}/receipt?lang=${lang}`, {
