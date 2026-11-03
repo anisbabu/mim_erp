@@ -21,6 +21,15 @@ public class ChartController {
     @PostMapping("/groups")
     public AccountGroup createGroup(@RequestBody AccountGroup g) { return ledgers.createGroup(g); }
 
+    @PutMapping("/groups/{id}")
+    public AccountGroup updateGroup(@PathVariable UUID id, @RequestBody AccountGroup g) { return ledgers.updateGroup(id, g); }
+
+    @DeleteMapping("/groups/{id}")
+    public void deleteGroup(@PathVariable UUID id) { ledgers.deleteGroup(id); }
+
+    @GetMapping("/next-code")
+    public Map<String, String> nextCode(@RequestParam UUID groupId) { return ledgers.nextCode(groupId); }
+
     @PostMapping("/ledgers")
     public Account createLedger(@RequestBody Account a) { return ledgers.createLedger(a); }
 

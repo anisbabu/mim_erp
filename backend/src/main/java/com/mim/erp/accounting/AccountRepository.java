@@ -9,5 +9,6 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
     Optional<Account> findByCode(String code);
     Optional<Account> findByPartyTypeAndPartyId(String partyType, UUID partyId);
     List<Account> findAllByOrderByCode();
+    boolean existsByGroupId(UUID groupId);
     List<Account> findByGroupIdAndActiveTrueOrderByCode(UUID groupId);
 }

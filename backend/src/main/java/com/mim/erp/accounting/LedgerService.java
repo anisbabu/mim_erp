@@ -99,6 +99,7 @@ public class LedgerService {
         String end = fy == null ? "2999-12-31" : fy.getEndDate().toString();
         return jdbc.queryForList("""
             select a.id, a.code, a.name, a.name_bn, a.type, a.group_id, a.party_type, a.is_system, a.default_deposit,
+                   a.description, a.active,
                    coalesce(ob.debit,0) as opening_debit, coalesce(ob.credit,0) as opening_credit,
                    coalesce(mv.debit,0) as period_debit, coalesce(mv.credit,0) as period_credit,
                    (coalesce(ob.debit,0) - coalesce(ob.credit,0)
@@ -118,9 +119,70 @@ public class LedgerService {
     // ---- COA writes ----
     @Transactional
     public AccountGroup createGroup(AccountGroup g) {
-        if (g.getCode() == null || g.getName() == null) throw new ApiException("Group code and name are required");
-        g.setId(null); g.setSystem(false);
+        if (g.getCode() == null || g.getCode().isBlank() || g.getName() == null || g.getName().isBlank())
+            throw new ApiException("Group code and name are required");
+        g.setCode(g.getCode().trim()); g.setName(g.getName().trim());
+        if (groups.findByCode(g.getCode()).isPresent() || accounts.findByCode(g.getCode()).isPresent())
+            throw new ApiException("Code " + g.getCode() + " is already used");
+        if (g.getParentId() != null) {   // a sub-group always takes its parent's nature
+            AccountGroup p = groups.findById(g.getParentId()).orElseThrow(() -> new ApiException("Parent group not found"));
+            g.setNature(p.getNature());
+        } else if (g.getNature() == null) {
+            throw new ApiException("Pick a nature for a top-level group");
+        }
+        g.setId(null); g.setSystem(false); g.setActive(true);
         return groups.save(g);
+    }
+
+    @Transactional
+    public AccountGroup updateGroup(UUID id, AccountGroup in) {
+        AccountGroup g = groups.findById(id).orElseThrow(() -> new ApiException("Group not found"));
+        if (in.getName() == null || in.getName().isBlank()) throw new ApiException("Group name is required");
+        g.setName(in.getName().trim());
+        if (in.getNameBn() != null && !in.getNameBn().isBlank()) g.setNameBn(in.getNameBn().trim());
+        g.setDescription(in.getDescription());
+        if (!g.isSystem()) {   // system groups keep their place in the tree
+            if (in.getParentId() != null && in.getParentId().equals(id)) throw new ApiException("A group can't be its own parent");
+            if (in.getParentId() != null && isDescendant(in.getParentId(), id)) throw new ApiException("A group can't move under its own sub-group");
+            g.setParentId(in.getParentId());
+            if (in.getParentId() != null) {
+                AccountGroup p = groups.findById(in.getParentId()).orElseThrow(() -> new ApiException("Parent group not found"));
+                if (!p.getNature().equals(g.getNature())) throw new ApiException("Parent group is " + p.getNature() + ", this group is " + g.getNature());
+            }
+            g.setActive(in.isActive());
+        }
+        return groups.save(g);
+    }
+
+    /** True when {@code candidate} sits somewhere below {@code ancestorId}. */
+    private boolean isDescendant(UUID candidate, UUID ancestorId) {
+        UUID cur = candidate;
+        for (int i = 0; cur != null && i < 50; i++) {
+            if (cur.equals(ancestorId)) return true;
+            cur = groups.findById(cur).map(AccountGroup::getParentId).orElse(null);
+        }
+        return false;
+    }
+
+    @Transactional
+    public void deleteGroup(UUID id) {
+        AccountGroup g = groups.findById(id).orElseThrow(() -> new ApiException("Group not found"));
+        if (g.isSystem()) throw new ApiException("System groups can't be deleted");
+        if (groups.existsByParentId(id)) throw new ApiException("Group has sub-groups — move or delete them first");
+        if (accounts.existsByGroupId(id)) throw new ApiException("Group has ledgers — move or delete them first");
+        groups.deleteById(id);
+    }
+
+    /** Suggested next ledger code in a group: highest numeric code there + 1, else the group code + "01". */
+    public Map<String, String> nextCode(UUID groupId) {
+        AccountGroup g = groups.findById(groupId).orElseThrow(() -> new ApiException("Group not found"));
+        Long max = jdbc.queryForObject(
+            "select max(code::bigint) from account where group_id = ? and code ~ '^[0-9]{1,15}$'", Long.class, groupId);
+        String code = max != null ? String.valueOf(max + 1) : g.getCode() + "01";
+        for (int i = 0; i < 1000 && accounts.findByCode(code).isPresent(); i++) {
+            try { code = String.valueOf(Long.parseLong(code) + 1); } catch (NumberFormatException e) { code = code + "1"; }
+        }
+        return Map.of("code", code);
     }
 
     @Transactional
@@ -128,6 +190,9 @@ public class LedgerService {
         if (a.getCode() == null || a.getName() == null) throw new ApiException("Ledger code and name are required");
         if (a.getGroupId() == null) throw new ApiException("Pick an account head (group) for the ledger");
         AccountGroup g = groups.findById(a.getGroupId()).orElseThrow(() -> new ApiException("Group not found"));
+        a.setCode(a.getCode().trim()); a.setName(a.getName().trim());
+        if (accounts.findByCode(a.getCode()).isPresent() || groups.findByCode(a.getCode()).isPresent())
+            throw new ApiException("Code " + a.getCode() + " is already used");
         a.setId(null); a.setSystem(false);
         a.setType(g.getNature());   // ledger nature follows its group
         boolean makeDefault = a.isDefaultDeposit();
@@ -156,6 +221,7 @@ public class LedgerService {
     public Account updateLedger(UUID id, Account in) {
         Account a = accounts.findById(id).orElseThrow(() -> new ApiException("Ledger not found"));
         a.setName(in.getName());
+        a.setDescription(in.getDescription());
         // a blank Bangla name on edit means "not touched" — keep the stored one
         if (in.getNameBn() != null && !in.getNameBn().isBlank()) a.setNameBn(in.getNameBn().trim());
         if (in.getGroupId() != null) {

@@ -92,11 +92,12 @@ export type Account = { id: string; code: string; name: string; nameBn?: string;
 export type AccountGroup = {
   id: string; code: string; name: string; nameBn?: string;
   nature: "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE";
-  parentId?: string; system?: boolean;
+  parentId?: string; system?: boolean; description?: string; active?: boolean;
 };
 export type LedgerRow = {
   id: string; code: string; name: string; name_bn?: string; type: string;
   group_id?: string; party_type?: string; is_system?: boolean; default_deposit?: boolean;
+  description?: string; active?: boolean;
   opening_debit: number; opening_credit: number;
   period_debit: number; period_credit: number; closing: number;
 };
@@ -347,6 +348,9 @@ export const endpoints = {
   coaGroups:    () => api.get<AccountGroup[]>("/api/accounting/coa/groups"),
   coaLedgers:   () => api.get<LedgerRow[]>("/api/accounting/coa/ledgers"),
   createGroup:  (b: Partial<AccountGroup>) => api.post<AccountGroup>("/api/accounting/coa/groups", b),
+  updateGroup:  (id: string, b: Partial<AccountGroup>) => api.put<AccountGroup>(`/api/accounting/coa/groups/${id}`, b),
+  deleteGroup:  (id: string) => api.del(`/api/accounting/coa/groups/${id}`),
+  nextLedgerCode: (groupId: string) => api.get<{ code: string }>(`/api/accounting/coa/next-code?groupId=${groupId}`),
   createLedger: (b: Record<string, unknown>) => api.post("/api/accounting/coa/ledgers", b),
   updateLedger: (id: string, b: Record<string, unknown>) => api.put(`/api/accounting/coa/ledgers/${id}`, b),
   deleteLedger: (id: string) => api.del(`/api/accounting/coa/ledgers/${id}`),

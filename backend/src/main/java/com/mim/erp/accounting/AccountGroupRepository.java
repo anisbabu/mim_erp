@@ -6,4 +6,5 @@ import java.util.UUID;
 
 public interface AccountGroupRepository extends JpaRepository<AccountGroup, UUID> {
     Optional<AccountGroup> findByCode(String code);
+    boolean existsByParentId(UUID parentId);
 }

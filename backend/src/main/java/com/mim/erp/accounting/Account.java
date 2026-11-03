@@ -17,6 +17,7 @@ public class Account {
     @Column(name = "group_id")  private java.util.UUID groupId;
     @Column(name = "party_type") private String partyType;  // SUPPLIER | CUSTOMER (subsidiary ledger)
     @Column(name = "party_id")   private java.util.UUID partyId;
+    private String description;
     private boolean active = true;
     private boolean isSystem = false;
     private boolean defaultDeposit = false;   // the bank ledger cheques are posted to unless another is picked

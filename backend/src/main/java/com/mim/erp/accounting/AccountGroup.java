@@ -15,5 +15,7 @@ public class AccountGroup {
     private String nameBn;
     private String nature;     // ASSET | LIABILITY | EQUITY | INCOME | EXPENSE
     @Column(name = "parent_id") private UUID parentId;
+    private String description;
+    private boolean active = true;
     private boolean isSystem = false;
 }
