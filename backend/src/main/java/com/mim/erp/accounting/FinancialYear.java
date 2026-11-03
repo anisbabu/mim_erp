@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity @Table(name = "financial_year")
@@ -16,4 +17,6 @@ public class FinancialYear {
     private LocalDate endDate;
     private String status = "OPEN";   // OPEN | CLOSED
     private boolean isCurrent = false;
+    private OffsetDateTime closedAt;
+    private UUID closingEntryId;
 }

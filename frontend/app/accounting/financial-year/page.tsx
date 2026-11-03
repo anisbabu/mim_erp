@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type FinancialYear, type LedgerRow, type OpeningBalance } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
+import { useAuth } from "@/lib/auth";
 
 export default function FinancialYearPage() {
   const { t, lang } = useI18n();
+  const { user } = useAuth();
   const [years, setYears] = useState<FinancialYear[]>([]);
   const [ledgers, setLedgers] = useState<LedgerRow[]>([]);
   const [activeYear, setActiveYear] = useState<string>("");
@@ -54,6 +56,18 @@ export default function FinancialYearPage() {
     try { await endpoints.setCurrentYear(id); setMsg({ kind: "ok", text: t("Saved.") }); loadYears(); }
     catch (e: any) { setMsg({ kind: "err", text: e.message }); }
   }
+  async function closeYear(y: FinancialYear) {
+    if (!window.confirm(`${t("Close financial year")} ${y.name}?\n\n${t("Income and expense are moved to retained earnings, balances carry into the next year, and no further postings are allowed in this year.")}`)) return;
+    setMsg(null);
+    try { await endpoints.closeYear(y.id); setMsg({ kind: "ok", text: `${y.name} ${t("closed")}` }); loadYears(); }
+    catch (e: any) { setMsg({ kind: "err", text: e.message }); }
+  }
+  async function reopenYear(y: FinancialYear) {
+    if (!window.confirm(`${t("Reopen financial year")} ${y.name}?`)) return;
+    setMsg(null);
+    try { await endpoints.reopenYear(y.id); setMsg({ kind: "ok", text: `${y.name} ${t("reopened")}` }); loadYears(); }
+    catch (e: any) { setMsg({ kind: "err", text: e.message }); }
+  }
   const setOB = (accId: string, patch: Partial<{ debit: string; credit: string }>) =>
     setOpenings((o) => ({ ...o, [accId]: { debit: o[accId]?.debit ?? "0", credit: o[accId]?.credit ?? "0", ...patch } }));
 
@@ -85,7 +99,9 @@ export default function FinancialYearPage() {
                 <td>{fmtDate(y.startDate)}</td><td>{fmtDate(y.endDate)}</td>
                 <td><span className={`chip ${y.status === "OPEN" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>{y.status}</span></td>
                 <td className="text-right">
-                  {!y.current && <button className="btn-ghost btn-sm" onClick={() => makeCurrent(y.id)}>{t("Set current")}</button>}
+                  {!y.current && y.status === "OPEN" && <button className="btn-ghost btn-sm mr-1" onClick={() => makeCurrent(y.id)}>{t("Set current")}</button>}
+                  {y.status === "OPEN" && <button className="btn-ghost btn-sm" onClick={() => closeYear(y)}>{t("Close year")}</button>}
+                  {y.status === "CLOSED" && user?.role === "ADMIN" && <button className="btn-ghost btn-sm" onClick={() => reopenYear(y)}>{t("Reopen")}</button>}
                 </td>
               </tr>
             ))}

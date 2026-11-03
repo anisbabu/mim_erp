@@ -42,8 +42,11 @@ public class SecurityConfig {
                 // employees / payroll master
                 .requestMatchers("/api/hr/**").hasAnyRole("ADMIN", "ACCOUNTANT")
                 // chart of accounts + financial year
+                .requestMatchers(HttpMethod.GET, "/api/accounting/financial-year", "/api/accounting/financial-year/current")
+                    .hasAnyRole("MANAGER", "ACCOUNTANT", "ADMIN")
+                .requestMatchers("/api/accounting/financial-year/*/reopen").hasRole("ADMIN")
                 .requestMatchers("/api/accounting/coa/**", "/api/accounting/financial-year/**",
-                                 "/api/accounting/journal/**")
+                                 "/api/accounting/journal/**", "/api/accounting/fixed-assets/**", "/api/accounting/bank-recon/**")
                     .hasAnyRole("ADMIN", "ACCOUNTANT")
                 // reads available to any authenticated user (master data, stock, account list)
                 .requestMatchers(HttpMethod.GET, "/api/master/**", "/api/inventory/availability",

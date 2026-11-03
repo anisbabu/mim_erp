@@ -18,7 +18,4 @@ public class AccountingController {
     }
 
     @GetMapping("/accounts")       public List<Account> accounts() { return accounts.findAll(); }
-    @GetMapping("/trial-balance")  public List<Map<String,Object>> trialBalance() { return accounting.trialBalance(); }
-    @GetMapping("/profit-loss")    public Map<String,Object> profitAndLoss() { return reports.profitAndLoss(); }
-    @GetMapping("/balance-sheet")  public Map<String,Object> balanceSheet() { return reports.balanceSheet(); }
 }

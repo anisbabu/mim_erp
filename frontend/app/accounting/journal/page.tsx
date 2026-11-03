@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
 import { TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import { fmtMoney } from "@/lib/fmt";
 
 type Line = { accountId: string; debit: string; credit: string };
 
@@ -21,9 +22,23 @@ export default function JournalPage() {
   ]);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [rf, setRf] = useState("");
+  const [rt, setRt] = useState("");
+  const [rev, setRev] = useState<{ id: string; entryNo: string; reason: string } | null>(null);
 
-  function loadRegister() { endpoints.journalRegister(50).then(setRegister).catch(() => {}); }
-  useEffect(() => { endpoints.coaLedgers().then(setLedgers).catch(() => {}); loadRegister(); }, []);
+  function loadRegister() { endpoints.journalRegister(100, rf, rt).then(setRegister).catch(() => {}); }
+  useEffect(() => { endpoints.coaLedgers().then(setLedgers).catch(() => {}); }, []);
+  useEffect(loadRegister, [rf, rt]);
+
+  async function doReverse() {
+    if (!rev) return;
+    setMsg(null);
+    try {
+      const r = await endpoints.reverseJournal(rev.id, { reason: rev.reason });
+      setMsg({ kind: "ok", text: `${rev.entryNo} ${t("reversed by")} ${r.entryNo}` });
+      setRev(null); loadRegister();
+    } catch (e: any) { setMsg({ kind: "err", text: e.message }); }
+  }
 
   const ledgerOpts: Option[] = useMemo(
     () => ledgers.map((l) => ({ value: l.id, label: `${l.code} · ${lang === "bn" && l.name_bn ? l.name_bn : l.name}`, sublabel: l.type })),
@@ -113,13 +128,36 @@ export default function JournalPage() {
         {msg && <div className={`note mt-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
       </div>
 
-      <div className="section-label mb-3">{t("Journal register")}</div>
+      <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
+        <div className="section-label">{t("Journal register")}</div>
+        <div className="flex items-end gap-2">
+          <div className="field"><label>{t("From")}</label><input className="inp" type="date" value={rf} onChange={(e) => setRf(e.target.value)} /></div>
+          <div className="field"><label>{t("To")}</label><input className="inp" type="date" value={rt} onChange={(e) => setRt(e.target.value)} /></div>
+        </div>
+      </div>
+      <p className="text-[12px] muted mb-3">{t("Posted entries can't be edited or deleted. To correct one, reverse it and post the right entry.")}</p>
+      {rev && (
+        <div className="card p-4 mb-4">
+          <div className="text-sm mb-2">{t("Reverse entry")} <b>{rev.entryNo}</b></div>
+          <input className="inp mb-3" placeholder={t("Reason (required)")} value={rev.reason} onChange={(e) => setRev({ ...rev, reason: e.target.value })} />
+          <div className="flex gap-2">
+            <button className="btn" disabled={!rev.reason.trim()} onClick={doReverse}>{t("Post reversal")}</button>
+            <button className="btn-ghost" onClick={() => setRev(null)}>{t("Cancel")}</button>
+          </div>
+        </div>
+      )}
       <div className="space-y-3">
         {register.map((e, idx) => (
           <div key={idx} className="card table-wrap">
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-slate-50/60">
-              <div className="text-sm"><span className="font-mono text-xs muted mr-2">{e.entryNo}</span>{e.narration}</div>
-              <div className="text-xs muted">{fmtDate(e.entryDate)} · {e.sourceType}</div>
+              <div className="text-sm min-w-0"><span className="font-mono text-xs muted mr-2">{e.entryNo}</span>{e.narration}
+                {e.reversedByNo && <span className="status-chip status-fail ml-2">{t("Reversed by")} {e.reversedByNo}</span>}
+                {e.reversalOfNo && <span className="status-chip status-info ml-2">{t("Reversal of")} {e.reversalOfNo}</span>}</div>
+              <div className="text-xs muted whitespace-nowrap flex items-center gap-3">
+                <span>{fmtDate(e.entryDate)} · {e.sourceType}{e.createdBy ? ` · ${e.createdBy}` : ""}</span>
+                {!e.reversedByNo && !e.reversalOfNo && e.sourceType !== "YEAR_CLOSE" &&
+                  <button className="btn-ghost btn-sm" onClick={() => setRev({ id: e.id, entryNo: e.entryNo, reason: "" })}>{t("Reverse")}</button>}
+              </div>
             </div>
             <table className="tbl">
               <tbody>
@@ -127,8 +165,8 @@ export default function JournalPage() {
                   <tr key={j}>
                     <td className="font-mono text-[13px] w-20">{ln.code}</td>
                     <td>{ln.name}</td>
-                    <td className="num w-32">{Number(ln.debit) > 0 ? Number(ln.debit).toFixed(2) : ""}</td>
-                    <td className="num w-32">{Number(ln.credit) > 0 ? Number(ln.credit).toFixed(2) : ""}</td>
+                    <td className="num w-32">{Number(ln.debit) > 0 ? fmtMoney(ln.debit) : ""}</td>
+                    <td className="num w-32">{Number(ln.credit) > 0 ? fmtMoney(ln.credit) : ""}</td>
                   </tr>
                 ))}
               </tbody>

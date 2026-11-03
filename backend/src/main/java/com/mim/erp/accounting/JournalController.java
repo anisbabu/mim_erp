@@ -31,9 +31,22 @@ public class JournalController {
         return Map.of("entryNo", je.getEntryNo(), "id", je.getId());
     }
 
+    /** Reverse a posted entry. Body: {reason, date?}. The original is kept; a swapped entry is posted. */
+    @PostMapping("/{id}/reverse")
+    public Map<String,Object> reverse(@PathVariable UUID id, @RequestBody Map<String,Object> body) {
+        Object d = body.get("date");
+        JournalEntry rev = accounting.reverse(id, String.valueOf(body.getOrDefault("reason", "")),
+            d == null || d.toString().isBlank() ? null : LocalDate.parse(d.toString()));
+        return Map.of("entryNo", rev.getEntryNo(), "id", rev.getId());
+    }
+
     /** Journal register / day book. */
     @GetMapping
-    public List<Map<String,Object>> register(@RequestParam(defaultValue = "50") int limit) {
-        return accounting.journalRegister(limit);
+    public List<Map<String,Object>> register(@RequestParam(defaultValue = "100") int limit,
+                                             @RequestParam(required = false) String from,
+                                             @RequestParam(required = false) String to) {
+        return accounting.journalRegister(limit,
+            from == null || from.isBlank() ? null : LocalDate.parse(from),
+            to == null || to.isBlank() ? null : LocalDate.parse(to));
     }
 }

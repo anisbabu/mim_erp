@@ -25,6 +25,12 @@ public class FinancialYearController {
     @PostMapping("/{id}/set-current")
     public void setCurrent(@PathVariable UUID id) { years.setCurrent(id); }
 
+    @PostMapping("/{id}/close")
+    public FinancialYear close(@PathVariable UUID id) { return years.close(id); }
+
+    @PostMapping("/{id}/reopen")
+    public FinancialYear reopen(@PathVariable UUID id) { return years.reopen(id); }
+
     @GetMapping("/{id}/openings")
     public List<OpeningBalance> openings(@PathVariable UUID id) { return years.openings(id); }
 

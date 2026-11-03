@@ -19,6 +19,10 @@ public class JournalEntry {
     private String narration;
     private String sourceType;   // GRN | SALES_DELIVERY | PAYMENT | RECEIPT | PETTY_CASH | ADJUSTMENT
     private UUID sourceId;
+    private String createdBy;
+    private UUID reversalOf;
+    @Column(insertable = false, updatable = false)
+    private UUID reversedBy;
 
     @JsonIgnore
     @OneToMany(mappedBy = "journal", cascade = CascadeType.ALL, orphanRemoval = true)

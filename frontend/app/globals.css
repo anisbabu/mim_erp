@@ -270,3 +270,56 @@ html.dark {
 .border-ashdark   { border-color: var(--aside-border); }
 .border-slate-200 { border-color: var(--border); }
 .border-slate-300 { border-color: var(--input-border); }
+
+/* ── Financial statements (IAS 1 style) ─────────────────────────────────── */
+.stmt { width: 100%; border-collapse: collapse; font-size: 13px; }
+.stmt th {
+  padding: 8px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); border-bottom: 2px solid var(--text); text-align: right; white-space: nowrap;
+}
+.stmt th:first-child { text-align: left; }
+.stmt td { padding: 5px 12px; border-bottom: 1px solid var(--border-soft); color: var(--text); }
+.stmt td.n, .stmt th.n { text-align: right; font-variant-numeric: tabular-nums; width: 150px; white-space: nowrap; }
+.stmt td.ref, .stmt th.ref { width: 52px; text-align: center; color: var(--muted); font-size: 11px; }
+.stmt tr.h td { font-weight: 700; padding-top: 14px; border-bottom: 0; }
+.stmt tr.l td:first-child { padding-left: 28px; }
+.stmt tr.s td { font-weight: 600; border-top: 1px solid var(--text); border-bottom: 0; }
+.stmt tr.t td { font-weight: 700; border-top: 1px solid var(--text); border-bottom: 3px double var(--text); }
+.stmt tr.g td { border: 0; padding: 4px; }
+.stmt tbody tr.l:hover td { background: var(--tbl-tr-hover); }
+
+/* wide report tables: numbers right-aligned in fixed columns, double rule under grand totals */
+.rpt { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.rpt th {
+  padding: 7px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--muted); background: var(--tbl-th-bg); border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+.rpt th.n, .rpt td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.rpt th.l, .rpt td.l { text-align: left; }
+.rpt td { padding: 5px 10px; border-bottom: 1px solid var(--border-soft); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rpt tbody tr:hover td { background: var(--tbl-tr-hover); }
+.rpt tfoot td { font-weight: 700; border-top: 1px solid var(--text); border-bottom: 3px double var(--text); background: transparent; padding: 7px 10px; }
+.rpt .grp td { font-weight: 700; background: var(--tbl-tfoot-bg); border-bottom: 1px solid var(--border); }
+
+.report-sheet { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; }
+.report-title { text-align: center; margin-bottom: 14px; }
+.report-title .co { font-size: 15px; font-weight: 700; }
+.report-title .nm { font-size: 14px; font-weight: 600; margin-top: 2px; }
+.report-title .pd { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.status-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+.status-ok   { background: #dcfce7; color: #166534; }
+.status-fail { background: #fee2e2; color: #991b1b; }
+.status-info { background: #e0f2fe; color: #075985; }
+html.dark .status-ok   { background: #14532d; color: #bbf7d0; }
+html.dark .status-fail { background: #7f1d1d; color: #fecaca; }
+html.dark .status-info { background: #0c4a6e; color: #bae6fd; }
+
+@media print {
+  aside, header, .no-print { display: none !important; }
+  html, body, .bg-body { background: #fff !important; color: #000 !important; }
+  main { max-width: none !important; padding: 0 !important; }
+  .report-sheet { border: 0; padding: 0; }
+  .stmt, .rpt, .stmt td, .rpt td { color: #000 !important; }
+  @page { size: A4; margin: 14mm; }
+}

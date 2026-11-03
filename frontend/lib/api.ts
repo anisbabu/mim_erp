@@ -109,7 +109,7 @@ export type PaymentRow = {
 };
 export type FinancialYear = {
   id: string; name: string; startDate: string; endDate: string;
-  status: "OPEN" | "CLOSED"; current?: boolean;
+  status: "OPEN" | "CLOSED"; current?: boolean; closedAt?: string | null;
 };
 export type OpeningBalance = { id?: string; financialYearId?: string; accountId: string; debit: number; credit: number; };
 
@@ -158,18 +158,63 @@ export type VarianceRow = {
   minCost: number; maxCost: number; avgCost: number; qtyOnHand: number;
 };
 
-export type PnL = {
-  income: { code: string; name: string; amount: number }[];
-  expense: { code: string; name: string; amount: number }[];
-  totalIncome: number; totalExpense: number; netProfit: number;
+export type StmtRow = {
+  kind: "heading" | "line" | "subtotal" | "total" | "gap";
+  label: string; labelBn?: string; amount: number | null; prior: number | null; note: number | null;
 };
-export type BalanceSheet = {
-  assets: { code: string; name: string; amount: number }[];
-  liabilities: { code: string; name: string; amount: number }[];
-  equity: { code: string; name: string; amount: number }[];
-  retainedEarnings: number; totalAssets: number; totalLiabilitiesAndEquity: number; balanced: boolean;
+export type StmtNote = {
+  no: number; title: string; titleBn?: string;
+  accounts: { code: string; name: string; nameBn?: string; amount: number; prior: number }[];
 };
-export type TrialRow = { code: string; name: string; type: string; total_debit: number; total_credit: number };
+export type Statement = {
+  title: string; yearName: string; yearStatus: "OPEN" | "CLOSED"; from: string; to: string;
+  priorYearName: string | null; priorTo: string | null;
+  rows: StmtRow[]; notes: StmtNote[];
+  balanced?: boolean; difference?: number; reconciles?: boolean; netProfit?: number; bookCashClosing?: number;
+};
+export type EquityStatement = {
+  title: string; yearName: string; yearStatus: string; from: string; to: string;
+  columns: string[]; columnsBn: string[];
+  rows: { kind: "line" | "total"; label: string; labelBn?: string; values: number[] }[];
+};
+export type TbRow = {
+  code: string; name: string; name_bn?: string; type: string; group_name?: string;
+  opening_debit: number; opening_credit: number; period_debit: number; period_credit: number;
+  closing_debit: number; closing_credit: number;
+};
+export type TrialBalanceReport = {
+  yearId: string; yearName: string; yearStatus: string; from: string; to: string; rows: TbRow[];
+  openingDebit: number; openingCredit: number; periodDebit: number; periodCredit: number;
+  closingDebit: number; closingCredit: number; balanced: boolean;
+};
+export type GlRow = { date: string; entryNo: string; narration?: string; sourceType?: string; debit: number; credit: number; balance: number };
+export type GeneralLedger = {
+  account: { id: string; code: string; name: string; name_bn?: string; type: string };
+  from: string; to: string; openingBalance: number; rows: GlRow[];
+  totalDebit: number; totalCredit: number; closingBalance: number;
+};
+export type AgingRow = {
+  accountId: string; code: string; name: string; nameBn?: string;
+  current: number; d31_60: number; d61_90: number; over90: number; unapplied: number; total: number;
+};
+export type AgingReport = {
+  partyType: "CUSTOMER" | "SUPPLIER"; asOf: string; rows: AgingRow[];
+  totals: { current: number; d31_60: number; d61_90: number; over90: number; unapplied: number; total: number };
+};
+export type CheckItem = { code: string; title: string; status: "OK" | "FAIL" | "INFO"; detail: string; figures: Record<string, number> };
+export type ChecksReport = { ok: boolean; asOf: string; checks: CheckItem[] };
+export type TaxSummary = {
+  from: string; to: string; outputVat: number; inputVat: number; netVatPayable: number; aitWithheld: number; aitPaid: number;
+};
+export type BankAccountRow = { id: string; code: string; name: string; name_bn?: string; last_reconciled?: string | null; uncleared: number };
+export type BankOpenLine = { id: string; entry_date: string; entry_no: string; narration?: string; debit: number; credit: number };
+export type BankOpen = { asOf: string; bookBalance: number; lines: BankOpenLine[] };
+export type BankHistoryRow = { id: string; statement_date: string; statement_balance: number; book_balance: number; note?: string; created_by?: string; lines: number };
+export type FixedAsset = {
+  id: string; code: string; name: string; category?: string; purchase_date: string; cost: number; residual_value: number;
+  useful_life_months: number; status: "ACTIVE" | "DISPOSED"; disposal_date?: string; disposal_proceeds?: number;
+  accumulated: number; net_book_value: number; months_charged: number;
+};
 
 export type ChequeStatus = "PENDING" | "HOLD" | "CASHED" | "POSTED" | "BOUNCED" | "CANCELLED";
 export type Cheque = {
@@ -306,9 +351,32 @@ export const endpoints = {
 
   // accounting
   accounts:     () => api.get<Account[]>("/api/accounting/accounts"),
-  trialBalance: () => api.get<TrialRow[]>("/api/accounting/trial-balance"),
-  profitLoss:   () => api.get<PnL>("/api/accounting/profit-loss"),
-  balanceSheet: () => api.get<BalanceSheet>("/api/accounting/balance-sheet"),
+  trialBalance: (yearId?: string) => api.get<TrialBalanceReport>(`/api/accounting/trial-balance${yearId ? "?yearId=" + yearId : ""}`),
+  statement:    (kind: "financial-position" | "profit-or-loss" | "cash-flows", yearId?: string) =>
+                  api.get<Statement>(`/api/accounting/statements/${kind}${yearId ? "?yearId=" + yearId : ""}`),
+  equityStatement: (yearId?: string) =>
+                  api.get<EquityStatement>(`/api/accounting/statements/changes-in-equity${yearId ? "?yearId=" + yearId : ""}`),
+  generalLedger: (accountId: string, from: string, to: string) =>
+                  api.get<GeneralLedger>(`/api/accounting/reports/ledger?accountId=${accountId}&from=${from}&to=${to}`),
+  aging:        (type: "CUSTOMER" | "SUPPLIER", asOf: string) =>
+                  api.get<AgingReport>(`/api/accounting/reports/aging?type=${type}&asOf=${asOf}`),
+  checks:       () => api.get<ChecksReport>("/api/accounting/reports/checks"),
+  taxSummary:   (from: string, to: string) => api.get<TaxSummary>(`/api/accounting/reports/tax?from=${from}&to=${to}`),
+  bankAccounts: () => api.get<BankAccountRow[]>("/api/accounting/bank-recon/accounts"),
+  bankOpen:     (id: string, upTo: string) => api.get<BankOpen>(`/api/accounting/bank-recon/${id}/open?upTo=${upTo}`),
+  bankHistory:  (id: string) => api.get<BankHistoryRow[]>(`/api/accounting/bank-recon/${id}/history`),
+  bankReconcile: (id: string, b: { statementDate: string; statementBalance: number; lineIds: string[]; note?: string }) =>
+                  api.post<{ id: string; cleared: number }>(`/api/accounting/bank-recon/${id}`, b),
+  fixedAssets:  () => api.get<FixedAsset[]>("/api/accounting/fixed-assets"),
+  createAsset:  (b: Record<string, unknown>) => api.post<{ id: string; code: string }>("/api/accounting/fixed-assets", b),
+  depreciate:   (period: string) =>
+                  api.post<{ period: string; assets: number; total: number; entryNo?: string }>("/api/accounting/fixed-assets/depreciate", { period }),
+  disposeAsset: (id: string, b: Record<string, unknown>) =>
+                  api.post<{ entryNo: string; gainLoss: number }>(`/api/accounting/fixed-assets/${id}/dispose`, b),
+  closeYear:    (id: string) => api.post<FinancialYear>(`/api/accounting/financial-year/${id}/close`, {}),
+  reopenYear:   (id: string) => api.post<FinancialYear>(`/api/accounting/financial-year/${id}/reopen`, {}),
+  reverseJournal: (id: string, b: { reason: string; date?: string }) =>
+                  api.post<{ entryNo: string; id: string }>(`/api/accounting/journal/${id}/reverse`, b),
   payment:      (b: unknown) => api.post("/api/accounting/payments", b),
   paymentList:  (direction: "IN" | "OUT", limit = 200) =>
                   api.get<PaymentRow[]>(`/api/accounting/payments?direction=${direction}&limit=${limit}`),
@@ -375,12 +443,17 @@ export const endpoints = {
   // manual journal voucher + register
   postJournal:     (b: { entryDate: string; narration: string; lines: { accountId: string; debit: number; credit: number }[] }) =>
                      api.post<{ entryNo: string; id: string }>("/api/accounting/journal", b),
-  journalRegister: (limit = 50) => api.get<JournalEntryView[]>(`/api/accounting/journal?limit=${limit}`),
+  journalRegister: (limit = 100, from = "", to = "") =>
+                     api.get<JournalEntryView[]>(`/api/accounting/journal?limit=${limit}${from ? "&from=" + from : ""}${to ? "&to=" + to : ""}`),
 
   // goods-receipt history for a PO
   receipts: (poId: string) => api.get<ReceiptView[]>(`/api/purchase/orders/${poId}/receipts`),
 };
 
 export type JournalLineView = { code: string; name: string; debit: number; credit: number };
-export type JournalEntryView = { entryNo: string; entryDate: string; narration: string; sourceType: string; lines: JournalLineView[] };
+export type JournalEntryView = {
+  id: string; entryNo: string; entryDate: string; narration: string; sourceType: string;
+  createdBy?: string | null; createdAt?: string; reversalOfNo?: string | null; reversedByNo?: string | null;
+  lines: JournalLineView[];
+};
 export type ReceiptView = { grnNo: string; receiptDate: string; productName: string; warehouseId?: string; qtyReceived: number };
