@@ -61,6 +61,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/inventory/opening-import").hasRole("ADMIN")
                 .requestMatchers("/api/inventory/price-variance").hasAnyRole("MANAGER", "ACCOUNTANT", "ADMIN")
                 // sales floor
+                .requestMatchers(HttpMethod.POST, "/api/sales/returns").hasAnyRole("MANAGER", "ADMIN")
                 .requestMatchers("/api/sales/**").hasAnyRole("SALESPERSON", "MANAGER", "ADMIN")
                 // cash movements
                 .requestMatchers("/api/accounting/payments", "/api/accounting/petty-cash")

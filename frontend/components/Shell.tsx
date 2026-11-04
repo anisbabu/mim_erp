@@ -10,7 +10,7 @@ import { endpoints, type Role, type Shop } from "@/lib/api";
 import {
   ArrowLeftRight, Banknote, BarChart3, BookOpen, Boxes, Building2, CalendarRange, ChevronDown, ChevronRight,
   ClipboardList, FileText, Landmark, LayoutDashboard, ListTree, Package, PackageCheck, ReceiptText, Scale,
-  ShoppingCart, Store, Truck, UserCog, Users, Wallet, Warehouse, type LucideIcon,
+  FilePen, ShoppingCart, Store, Truck, Undo2, UserCog, Users, Wallet, Warehouse, type LucideIcon,
 } from "lucide-react";
 
 type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[] };
@@ -36,9 +36,11 @@ const groups: { label: string; items: Entry[] }[] = [
   { label: "Sales", items: [
     { href: "/sales/new", label: "Sales Order", roles: SALES, icon: ReceiptText },
     { href: "/sales/orders", label: "Sales Orders List", roles: SALES, icon: ClipboardList },
+    { href: "/sales/demo-invoice", label: "Demo invoice", roles: SALES, icon: FilePen },
     { href: "/sales/challan", label: "Challan", roles: SALES, icon: Truck },
     { href: "/sales/challans", label: "Challan list", roles: SALES, icon: FileText },
     { href: "/sales/consolidate", label: "Day-end consolidate", roles: SALES, icon: CalendarRange },
+    { href: "/sales/returns", label: "Sales returns", roles: ["MANAGER", "ADMIN"], icon: Undo2 },
   ]},
   { label: "Accounting", items: [
     { heading: "Setup" },

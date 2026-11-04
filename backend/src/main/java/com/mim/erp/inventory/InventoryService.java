@@ -82,6 +82,18 @@ public class InventoryService {
         return result;
     }
 
+    /** Put returned goods back into the FIFO layer they were sold from, and log the inward movement. */
+    @Transactional
+    public void returnToLayer(UUID layerId, BigDecimal qty, UUID refId) {
+        if (qty == null || qty.signum() <= 0) throw new ApiException("Return quantity must be positive");
+        StockLayer layer = layers.findById(layerId).orElseThrow(() -> new ApiException("Stock layer not found"));
+        BigDecimal back = layer.getQtyRemaining().add(qty);
+        if (back.compareTo(layer.getQtyReceived()) > 0) throw new ApiException("Return exceeds what was taken from this stock layer");
+        layer.setQtyRemaining(back);
+        layers.save(layer);
+        record(LocalDate.now(), layer.getProductId(), layer.getWarehouseId(), qty, layer.getUnitCost(), "SALE_RETURN", refId, layerId);
+    }
+
     private void record(LocalDate date, UUID productId, UUID warehouseId, BigDecimal signedQty,
                         BigDecimal unitCost, String type, UUID refId, UUID layerId) {
         StockMovement m = new StockMovement();

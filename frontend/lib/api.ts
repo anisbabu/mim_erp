@@ -140,6 +140,21 @@ export type SalesOrder = { id: string; soNo: string; customerId: string; shopId:
 export type DeliveryChallan = { id: string; dcNo: string; customerId: string; warehouseId: string; status: string; challanDate: string };
 export type ChallanLineView = { dcLineId: string; dcNo: string; productId: string; productName: string; warehouseId?: string; qty: number; unitPrice: number; unitCost: number; discountAmt: number; priceLower?: number; priceUpper?: number };
 export type SoLineView = { id: string; productId: string; productName: string; qty: number; qtyPending: number; unitPrice: number };
+export type SalesReturnRow = {
+  id: string; return_no: string; credit_note_no?: string; return_date: string; reason: string;
+  settlement: "CREDIT_NOTE" | "CASH_REFUND"; goods_value: number; created_by?: string; so_no: string;
+  customer_code: string; customer_name: string; customer_name_bn?: string;
+};
+export type ReturnableLine = {
+  dc_line_id: string; dc_no: string; warehouse_name?: string; product_id: string; product_name: string;
+  product_name_bn?: string; unit?: string; qty_delivered: number; qty_returned: number; qty_available: number;
+  net_unit_price: number; unit_cost: number;
+};
+export type Returnable = {
+  order: { id: string; so_no: string; payment_mode: "CASH" | "CREDIT"; status: string; order_date: string;
+           customer_code: string; customer_name: string; customer_name_bn?: string };
+  lines: ReturnableLine[];
+};
 export type PickupLine = { productId: string; productName: string; qty: number };
 export type PickupView = { dcId: string; dcNo: string; date: string; warehouseName: string; lines: PickupLine[] };
 
@@ -299,6 +314,24 @@ export const endpoints = {
   consolidate:      (b: unknown) => api.post("/api/sales/consolidate", b),
   openChallanLines: (customerId: string) => api.get<ChallanLineView[]>(`/api/sales/challans/open/lines?customerId=${customerId}`),
   salesOrders:  () => api.get<SalesOrder[]>("/api/sales/orders"),
+  salesReturns:  () => api.get<SalesReturnRow[]>("/api/sales/returns"),
+  returnable:    (soId: string) => api.get<Returnable>(`/api/sales/returns/returnable/${soId}`),
+  createSalesReturn: (b: unknown) => api.post<{ id: string; returnNo: string; creditNoteNo?: string; settlement: string; goodsValue: number }>("/api/sales/returns", b),
+  demoInvoicePdf: async (b: unknown, lang: "en" | "bn" = "en"): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/sales/demo-invoice/pdf?lang=${lang}`, {
+      method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(b),
+    });
+    if (!res.ok) { let m = "Failed to generate the PDF"; try { m = (await res.json()).message ?? m; } catch {} throw new Error(m); }
+    return res.blob();
+  },
+  creditNotePdf: async (id: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/sales/returns/${id}/pdf?lang=${lang}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!res.ok) throw new Error("Failed to generate the PDF");
+    return res.blob();
+  },
   orderLines:   (soId: string) => api.get<SoLineView[]>(`/api/sales/orders/${soId}/lines`),
   fulfillOrder: (soId: string, b: unknown) => api.post<SalesOrder>(`/api/sales/orders/${soId}/fulfill`, b),
   orderPickups:  (soId: string) => api.get<PickupView[]>(`/api/sales/orders/${soId}/pickups`),

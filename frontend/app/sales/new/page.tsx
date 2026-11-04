@@ -204,7 +204,10 @@ export default function NewSalePage() {
     <div>
       {/* Header + stock panel */}
       <div className="flex items-start justify-between gap-4 mb-5">
-        <h1 className="page-title">{t("Sales invoice")}</h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="page-title">{t("Sales invoice")}</h1>
+          <a href="/sales/demo-invoice" className="btn-ghost btn-sm">{t("Demo invoice")}</a>
+        </div>
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
