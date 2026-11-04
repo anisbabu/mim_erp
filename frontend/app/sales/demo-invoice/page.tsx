@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
+import QuickCustomer from "@/components/QuickCustomer";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { savePdf } from "@/components/reports/ReportKit";
 import { useAuth } from "@/lib/auth";
@@ -32,6 +33,7 @@ export default function DemoInvoicePage() {
   const [note, setNote] = useState("");
   const [rows, setRows] = useState<Row[]>([blank()]);
   const [err, setErr] = useState("");
+  const [newCust, setNewCust] = useState(false);
 
   const loadSaved = () => endpoints.demoInvoices().then(setSaved).catch(() => setSaved([]));
   useEffect(() => {
@@ -138,11 +140,14 @@ export default function DemoInvoicePage() {
           <button className="btn-ghost" onClick={() => download(false)} disabled={busy}>{t("Save & download PDF")}</button>
           <button className="btn" onClick={() => download(true)} disabled={busy}>{t("Submit to sales")}</button></>} />
 
+      <QuickCustomer open={newCust} onClose={() => setNewCust(false)} existing={customers}
+        onCreated={(c) => { setCustomers((cs) => [...cs, c]); setCustId(c.id); setName(dn(c)); setMobile(c.mobile ?? ""); setAddress(c.address ?? ""); }} />
       <div className="card p-5 mb-5">
         <div className="section-label mb-3">{t("Customer")}</div>
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}>
-            <label>{t("Pick an existing customer (optional)")}</label>
+            <label className="flex items-center justify-between">{t("Pick an existing customer (optional)")}
+              <button type="button" className="text-[12px] font-medium" style={{ color: "#0f766e" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
             <SearchSelect options={custOpts} value={custId} onChange={pickCustomer} placeholder={t("Select…")} />
           </div>
           <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Customer name")}</label>

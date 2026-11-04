@@ -52,6 +52,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/master/**", "/api/inventory/availability",
                         "/api/inventory/available", "/api/inventory/overview",
                         "/api/accounting/accounts").authenticated()
+                // sales staff can add a customer from the sales screens
+                .requestMatchers(HttpMethod.POST, "/api/master/customers").hasAnyRole("SALESPERSON", "MANAGER", "ADMIN")
                 // master data writes
                 .requestMatchers(HttpMethod.POST, "/api/master/**").hasRole("ADMIN")
                 // purchasing

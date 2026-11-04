@@ -6,6 +6,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
+import QuickCustomer from "@/components/QuickCustomer";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { useI18n } from "@/lib/i18n";
 
@@ -39,6 +40,7 @@ export default function NewSalePage() {
   const [msg, setMsg]   = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [demo, setDemo] = useState<{ id: string; code: string; skipped: string[] } | null>(null);
+  const [newCust, setNewCust] = useState(false);
   const [demoLoaded, setDemoLoaded] = useState(false);
 
   const [stockPanel, setStockPanel]         = useState<WarehouseStock[]>([]);
@@ -125,9 +127,9 @@ export default function NewSalePage() {
     [products, supplierById, lang]);
 
   // choosing a customer fills the delivery address/mobile from their record; both stay editable
-  function pickCustomer(id: string) {
+  function pickCustomer(id: string, fresh?: Customer) {
     setCustomerId(id);
-    const c = customers.find((x) => x.id === id);
+    const c = fresh ?? customers.find((x) => x.id === id);
     setDeliveryAddress(c ? (c.deliveryAddress || c.address || "") : "");
     setDeliveryMobile(c ? (c.deliveryContactPhone || c.mobile || "") : "");
   }
@@ -288,6 +290,9 @@ export default function NewSalePage() {
         )}
       </div>
 
+      <QuickCustomer open={newCust} onClose={() => setNewCust(false)} existing={customers}
+        onCreated={(c) => { setCustomers((cs) => [...cs, c]); pickCustomer(c.id, c); }} />
+
       {demo && (
         <div className="note mb-4">
           {t("From demo invoice")} <b className="font-mono">{demo.code}</b> - {t("check the lines, pick warehouses, then save the sale.")}
@@ -307,7 +312,8 @@ export default function NewSalePage() {
           </div>
         )}
         <div className="field">
-          <label>{t("Customer")}</label>
+          <label className="flex items-center justify-between">{t("Customer")}
+            <button type="button" className="text-[12px] font-medium" style={{ color: "#0f766e" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
           <SearchSelect options={customerOpts} value={customerId}
             onChange={pickCustomer} placeholder={t("Search name or mobile…")} />
         </div>
