@@ -57,7 +57,7 @@ public class UserService {
     }
 
     @Transactional
-    public AppUser update(UUID id, String username, String password, String fullName, String mobile, String role, Set<UUID> shopIds, Boolean active) {
+    public AppUser update(UUID id, String username, String password, String fullName, String fullNameBn, String mobile, String role, Set<UUID> shopIds, Boolean active) {
         AppUser u = users.findById(id)
             .orElseThrow(() -> new ApiException("User not found"));
 
@@ -85,6 +85,7 @@ public class UserService {
         else if (password != null && !password.isEmpty())
             throw new ApiException("Password must be at least 6 characters");
         if (fullName != null) u.setFullName(fullName);
+        if (fullNameBn != null) u.setFullNameBn(fullNameBn.isBlank() ? null : fullNameBn.trim());
         if (mobile != null) u.setMobile(mobile);
         u.setRole(role);
         u.setShopIds(shops);

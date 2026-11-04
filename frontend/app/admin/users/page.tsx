@@ -26,6 +26,7 @@ export default function UsersPage() {
   const [editUsername, setEditUsername] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [editFullName, setEditFullName] = useState("");
+  const [editFullNameBn, setEditFullNameBn] = useState("");
   const [editMobile, setEditMobile] = useState("");
   const [editRole, setEditRole] = useState<Role>("SALESPERSON");
   const [editShopIds, setEditShopIds] = useState<string[]>([]);
@@ -61,6 +62,7 @@ export default function UsersPage() {
     setEditUsername(u.username);
     setEditPassword("");
     setEditFullName(u.fullName ?? "");
+    setEditFullNameBn(u.fullNameBn ?? "");
     setEditMobile(u.mobile ?? "");
     setEditRole(u.role);
     setEditShopIds([...u.shopIds]);
@@ -112,6 +114,7 @@ export default function UsersPage() {
         username: editUsername.trim() || undefined,
         password: editPassword || undefined,
         fullName: editFullName,
+        fullNameBn: editFullNameBn,
         mobile: editMobile,
         role: editRole,
         shopIds: editBindsShops ? editShopIds : [],
@@ -212,6 +215,10 @@ export default function UsersPage() {
             <div>
               <label className="text-xs text-[#6b6960]">{t("Full name")}</label>
               <input className="inp mt-1" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs text-[#6b6960]">{t("Full name (Bangla)")}</label>
+              <input className="inp mt-1" value={editFullNameBn} onChange={(e) => setEditFullNameBn(e.target.value)} />
             </div>
             <div>
               <label className="text-xs text-[#6b6960]">{t("Mobile")}</label>

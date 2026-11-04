@@ -3,9 +3,12 @@ package com.mim.erp.sales;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
 import com.mim.erp.auth.CurrentUserService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mim.erp.common.ApiException;
+import com.mim.erp.common.DocNumberService;
 import com.mim.erp.common.PdfKit;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.awt.Color;
@@ -16,6 +19,8 @@ import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * Demo (proforma) invoice: a priced list of items handed to a customer for price comparison.
@@ -27,35 +32,115 @@ import java.util.List;
 public class DemoInvoice {
 
     private final CurrentUserService currentUser;
+    private final JdbcTemplate jdbc;
+    private final DocNumberService docNo;
+    private final ObjectMapper json = new ObjectMapper();
 
-    public DemoInvoice(CurrentUserService currentUser) { this.currentUser = currentUser; }
+    public DemoInvoice(CurrentUserService currentUser, JdbcTemplate jdbc, DocNumberService docNo) {
+        this.currentUser = currentUser; this.jdbc = jdbc; this.docNo = docNo;
+    }
 
-    public record Line(String name, String unit, BigDecimal qty, BigDecimal unitPrice, BigDecimal discount) {}
-    public record Request(String customerName, String customerMobile, String customerAddress, String salesperson,
-                          String note, List<Line> lines) {}
+    public record Line(UUID productId, String name, String unit, BigDecimal qty, BigDecimal unitPrice, BigDecimal discount) {}
+    public record Request(UUID customerId, String customerName, String customerMobile, String customerAddress, String salesperson,
+                          String salespersonBn, String note, List<Line> lines) {}
 
     private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
-    @PostMapping(value = "/pdf", produces = "application/pdf")
-    public ResponseEntity<byte[]> pdf(@RequestBody Request req, @RequestParam(defaultValue = "en") String lang) {
-        boolean bn = PdfKit.isBn(lang);
-        return ResponseEntity.ok()
-            .header("Content-Disposition", "inline; filename=\"demo-invoice" + (bn ? "-bn" : "") + ".pdf\"")
-            .body(render(req, bn, salesperson(req)));
+    /** Save a demo invoice and give it a unique code (DEMO-yyyy-nnnnnn). */
+    @PostMapping
+    public Map<String, Object> save(@RequestBody Request req) {
+        var u = currentUser.me();
+        boolean blank = req != null && (req.salesperson() == null || req.salesperson().isBlank());
+        Request r = blank ? new Request(req.customerId(), req.customerName(), req.customerMobile(), req.customerAddress(),
+            u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : u.getUsername(),
+            u.getFullNameBn(), req.note(), req.lines()) : req;
+        BigDecimal total = validate(r);
+        String code = docNo.next("DEMO");
+        try {
+            UUID id = jdbc.queryForObject(
+                "INSERT INTO demo_invoice (code, customer_name, customer_mobile, salesperson, total, payload, created_by) "
+                + "VALUES (?,?,?,?,?,?::jsonb,?) RETURNING id", UUID.class,
+                code, trim(r.customerName()), trim(r.customerMobile()), trim(r.salesperson()), total,
+                json.writeValueAsString(r), u.getId());
+            return Map.of("id", id, "code", code, "total", total);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new ApiException("Could not save the demo invoice");
+        }
     }
 
-    /** The name typed on the slip, else the signed-in user. */
+    @GetMapping
+    public List<Map<String, Object>> list() {
+        return jdbc.queryForList(
+            "SELECT id, code, demo_date, customer_name, customer_mobile, salesperson, total, so_id, so_no, created_at "
+            + "FROM demo_invoice ORDER BY created_at DESC LIMIT 300");
+    }
+
+    /** The saved request, so the page can reopen it for editing or copy it into a sales order. */
+    @GetMapping("/{id}")
+    public Map<String, Object> get(@PathVariable UUID id) {
+        var row = load(id);
+        try {
+            return Map.of("id", id, "code", row.get("code"), "demoDate", row.get("demo_date").toString(),
+                "request", json.readTree(row.get("payload").toString()));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new ApiException("Saved demo invoice is unreadable");
+        }
+    }
+
+    @GetMapping(value = "/{id}/pdf", produces = "application/pdf")
+    public ResponseEntity<byte[]> pdf(@PathVariable UUID id, @RequestParam(defaultValue = "en") String lang) {
+        boolean bn = PdfKit.isBn(lang);
+        var row = load(id);
+        try {
+            Request r = json.readValue(row.get("payload").toString(), Request.class);
+            String code = (String) row.get("code");
+            LocalDate date = ((java.sql.Date) row.get("demo_date")).toLocalDate();
+            return ResponseEntity.ok()
+                .header("Content-Disposition", "inline; filename=\"" + code + (bn ? "-bn" : "") + ".pdf\"")
+                .body(render(r, bn, salesperson(r), code, date));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new ApiException("Saved demo invoice is unreadable");
+        }
+    }
+
+    public record LinkRequest(UUID soId) {}
+
+    /** Record that this slip became a sales order. */
+    @PostMapping("/{id}/link")
+    public Map<String, Object> link(@PathVariable UUID id, @RequestBody LinkRequest req) {
+        load(id);
+        var no = jdbc.queryForList("SELECT so_no FROM sales_order WHERE id = ?", String.class, req.soId());
+        if (no.isEmpty()) throw new ApiException("Sales order not found");
+        jdbc.update("UPDATE demo_invoice SET so_id = ?, so_no = ? WHERE id = ?", req.soId(), no.get(0), id);
+        return Map.of("soNo", no.get(0));
+    }
+
+    private Map<String, Object> load(UUID id) {
+        var rows = jdbc.queryForList("SELECT code, demo_date, payload::text AS payload FROM demo_invoice WHERE id = ?", id);
+        if (rows.isEmpty()) throw new ApiException("Demo invoice not found");
+        return rows.get(0);
+    }
+
+    private static String trim(String s) { return s == null || s.isBlank() ? null : s.trim(); }
+
+    /** The name on the slip, else the signed-in user. */
     private String salesperson(Request r) {
         if (r != null && r.salesperson() != null && !r.salesperson().isBlank()) return r.salesperson().trim();
         var u = currentUser.me();
         return u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : u.getUsername();
     }
 
+    /** "English / বাংলা" - both names whenever a Bangla name exists. */
+    private static String bothNames(String en, String bn) {
+        if (bn == null || bn.isBlank() || bn.trim().equalsIgnoreCase(en)) return en;
+        return en + " / " + bn.trim();
+    }
+
     private static String money(BigDecimal v) { return new DecimalFormat("#,##0.00").format(v); }
     private static String qty(BigDecimal v) { return v.stripTrailingZeros().toPlainString(); }
     private static BigDecimal nz(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
 
-    static byte[] render(Request r, boolean bn, String salesperson) {
+    private static BigDecimal validate(Request r) {
         if (r == null || r.lines() == null || r.lines().isEmpty()) throw new ApiException("Add at least one item");
         if (r.lines().size() > 200) throw new ApiException("A demo invoice can have at most 200 items");
         for (Line l : r.lines()) {
@@ -64,6 +149,16 @@ public class DemoInvoice {
             if (nz(l.unitPrice()).signum() < 0) throw new ApiException("Price cannot be negative for " + l.name());
             if (nz(l.discount()).signum() < 0) throw new ApiException("Discount cannot be negative for " + l.name());
         }
+        BigDecimal total = BigDecimal.ZERO;
+        for (Line l : r.lines()) {
+            BigDecimal g = l.qty().multiply(nz(l.unitPrice()));
+            total = total.add(g.subtract(nz(l.discount()).min(g)));
+        }
+        return total.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    static byte[] render(Request r, boolean bn, String salesperson, String code, LocalDate date) {
+        validate(r);
         try {
             Document doc = new Document(new Rectangle(396f, 612f), 24, 24, 30, 36);
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -78,11 +173,12 @@ public class DemoInvoice {
 
             String name = r.customerName() == null || r.customerName().isBlank() ? "-" : r.customerName().trim();
             String[][] meta = {
-                {bn ? "তারিখ" : "Date", LocalDate.now().format(D)},
+                {bn ? "ডেমো নং" : "Demo no.", code},
+                {bn ? "তারিখ" : "Date", date.format(D)},
                 {bn ? "গ্রাহক" : "Customer", name},
                 {bn ? "মোবাইল" : "Mobile", r.customerMobile() == null || r.customerMobile().isBlank() ? "-" : r.customerMobile().trim()},
                 {bn ? "ঠিকানা" : "Address", r.customerAddress() == null || r.customerAddress().isBlank() ? "-" : r.customerAddress().trim()},
-                {bn ? "বিক্রয়কর্মী" : "Salesperson", salesperson},
+                {bn ? "বিক্রয়কর্মী" : "Salesperson", bothNames(salesperson, r.salespersonBn())},
             };
             float[] mw = k.cols(1f, 3.4f);
             PdfPTable m = new PdfPTable(new float[]{1f, 3.4f});

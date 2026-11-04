@@ -38,6 +38,8 @@ export default function NewSalePage() {
   const [transport, setTransport]   = useState("");
   const [msg, setMsg]   = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [demo, setDemo] = useState<{ id: string; code: string; skipped: string[] } | null>(null);
+  const [demoLoaded, setDemoLoaded] = useState(false);
 
   const [stockPanel, setStockPanel]         = useState<WarehouseStock[]>([]);
   const [panelProductId, setPanelProductId] = useState("");
@@ -67,6 +69,39 @@ export default function NewSalePage() {
     const me = salespeople.find((x) => x.username === user.username);
     if (me) setSalespersonId(me.id);
   }, [salespeople, user, salespersonId]);
+
+  // arriving from a demo invoice (?demo=id): prefill customer, salesperson and lines once master data is in
+  useEffect(() => {
+    if (demoLoaded || !products.length || !customers.length || !salespeople.length) return;
+    const id = new URLSearchParams(window.location.search).get("demo");
+    setDemoLoaded(true);
+    if (!id) return;
+    endpoints.demoInvoice(id).then((d) => {
+      const r = d.request;
+      const cust = (r.customerId && customers.find((c) => c.id === r.customerId))
+        || customers.find((c) => c.mobile && r.customerMobile && c.mobile === r.customerMobile)
+        || customers.find((c) => c.name === r.customerName);
+      if (cust) setCustomerId(cust.id);
+      if (r.customerAddress && (!cust || r.customerAddress !== (cust as any).address)) setDeliveryAddress(r.customerAddress);
+      const sp = salespeople.find((x) => (x.fullName || x.username) === r.salesperson);
+      if (sp) setSalespersonId(sp.id);
+      const skipped: string[] = [];
+      const next: Line[] = [];
+      let disc = 0;
+      for (const l of r.lines) {
+        const p = (l.productId && products.find((x) => x.id === l.productId)) || products.find((x) => x.name === l.name || x.fullName === l.name || x.nameBn === l.name);
+        if (!p) { skipped.push(l.name); continue; }
+        disc += Number(l.discount) || 0;
+        next.push({ productId: p.id, warehouseId: "", qty: String(l.qty), takeNow: "", unitPrice: String(l.unitPrice) });
+      }
+      if (next.length) {
+        setLines(next);
+        next.forEach((n) => endpoints.availability(n.productId).then((s) => setStockByProduct((m) => ({ ...m, [n.productId]: s }))).catch(() => {}));
+      }
+      if (disc > 0) setDiscount(String(disc));
+      setDemo({ id: d.id, code: d.code, skipped: [...skipped, ...(cust ? [] : [t("Customer not found - pick one")])] });
+    }).catch((e: any) => setMsg({ kind: "err", text: e.message }));
+  }, [products, customers, salespeople, demoLoaded]);
 
   const productById   = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
   const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
@@ -188,6 +223,7 @@ export default function NewSalePage() {
         deliveryAddress:     deliveryAddress.trim() || null,
         deliveryMobile:      deliveryMobile.trim() || null,
       });
+      if (demo) { endpoints.linkDemoInvoice(demo.id, res.soId).catch(() => {}); setDemo(null); }
       const margin = (res.totalValue - res.totalCost).toFixed(2);
       setMsg({ kind: "ok", text: `${t("Sale")} ${res.soNo} ${t("created")} · ${res.challanIds.length} ${t("challan(s)")} · ${t("margin")} ${margin}` });
       setDiscount(""); setTransport(""); setDeliveryAddress(""); setDeliveryMobile("");
@@ -241,6 +277,13 @@ export default function NewSalePage() {
           </div>
         )}
       </div>
+
+      {demo && (
+        <div className="note mb-4">
+          {t("From demo invoice")} <b className="font-mono">{demo.code}</b> - {t("check the lines, pick warehouses, then save the sale.")}
+          {demo.skipped.length > 0 && <div className="mt-1" style={{ color: "#b4690e" }}>{t("Not in the product list, add by hand")}: {demo.skipped.join(", ")}</div>}
+        </div>
+      )}
 
       {/* Header fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">

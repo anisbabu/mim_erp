@@ -250,7 +250,9 @@ export type ChequeEvent = {
 
 export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
 export type Me = { token?: string; username: string; fullName?: string; role: Role; shopIds: string[] };
-export type UserView = { id: string; username: string; fullName?: string; mobile?: string; role: Role; active: boolean; shopIds: string[] };
+export type DemoInvoiceRow = { id: string; code: string; demo_date: string; customer_name?: string; customer_mobile?: string; salesperson?: string; total: number; so_id?: string | null; so_no?: string | null; created_at: string };
+export type DemoInvoiceSaved = { id: string; code: string; demoDate: string; request: { customerId?: string; customerName?: string; customerMobile?: string; customerAddress?: string; salesperson?: string; salespersonBn?: string; note?: string; lines: { productId?: string; name: string; unit?: string; qty: number; unitPrice: number; discount: number }[] } };
+export type UserView = { id: string; username: string; fullName?: string; fullNameBn?: string; mobile?: string; role: Role; active: boolean; shopIds: string[] };
 
 export const endpoints = {
   // master
@@ -317,12 +319,13 @@ export const endpoints = {
   salesReturns:  () => api.get<SalesReturnRow[]>("/api/sales/returns"),
   returnable:    (soId: string) => api.get<Returnable>(`/api/sales/returns/returnable/${soId}`),
   createSalesReturn: (b: unknown) => api.post<{ id: string; returnNo: string; creditNoteNo?: string; settlement: string; goodsValue: number }>("/api/sales/returns", b),
-  demoInvoicePdf: async (b: unknown, lang: "en" | "bn" = "en"): Promise<Blob> => {
+  demoInvoices: () => api.get<DemoInvoiceRow[]>("/api/sales/demo-invoice"),
+  demoInvoice: (id: string) => api.get<DemoInvoiceSaved>(`/api/sales/demo-invoice/${id}`),
+  linkDemoInvoice: (id: string, soId: string) => api.post<{ soNo: string }>(`/api/sales/demo-invoice/${id}/link`, { soId }),
+  saveDemoInvoice: (b: unknown) => api.post<{ id: string; code: string; total: number }>("/api/sales/demo-invoice", b),
+  demoInvoicePdf: async (id: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/sales/demo-invoice/pdf?lang=${lang}`, {
-      method: "POST", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      body: JSON.stringify(b),
-    });
+    const res = await fetch(`${BASE}/api/sales/demo-invoice/${id}/pdf?lang=${lang}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!res.ok) { let m = "Failed to generate the PDF"; try { m = (await res.json()).message ?? m; } catch {} throw new Error(m); }
     return res.blob();
   },
@@ -462,7 +465,7 @@ export const endpoints = {
   me:    () => api.get<Me>("/api/auth/me"),
   users: () => api.get<UserView[]>("/api/users"),
   createUser: (b: unknown) => api.post<UserView>("/api/users", b),
-  updateUser: (id: string, b: { username?: string; password?: string; fullName?: string; mobile?: string; role: string; shopIds: string[]; active?: boolean }) =>
+  updateUser: (id: string, b: { username?: string; password?: string; fullName?: string; fullNameBn?: string; mobile?: string; role: string; shopIds: string[]; active?: boolean }) =>
     api.put<UserView>(`/api/users/${id}`, b),
 
   // employees / payroll master
