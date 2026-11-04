@@ -82,7 +82,9 @@ export default function NewSalePage() {
         || customers.find((c) => c.mobile && r.customerMobile && c.mobile === r.customerMobile)
         || customers.find((c) => c.name === r.customerName);
       if (cust) setCustomerId(cust.id);
-      if (r.customerAddress && (!cust || r.customerAddress !== (cust as any).address)) setDeliveryAddress(r.customerAddress);
+      // the slip carries the (possibly corrected) name/mobile/address: use them as delivery details
+      setDeliveryAddress(r.customerAddress || (cust ? (cust.deliveryAddress || cust.address || "") : ""));
+      setDeliveryMobile(r.customerMobile || (cust ? (cust.deliveryContactPhone || cust.mobile || "") : ""));
       const sp = salespeople.find((x) => (x.fullName || x.username) === r.salesperson);
       if (sp) setSalespersonId(sp.id);
       const skipped: string[] = [];
@@ -121,6 +123,14 @@ export default function NewSalePage() {
       return { value: p.id, label: lang === "bn" && p.nameBn ? p.nameBn : p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub };
     }),
     [products, supplierById, lang]);
+
+  // choosing a customer fills the delivery address/mobile from their record; both stay editable
+  function pickCustomer(id: string) {
+    setCustomerId(id);
+    const c = customers.find((x) => x.id === id);
+    setDeliveryAddress(c ? (c.deliveryAddress || c.address || "") : "");
+    setDeliveryMobile(c ? (c.deliveryContactPhone || c.mobile || "") : "");
+  }
 
   async function selectProduct(i: number, productId: string) {
     update(i, { productId, warehouseId: "" });
@@ -299,17 +309,17 @@ export default function NewSalePage() {
         <div className="field">
           <label>{t("Customer")}</label>
           <SearchSelect options={customerOpts} value={customerId}
-            onChange={setCustomerId} placeholder={t("Search name or mobile…")} />
+            onChange={pickCustomer} placeholder={t("Search name or mobile…")} />
         </div>
         <div className="field">
           <label>{t("Delivery address")}</label>
           <input className="inp" value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)}
-            placeholder={t("Leave blank to use customer's address")} />
+            placeholder={t("Delivery address")} />
         </div>
         <div className="field">
           <label>{t("Delivery mobile")}</label>
           <input className="inp" value={deliveryMobile} onChange={(e) => setDeliveryMobile(e.target.value)}
-            placeholder={t("Leave blank to use customer's mobile")} />
+            placeholder={t("Delivery mobile")} />
         </div>
         {needsSalesperson && (
           <div className="field">
