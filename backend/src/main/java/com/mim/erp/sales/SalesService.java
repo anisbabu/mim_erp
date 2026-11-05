@@ -521,7 +521,7 @@ public class SalesService {
             tbl.setSpacingAfter(8);
 
             String[] heads = {"Product", "Qty", "Unit Price", "Gross Total"};
-            int[] aligns  = {Element.ALIGN_LEFT, Element.ALIGN_RIGHT, Element.ALIGN_RIGHT, Element.ALIGN_RIGHT};
+            int[] aligns  = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
             for (int i = 0; i < heads.length; i++) {
                 PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, Color.WHITE, aligns[i], colW[i], 5);
                 h.setBackgroundColor(teal);
@@ -551,7 +551,7 @@ public class SalesService {
                 discSum  = discSum.add(line.disc());
 
                 pdfCell(tbl, kit, line.name(), Element.ALIGN_LEFT, colW[0]);
-                pdfCell(tbl, kit, line.qty().toPlainString(), Element.ALIGN_RIGHT, colW[1]);
+                pdfCell(tbl, kit, line.qty().stripTrailingZeros().toPlainString(), Element.ALIGN_RIGHT, colW[1]);   // 1 not 1.00; 2.5 stays
                 pdfCell(tbl, kit, fmt(unitPrice), Element.ALIGN_RIGHT, colW[2]);
                 pdfCell(tbl, kit, fmt(line.grossTotal()), Element.ALIGN_RIGHT, colW[3]);
             }
