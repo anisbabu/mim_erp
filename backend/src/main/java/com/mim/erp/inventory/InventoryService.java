@@ -47,6 +47,13 @@ public class InventoryService {
         return layers.availableQty(productId, warehouseId);
     }
 
+    /** Unit cost of the layer FIFO would sell from next; null when nothing is in stock. */
+    public BigDecimal nextFifoCost(UUID productId, UUID warehouseId) {
+        return layers.findFirstByProductIdAndWarehouseIdAndQtyRemainingGreaterThanOrderByReceivedDateAscSeqAsc(
+                productId, warehouseId, BigDecimal.ZERO)
+            .map(StockLayer::getUnitCost).orElse(null);
+    }
+
     /**
      * Consume `qty` of a product from ONE warehouse using FIFO and record one
      * outward movement per layer touched.

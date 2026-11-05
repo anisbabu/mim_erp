@@ -26,6 +26,10 @@ public interface StockLayerRepository extends JpaRepository<StockLayer, UUID> {
     List<StockLayer> findOpenLayersForUpdate(@Param("productId") UUID productId,
                                              @Param("warehouseId") UUID warehouseId);
 
+    /** The layer FIFO would consume next (oldest with stock left), no lock. */
+    java.util.Optional<StockLayer> findFirstByProductIdAndWarehouseIdAndQtyRemainingGreaterThanOrderByReceivedDateAscSeqAsc(
+        UUID productId, UUID warehouseId, BigDecimal minQty);
+
     /** Available quantity of a product in one warehouse. */
     @Query("""
         select coalesce(sum(l.qtyRemaining),0) from StockLayer l

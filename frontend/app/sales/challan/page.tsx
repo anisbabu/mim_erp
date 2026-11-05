@@ -24,6 +24,7 @@ export default function ChallanPage() {
   const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
   const [msg, setMsg]   = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [overrideBy, setOverrideBy] = useState("");
   const [stockPanel, setStockPanel]       = useState<WarehouseStock[]>([]);
   const [panelProductId, setPanelProductId] = useState("");
   const [panelLineIndex, setPanelLineIndex] = useState<number | null>(null);
@@ -122,7 +123,7 @@ export default function ChallanPage() {
       for (const [warehouseId, allocs] of byWarehouse) {
         const dc: any = await endpoints.issueChallan({
           shopId, customerId, salespersonId: needsSalesperson ? salespersonId : null, warehouseId, allocations: allocs,
-          priceOverrideBy: null, discountBy: null,
+          priceOverrideBy: overrideBy.trim() || null, discountBy: null,
         });
         dcNos.push(dc.dcNo);
       }
@@ -363,6 +364,13 @@ export default function ChallanPage() {
           </div>
         </div>
       )}
+
+      <div className="mb-4">
+        <label className="text-xs muted">{t("Authoriser (required for out-of-band price or over-limit credit)")}</label>
+        <input className="inp mt-1" style={{ maxWidth: 320 }}
+          placeholder={t("Manager / authority name")}
+          value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)} />
+      </div>
 
       <button className="btn w-full sm:w-auto" onClick={submit} disabled={busy}>
         {busy ? t("Issuing…") : t("Issue challan")}

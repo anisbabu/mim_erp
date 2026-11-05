@@ -95,6 +95,11 @@ public final class PdfKit {
 
     private static final Map<String, String> BN = Map.ofEntries(
         Map.entry("SALES INVOICE", "বিক্রয় ইনভয়েস"),
+        Map.entry("Previous balance", "পূর্বের বাকি"),
+        Map.entry("This invoice (on credit)", "এই ইনভয়েস (বাকিতে)"),
+        Map.entry("Paid in cash", "নগদ পরিশোধ"),
+        Map.entry("BALANCE DUE", "মোট বাকি"),
+        Map.entry("Transport & lifting", "পরিবহন ও উঠানামা"),
         Map.entry("DELIVERY CHALLAN", "ডেলিভারি চালান"),
         Map.entry("WAREHOUSE DISPATCH TOKEN", "গুদাম ডিসপ্যাচ টোকেন"),
         Map.entry("CHEQUE RECEIPT", "চেক প্রাপ্তি রসিদ"),

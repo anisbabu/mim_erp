@@ -229,7 +229,7 @@ export default function NewSalePage() {
       const res: any = await endpoints.createOrder({
         shopId, customerId, salespersonId: needsSalesperson ? salespersonId : null, paymentMode, allocations,
         creditOverrideBy:    overrideBy || null,
-        priceOverrideBy:     anyOutOfBand ? overrideBy : null,
+        priceOverrideBy:     overrideBy.trim() || null,   // server keeps it only on lines that need it (band or below FIFO cost)
         discountBy:          anyDiscount  ? discountBy : null,
         transportAndLifting: totalTransport || null,
         deliveryAddress:     deliveryAddress.trim() || null,
@@ -555,14 +555,13 @@ export default function NewSalePage() {
         </div>
       )}
 
-      {(anyOutOfBand || paymentMode === "CREDIT") && (
-        <div className="mb-4">
-          <label className="text-xs muted">{t("Authoriser (required for out-of-band price or over-limit credit)")}</label>
-          <input className="inp mt-1" style={{ maxWidth: 320 }}
-            placeholder={t("Manager / authority name")}
-            value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)} />
-        </div>
-      )}
+      {/* always shown: a price below FIFO cost is only known to the server */}
+      <div className="mb-4">
+        <label className="text-xs muted">{t("Authoriser (required for out-of-band price or over-limit credit)")}</label>
+        <input className="inp mt-1" style={{ maxWidth: 320 }}
+          placeholder={t("Manager / authority name")}
+          value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)} />
+      </div>
 
       {pendingWarnings.length > 0 && (
         <div className="mb-4 text-sm rounded-lg px-4 py-3" style={{ background: "#fdf3e1", color: "#7a4a06" }}>

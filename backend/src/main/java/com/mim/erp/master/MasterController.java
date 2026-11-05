@@ -4,6 +4,11 @@ import com.mim.erp.common.ApiException;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import java.math.BigDecimal;
+import java.util.Map;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Locale;
@@ -21,10 +26,12 @@ public class MasterController {
     private final SupplierGroupRepository supplierGroups;
     private final ShopRepository shops;
     private final CustomerRepository customers;
+    private final JdbcTemplate jdbc;
 
     public MasterController(ProductRepository products, WarehouseRepository warehouses,
                             SupplierRepository suppliers, SupplierGroupRepository supplierGroups,
-                            ShopRepository shops, CustomerRepository customers) {
+                            ShopRepository shops, CustomerRepository customers, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.products = products; this.warehouses = warehouses;
         this.suppliers = suppliers; this.supplierGroups = supplierGroups;
         this.shops = shops; this.customers = customers;
@@ -40,7 +47,13 @@ public class MasterController {
 
     // ---- create ----
     @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
-    @PostMapping("/products")  public Product   saveProduct(@RequestBody Product p)   { return products.save(p); }
+    @PostMapping("/products")
+    public Product saveProduct(@RequestBody Product p) {
+        checkBand(p.getPriceLower(), p.getPriceUpper());
+        Product saved = products.save(p);
+        auditBand(saved.getId(), null, null, saved.getPriceLower(), saved.getPriceUpper());
+        return saved;
+    }
     @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/suppliers")
     public Supplier saveSupplier(@RequestBody Supplier s) {
@@ -118,6 +131,8 @@ public class MasterController {
     @PutMapping("/products/{id}")
     public Product updateProduct(@PathVariable UUID id, @RequestBody Product in) {
         Product p = products.findById(id).orElseThrow(() -> new ApiException("Product not found"));
+        checkBand(in.getPriceLower(), in.getPriceUpper());
+        BigDecimal oldLower = p.getPriceLower(), oldUpper = p.getPriceUpper();
         p.setSku(in.getSku()); p.setName(in.getName()); p.setNameBn(keepBn(in.getNameBn(), p.getNameBn())); p.setType(in.getType());
         p.setThicknessMm(in.getThicknessMm()); p.setThicknessLabel(in.getThicknessLabel()); p.setUnit(in.getUnit());
         p.setPriceLower(in.getPriceLower()); p.setPriceUpper(in.getPriceUpper());
@@ -129,7 +144,37 @@ public class MasterController {
         p.setFullName(in.getFullName());
         p.setComments(in.getComments());
         p.setActive(in.isActive());
-        return products.save(p);
+        Product saved = products.save(p);
+        if (!sameMoney(oldLower, saved.getPriceLower()) || !sameMoney(oldUpper, saved.getPriceUpper()))
+            auditBand(saved.getId(), oldLower, oldUpper, saved.getPriceLower(), saved.getPriceUpper());
+        return saved;
+    }
+
+    /** Who changed a product's selling price band, newest first. */
+    @GetMapping("/products/{id}/price-history")
+    public List<Map<String, Object>> priceHistory(@PathVariable UUID id) {
+        return jdbc.queryForList(
+            "select old_lower as \"oldLower\", old_upper as \"oldUpper\", new_lower as \"newLower\", "
+          + "new_upper as \"newUpper\", changed_by as \"changedBy\", changed_at as \"changedAt\" "
+          + "from product_price_audit where product_id = ? order by changed_at desc", id);
+    }
+
+    private static void checkBand(BigDecimal lower, BigDecimal upper) {
+        if ((lower != null && lower.signum() < 0) || (upper != null && upper.signum() < 0))
+            throw new ApiException("Price limits cannot be negative");
+        if (lower != null && upper != null && lower.compareTo(upper) > 0)
+            throw new ApiException("Lower price limit (" + lower + ") cannot be above the upper limit (" + upper + ")");
+    }
+
+    private static boolean sameMoney(BigDecimal a, BigDecimal b) {
+        return a == null ? b == null : b != null && a.compareTo(b) == 0;
+    }
+
+    private void auditBand(UUID productId, BigDecimal oldLower, BigDecimal oldUpper, BigDecimal newLower, BigDecimal newUpper) {
+        Authentication a = SecurityContextHolder.getContext().getAuthentication();
+        String who = a != null && a.getPrincipal() instanceof com.mim.erp.auth.AuthPrincipal p ? p.username() : null;
+        jdbc.update("insert into product_price_audit (product_id, old_lower, old_upper, new_lower, new_upper, changed_by) "
+            + "values (?,?,?,?,?,?)", productId, oldLower, oldUpper, newLower, newUpper, who);
     }
 
     @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)

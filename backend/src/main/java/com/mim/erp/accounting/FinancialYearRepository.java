@@ -7,6 +7,8 @@ import java.util.UUID;
 
 public interface FinancialYearRepository extends JpaRepository<FinancialYear, UUID> {
     Optional<FinancialYear> findByIsCurrentTrue();
+    Optional<FinancialYear> findFirstByStartDateLessThanEqualAndEndDateGreaterThanEqual(
+        java.time.LocalDate onOrAfterStart, java.time.LocalDate onOrBeforeEnd);
     List<FinancialYear> findAllByOrderByStartDateDesc();
     Optional<FinancialYear> findByStartDate(java.time.LocalDate startDate);
     boolean existsByStartDateBeforeAndStatus(java.time.LocalDate date, String status);

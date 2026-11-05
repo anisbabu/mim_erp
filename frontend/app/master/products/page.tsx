@@ -247,13 +247,18 @@ export default function ProductsPage() {
     if (isBoard && !f.category)         missing.push(t("Category"));
     if (isBoard && !f.supplierId)       missing.push(t("Supplier"));
     if (!f.unit)                        missing.push(t("Unit"));
-    if (!f.priceLower)                  missing.push(t("Price (low)"));
-    if (!f.priceUpper)                  missing.push(t("Price (high)"));
+    const blank = (v: unknown) => v === undefined || v === null || v === "";
+    if (blank(f.priceLower))            missing.push(t("Price (low)"));
+    if (blank(f.priceUpper))            missing.push(t("Price (high)"));
     if (missing.length) { setMsg({ kind: "err", text: `${t("Required")}: ${missing.join(", ")}` }); return; }
+    if (Number(f.priceLower) > Number(f.priceUpper)) {
+      setMsg({ kind: "err", text: t("Price (low) cannot be above Price (high)") }); return;
+    }
     const body = {
       ...f,
       thicknessMm: isBoard && !isEdging ? f.thicknessMm : undefined,
       edgingSize: isEdging ? f.edgingSize : undefined,
+      category: isBoard ? f.category : undefined,   // hardware has no category
     };
     try {
       if (editId) await endpoints.updateProduct(editId, body);
@@ -398,14 +403,9 @@ export default function ProductsPage() {
                 <option value="BOARD">{t("Board")}</option>
                 <option value="HARDWARE">{t("Hardware")}</option>
               </select></div>
-            <div className="field"><label>{t("Category")}</label>
-              <select className="inp" value={f.category ?? ""} onChange={(e) => handleCategory(e.target.value)}>
-                <option value="">— {t("Select")} —</option>
-                {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select></div>
+            {/* hardware has no category */}
             <div className="field"><label>{t("Name")} <R /></label>
               <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
-            {/* row 2 */}
             <div className="field"><label>{t("Name (Bangla)")} <R /></label>
               <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
             <div className="field"><label>{t("Supplier")}</label>

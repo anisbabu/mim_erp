@@ -184,7 +184,7 @@ public class SalesService {
             sl.setUnitPrice(a.unitPrice());
             sl.setDiscountAmt(a.discountAmt() != null ? a.discountAmt() : BigDecimal.ZERO);
             sl.setQtyPending(pending);
-            sl.setPriceOverrideBy(req.priceOverrideBy());
+            sl.setPriceOverrideBy(overrideFor(a.productId(), a.warehouseId(), a.unitPrice(), req.priceOverrideBy()));
             sl.setLineNo(ln++);
             so.getLines().add(sl);
         }
@@ -198,7 +198,7 @@ public class SalesService {
 
         for (var entry : byWarehouse.entrySet()) {
             DeliveryChallan dc = buildAndDeliver(so.getId(), shopId, req.customerId(), salespersonId,
-                entry.getKey(), entry.getValue(), req.discountBy());
+                entry.getKey(), entry.getValue(), req.discountBy(), req.priceOverrideBy());
             challanIds.add(dc.getId());
             for (DcLine dl : dc.getLines()) {
                 totalCost = totalCost.add(dl.getQty().multiply(dl.getUnitCost()));
@@ -291,7 +291,7 @@ public class SalesService {
 
         for (var entry : byWarehouse.entrySet()) {
             DeliveryChallan dc = buildAndDeliver(so.getId(), so.getShopId(), so.getCustomerId(),
-                so.getSalespersonId(), entry.getKey(), entry.getValue(), so.getDiscountBy());
+                so.getSalespersonId(), entry.getKey(), entry.getValue(), so.getDiscountBy(), null);
             BigDecimal cost = dc.getLines().stream()
                 .map(l -> l.getQty().multiply(l.getUnitCost()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -333,7 +333,7 @@ public class SalesService {
             if (hasDiscount) throw new ApiException("Discount requires an authoriser (discountBy)");
         }
         DeliveryChallan dc = buildAndDeliver(null, shopId, req.customerId(), salespersonId,
-            req.warehouseId(), req.allocations(), req.discountBy());
+            req.warehouseId(), req.allocations(), req.discountBy(), req.priceOverrideBy());
 
         BigDecimal cost = dc.getLines().stream()
             .map(l -> l.getQty().multiply(l.getUnitCost()))
@@ -409,6 +409,8 @@ public class SalesService {
                 sl.setQty(dl.getQty());
                 sl.setUnitPrice(unitPrice);
                 sl.setDiscountAmt(discountAmt);
+                // stock is already consumed here, so only the band is judged (no warehouse -> no cost check)
+                sl.setPriceOverrideBy(overrideFor(dl.getProductId(), null, unitPrice, req.priceOverrideBy()));
                 sl.setLineNo(ln++);
                 so.getLines().add(sl);
                 totalValue = totalValue.add(lineNet(dl.getQty(), unitPrice, discountAmt));
@@ -510,17 +512,16 @@ public class SalesService {
                 }));
             }
 
-            // line items: Product | Qty | Unit Price | Gross Total | Discount | Net Total
+            // line items: Product | Qty | Unit Price | Total (discount, if any, is one row under the lines)
             Color teal = new Color(0x0f, 0x76, 0x6e);
-            PdfPTable tbl = new PdfPTable(6);
+            PdfPTable tbl = new PdfPTable(4);
             tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{4f, 1.5f, 2f, 2f, 2f, 2f});
-            float[] colW = kit.cols(4f, 1.5f, 2f, 2f, 2f, 2f);
+            tbl.setWidths(new float[]{6.5f, 1.5f, 2.2f, 2.5f});
+            float[] colW = kit.cols(6.5f, 1.5f, 2.2f, 2.5f);
             tbl.setSpacingAfter(8);
 
-            String[] heads = {"Product", "Qty", "Unit Price", "Gross Total", "Discount", "Net Total"};
-            int[] aligns  = {Element.ALIGN_LEFT, Element.ALIGN_RIGHT, Element.ALIGN_RIGHT,
-                             Element.ALIGN_RIGHT, Element.ALIGN_RIGHT, Element.ALIGN_RIGHT};
+            String[] heads = {"Product", "Qty", "Unit Price", "Gross Total"};
+            int[] aligns  = {Element.ALIGN_LEFT, Element.ALIGN_RIGHT, Element.ALIGN_RIGHT, Element.ALIGN_RIGHT};
             for (int i = 0; i < heads.length; i++) {
                 PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, Color.WHITE, aligns[i], colW[i], 5);
                 h.setBackgroundColor(teal);
@@ -542,33 +543,47 @@ public class SalesService {
                     (a, b) -> new InvLine(a.name(), a.qty().add(b.qty()), a.grossTotal().add(b.grossTotal()), a.disc().add(b.disc())));
             }
 
-            BigDecimal grandTotal = BigDecimal.ZERO;
+            BigDecimal grossSum = BigDecimal.ZERO, discSum = BigDecimal.ZERO;
             for (InvLine line : grouped.values()) {
                 BigDecimal unitPrice = line.qty().compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO
                     : line.grossTotal().divide(line.qty(), 2, RoundingMode.HALF_UP);
-                BigDecimal netTotal  = line.grossTotal().subtract(line.disc()).setScale(2, RoundingMode.HALF_UP);
-                grandTotal = grandTotal.add(netTotal);
+                grossSum = grossSum.add(line.grossTotal());
+                discSum  = discSum.add(line.disc());
 
                 pdfCell(tbl, kit, line.name(), Element.ALIGN_LEFT, colW[0]);
                 pdfCell(tbl, kit, line.qty().toPlainString(), Element.ALIGN_RIGHT, colW[1]);
                 pdfCell(tbl, kit, fmt(unitPrice), Element.ALIGN_RIGHT, colW[2]);
                 pdfCell(tbl, kit, fmt(line.grossTotal()), Element.ALIGN_RIGHT, colW[3]);
-                pdfCell(tbl, kit, line.disc().compareTo(BigDecimal.ZERO) == 0 ? "—" : fmt(line.disc()), Element.ALIGN_RIGHT, colW[4]);
-                pdfCell(tbl, kit, fmt(netTotal), Element.ALIGN_RIGHT, colW[5]);
             }
 
-            // grand total row
-            PdfPCell tlabel = kit.cell(kit.l("TOTAL"), true, 9, Color.BLACK, Element.ALIGN_RIGHT,
-                colW[0] + colW[1] + colW[2] + colW[3] + colW[4], 5);
-            tlabel.setColspan(5);
-            tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            tlabel.setPadding(5);
-            tbl.addCell(tlabel);
-            PdfPCell tval = kit.cell(fmt(grandTotal), true, 9, Color.BLACK, Element.ALIGN_RIGHT, colW[5], 5);
-            tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            tval.setPadding(5);
-            tbl.addCell(tval);
+            float labelW = colW[0] + colW[1] + colW[2];
+            BigDecimal grandTotal = grossSum.subtract(discSum);
+            // keep the arithmetic visible: discount and transport are part of what was invoiced and posted
+            if (discSum.signum() > 0)
+                summaryRow(tbl, kit, kit.l("Discount"), "-" + fmt(discSum), false, labelW, colW[3]);
+            BigDecimal transport = so.getTransportAndLifting() != null ? so.getTransportAndLifting() : BigDecimal.ZERO;
+            if (transport.signum() > 0) {
+                summaryRow(tbl, kit, kit.l("Transport & lifting"), fmt(transport), false, labelW, colW[3]);
+                grandTotal = grandTotal.add(transport);
+            }
+            summaryRow(tbl, kit, kit.l("TOTAL"), fmt(grandTotal), true, labelW, colW[3]);
             doc.add(tbl);
+
+            // separate account box: what the customer owed before, this sale, and what is due now
+            BigDecimal[] bal = ledgers.customerBalanceAround(so.getCustomerId(), so.getId(), so.getOrderDate());
+            boolean credit = "CREDIT".equals(so.getPaymentMode());
+            float boxW = kit.pageWidth() * 0.6f;
+            PdfPTable acct = new PdfPTable(2);
+            acct.setTotalWidth(boxW);
+            acct.setLockedWidth(true);
+            acct.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            acct.setWidths(new float[]{3f, 2f});
+            acct.setSpacingBefore(6);
+            acct.setSpacingAfter(8);
+            acctRow(acct, kit, kit.l("Previous balance"), fmt(bal[0]), false, boxW * 0.6f, boxW * 0.4f);
+            acctRow(acct, kit, kit.l(credit ? "This invoice (on credit)" : "Paid in cash"), fmt(grandTotal), false, boxW * 0.6f, boxW * 0.4f);
+            acctRow(acct, kit, kit.l("BALANCE DUE"), fmt(bal[1]), true, boxW * 0.6f, boxW * 0.4f);
+            doc.add(acct);
 
             doc.add(kit.para(kit.l("Thank you for your business."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));
 
@@ -1019,7 +1034,7 @@ public class SalesService {
     /** Build a single-warehouse challan, consuming FIFO layers for each line. */
     private DeliveryChallan buildAndDeliver(UUID soId, UUID shopId, UUID customerId, UUID salespersonId,
                                             UUID warehouseId, List<SalesDtos.Allocation> allocs,
-                                            String discountBy) {
+                                            String discountBy, String priceOverrideBy) {
         DeliveryChallan dc = new DeliveryChallan();
         dc.setDcNo(docNo.next("DC"));
         dc.setSoId(soId);
@@ -1033,6 +1048,8 @@ public class SalesService {
 
         for (var a : allocs) {
             BigDecimal totalDisc = a.discountAmt() != null ? a.discountAmt() : BigDecimal.ZERO;
+            // judged before FIFO consumes the layer, same state validatePrice saw
+            String lineOverride = overrideFor(a.productId(), warehouseId, a.unitPrice(), priceOverrideBy);
             var consumptions = inventory.consumeFifo(a.productId(), warehouseId, a.qty(), "SALE", dc.getId());
             BigDecimal discAssigned = BigDecimal.ZERO;
             for (int ci = 0; ci < consumptions.size(); ci++) {
@@ -1044,6 +1061,7 @@ public class SalesService {
                 dl.setQty(c.qty());
                 dl.setUnitCost(c.unitCost());
                 dl.setUnitPrice(a.unitPrice());
+                dl.setPriceOverrideBy(lineOverride);
                 // distribute flat discount proportionally; last layer gets rounding remainder
                 BigDecimal layerDisc;
                 if (ci == consumptions.size() - 1) {
@@ -1078,23 +1096,41 @@ public class SalesService {
         Product p = products.findById(productId)
             .orElseThrow(() -> new ApiException("Product not found"));
 
-        boolean breach = false;
-        StringBuilder why = new StringBuilder();
-        if (p.getPriceLower() != null && price.compareTo(p.getPriceLower()) < 0) {
-            breach = true; why.append("below lower limit ").append(p.getPriceLower()).append("; ");
-        }
-        if (p.getPriceUpper() != null && price.compareTo(p.getPriceUpper()) > 0) {
-            breach = true; why.append("above upper limit ").append(p.getPriceUpper()).append("; ");
-        }
         if (warehouseId != null) {
             BigDecimal avail = inventory.available(productId, warehouseId);
             if (avail.signum() == 0)
                 throw new ApiException("No stock of " + p.getName() + " in the selected warehouse");
         }
 
-        if (breach && (overrideBy == null || overrideBy.isBlank()))
+        String why = priceBreach(p, warehouseId, price);
+        if (why != null && (overrideBy == null || overrideBy.isBlank()))
             throw new ApiException("Price " + price + " out of band (" + why +
                 ") — manager override required");
+    }
+
+    /**
+     * Why a gross unit price needs an override, or null when it is fine: outside the product's
+     * band, or below the FIFO cost of the layer that would be sold next (only when a warehouse is known).
+     */
+    private String priceBreach(Product p, UUID warehouseId, BigDecimal price) {
+        StringBuilder why = new StringBuilder();
+        if (p.getPriceLower() != null && price.compareTo(p.getPriceLower()) < 0)
+            why.append("below lower limit ").append(p.getPriceLower()).append("; ");
+        if (p.getPriceUpper() != null && price.compareTo(p.getPriceUpper()) > 0)
+            why.append("above upper limit ").append(p.getPriceUpper()).append("; ");
+        if (warehouseId != null) {
+            BigDecimal cost = inventory.nextFifoCost(p.getId(), warehouseId);
+            if (cost != null && price.compareTo(cost) < 0)
+                why.append("below FIFO cost ").append(cost.setScale(2, RoundingMode.HALF_UP)).append("; ");
+        }
+        return why.length() == 0 ? null : why.toString();
+    }
+
+    /** The override authoriser to store on a line: only when that line's price really needed one. */
+    private String overrideFor(UUID productId, UUID warehouseId, BigDecimal price, String overrideBy) {
+        if (overrideBy == null || overrideBy.isBlank()) return null;
+        Product p = products.findById(productId).orElse(null);
+        return p != null && priceBreach(p, warehouseId, price) != null ? overrideBy : null;
     }
 
     /** Credit limit (amount) check. */
@@ -1138,6 +1174,34 @@ public class SalesService {
     }
 
     /** Label/value pairs in a borderless 2-column block; width is the width of the outer cell. */
+    /** One label-across-three-columns + amount row at the foot of the invoice table. */
+    private static void summaryRow(PdfPTable tbl, PdfKit kit, String label, String amount, boolean bold,
+                                   float labelW, float amountW) {
+        PdfPCell lc = kit.cell(label, bold, 9, Color.BLACK, Element.ALIGN_RIGHT, labelW, 5);
+        lc.setColspan(3);
+        lc.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        lc.setPadding(5);
+        tbl.addCell(lc);
+        PdfPCell vc = kit.cell(amount, bold, 9, Color.BLACK, Element.ALIGN_RIGHT, amountW, 5);
+        vc.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        vc.setPadding(5);
+        tbl.addCell(vc);
+    }
+
+    /** Row of the separate account box; the bold last row (balance due) is highlighted. */
+    private static void acctRow(PdfPTable t, PdfKit kit, String label, String amount, boolean strong,
+                                float labelW, float amountW) {
+        Color teal = new Color(0x0f, 0x76, 0x6e);
+        Color fg = strong ? Color.WHITE : Color.BLACK;
+        PdfPCell lc = kit.cell(label, strong, 9, fg, Element.ALIGN_LEFT, labelW, 5);
+        PdfPCell vc = kit.cell(amount, strong, 9, fg, Element.ALIGN_RIGHT, amountW, 5);
+        lc.setHorizontalAlignment(Element.ALIGN_LEFT);
+        vc.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        if (strong) { lc.setBackgroundColor(teal); vc.setBackgroundColor(teal); }
+        t.addCell(lc);
+        t.addCell(vc);
+    }
+
     private static PdfPCell metaBlock(PdfKit kit, float width, String[][] rows) {
         float colW = (width - 4f) / 2f;
         PdfPTable inner = new PdfPTable(2);

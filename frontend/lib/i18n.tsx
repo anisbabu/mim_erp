@@ -782,6 +782,7 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Price (low)": { en: "Price (low)", bn: "মূল্য (সর্বনিম্ন)" },
   "Price (high)": { en: "Price (high)", bn: "মূল্য (সর্বোচ্চ)" },
   "Required": { en: "Required", bn: "আবশ্যক" },
+  "Price (low) cannot be above Price (high)": { en: "Price (low) cannot be above Price (high)", bn: "সর্বনিম্ন মূল্য সর্বোচ্চ মূল্যের বেশি হতে পারে না" },
   "Select": { en: "Select", bn: "নির্বাচন করুন" },
   "Color": { en: "Color", bn: "রং" },
   "One Side/Both Side": { en: "One Side/Both Side", bn: "এক পাশ/দুই পাশ" },

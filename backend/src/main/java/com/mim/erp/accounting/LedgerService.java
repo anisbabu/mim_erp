@@ -88,6 +88,43 @@ public class LedgerService {
         """, java.math.BigDecimal.class, a.getId(), fyId, a.getId(), start, end);
     }
 
+    /**
+     * A customer's receivable just before and just after the entries posted for one sale, so a printed
+     * slip keeps showing the balance as it stood then. Returns {before, after}; both equal the
+     * current balance when the sale posted nothing.
+     */
+    public java.math.BigDecimal[] customerBalanceAround(UUID customerId, UUID soId, java.time.LocalDate orderDate) {
+        Account a = accounts.findByPartyTypeAndPartyId("CUSTOMER", customerId).orElse(null);
+        java.math.BigDecimal zero = java.math.BigDecimal.ZERO;
+        if (a == null) return new java.math.BigDecimal[]{zero, zero};
+        FinancialYear fy = (orderDate == null ? java.util.Optional.<FinancialYear>empty()
+                : years.findFirstByStartDateLessThanEqualAndEndDateGreaterThanEqual(orderDate, orderDate))
+            .or(years::findByIsCurrentTrue).orElse(null);
+        String fyId = fy == null ? null : fy.getId().toString();
+        String start = fy == null ? "1900-01-01" : fy.getStartDate().toString();
+        String end = fy == null ? "2999-12-31" : fy.getEndDate().toString();
+
+        Map<String, Object> posted = jdbc.queryForMap(
+            "select min(created_at) as first_at, max(created_at) as last_at from journal_entry "
+          + "where source_id = ? and source_type in ('SALES_DELIVERY','SALES_INVOICE')", soId);
+        Object first = posted.get("first_at"), last = posted.get("last_at");
+
+        String sql = """
+            select coalesce((select debit - credit from opening_balance
+                             where account_id = ? and financial_year_id = ?::uuid), 0)
+                 + coalesce((select sum(jl.debit - jl.credit)
+                             from journal_line jl join journal_entry je on je.id = jl.journal_id
+                             where jl.account_id = ? and je.entry_date between ?::date and ?::date
+        """;
+        if (first == null)
+            first = last = java.sql.Timestamp.from(java.time.Instant.now().plusSeconds(1));
+        java.math.BigDecimal before = jdbc.queryForObject(sql + " and je.created_at < ?), 0)",
+            java.math.BigDecimal.class, a.getId(), fyId, a.getId(), start, end, first);
+        java.math.BigDecimal after = jdbc.queryForObject(sql + " and je.created_at <= ?), 0)",
+            java.math.BigDecimal.class, a.getId(), fyId, a.getId(), start, end, last);
+        return new java.math.BigDecimal[]{before, after};
+    }
+
     // ---- COA reads ----
     public List<AccountGroup> listGroups() { return groups.findAll(); }
 
