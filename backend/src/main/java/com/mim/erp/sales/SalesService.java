@@ -57,13 +57,16 @@ public class SalesService {
     private final CurrentUserService currentUser;
     private final com.mim.erp.accounting.LedgerService ledgers;
     private final WarehouseRepository warehouses;
+    private final com.mim.erp.auth.AppUserRepository users;
 
     public SalesService(SalesOrderRepository orders, DeliveryChallanRepository challans,
                         ProductRepository products, CustomerRepository customers,
                         InventoryService inventory, AccountingService accounting,
                         DocNumberService docNo, CurrentUserService currentUser,
                         com.mim.erp.accounting.LedgerService ledgers,
-                        WarehouseRepository warehouses) {
+                        WarehouseRepository warehouses,
+                        com.mim.erp.auth.AppUserRepository users) {
+        this.users = users;
         this.orders = orders; this.challans = challans; this.products = products;
         this.customers = customers; this.inventory = inventory;
         this.accounting = accounting; this.docNo = docNo; this.currentUser = currentUser;
@@ -462,7 +465,6 @@ public class SalesService {
             .orElseThrow(() -> new ApiException("Sales order not found"));
 
         var custOpt = customers.findById(so.getCustomerId());
-        String customerName = custOpt.map(c -> nm(bn, c.getNameBn(), c.getName())).orElse("—");
         DeliveryInfo delivery = resolveDelivery(so, custOpt.orElse(null));
         String customerContact = (delivery.mobile() != null ? delivery.mobile() : "") +
             (delivery.mobile() != null && delivery.address() != null ? " · " : "") +
@@ -500,10 +502,11 @@ public class SalesService {
                 {"Date",       so.getOrderDate() != null ? so.getOrderDate().toString() : ""},
                 {"Payment",    kit.l(so.getPaymentMode())},
             }));
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                {"Customer", customerName},
-                {"Contact",  customerContact},
-            }));
+            // customer (English, then Bangla below it on English slips), contact and salesperson
+            List<String[]> custRows = new ArrayList<>(customerRows(bn, custOpt.orElse(null), null));
+            custRows.add(new String[]{"Contact", customerContact});
+            custRows.addAll(salespersonRows(bn, so.getSalespersonId()));
+            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, rowsArray(custRows)));
             doc.add(meta);
 
             if (so.getDiscountBy() != null && !so.getDiscountBy().isBlank()) {
@@ -517,15 +520,15 @@ public class SalesService {
             PdfPTable tbl = new PdfPTable(5);
             tbl.setWidthPercentage(100);
             // numeric columns sized for qty up to hundreds, unit price to thousands, total to lakhs; product takes the rest
-            tbl.setWidths(new float[]{24f, 176f, 38f, 60f, 72f});
-            float[] colW = kit.cols(24f, 176f, 38f, 60f, 72f);
+            tbl.setWidths(new float[]{24f, 202f, 36f, 50f, 60f});
+            float[] colW = kit.cols(24f, 202f, 36f, 50f, 60f);
             tbl.setSpacingAfter(8);
 
             String[] heads = {"#", "Product", "Qty", "Unit Price", "Gross Total"};
             int[] aligns  = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
             for (int i = 0; i < heads.length; i++) {
                 String headLabel = i == 4 && kit.bn() ? "মোট" : kit.l(heads[i]);   // invoice has no discount column: plain "মোট"
-                float hPad = (i == 0 || i == 2) ? 2f : 5f;   // the narrow Qty column needs slim side padding so the Bangla heading stays on one line
+                float hPad = i == 0 ? 2f : i == 2 ? 1f : (i == 3 || i == 4) ? 3f : 5f;   // slim side padding keeps the narrow columns' headings (Bangla especially) tidy
                 PdfPCell h = kit.cell(headLabel, true, 9, Color.WHITE, aligns[i], colW[i], hPad);
                 h.setBackgroundColor(teal);
                 h.setHorizontalAlignment(aligns[i]);
@@ -616,11 +619,6 @@ public class SalesService {
 
         var custOpt = customers.findById(so.getCustomerId());
         DeliveryInfo delivery = resolveDelivery(so, custOpt.orElse(null));
-        String customerName = custOpt.map(c -> {
-            StringBuilder sb = new StringBuilder(nm(bn, c.getNameBn(), c.getName()));
-            if (delivery.mobile() != null) sb.append("  ·  ").append(delivery.mobile());
-            return sb.toString();
-        }).orElse("—");
 
         // collect all product ids
         Set<UUID> pids = dcList.stream()
@@ -672,10 +670,10 @@ public class SalesService {
                 {"Challan(s)", dcNos},
                 {"Date",       so.getOrderDate() != null ? so.getOrderDate().toString() : ""},
             }));
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                {"Customer",   customerName},
-                {"Deliver to", delivery.address() != null ? delivery.address() : ""},
-            }));
+            List<String[]> toRows = new ArrayList<>(customerRows(bn, custOpt.orElse(null), delivery));
+            toRows.addAll(salespersonRows(bn, so.getSalespersonId()));
+            toRows.add(new String[]{"Deliver to", delivery.address() != null ? delivery.address() : ""});
+            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, rowsArray(toRows)));
             doc.add(meta);
 
             // lines table
@@ -748,11 +746,6 @@ public class SalesService {
         SalesOrder dcSo = dc.getSoId() != null ? orders.findById(dc.getSoId()).orElse(null) : null;
         var custOpt = customers.findById(dc.getCustomerId());
         DeliveryInfo delivery = resolveDelivery(dcSo, custOpt.orElse(null));
-        String customerName = custOpt.map(c -> {
-            StringBuilder sb = new StringBuilder(nm(bn, c.getNameBn(), c.getName()));
-            if (delivery.mobile() != null) sb.append("  ·  ").append(delivery.mobile());
-            return sb.toString();
-        }).orElse("—");
 
         String warehouseName = dc.getWarehouseId() == null ? "—"
             : warehouses.findById(dc.getWarehouseId()).map(w -> nm(bn, w.getNameBn(), w.getName())).orElse("—");
@@ -789,11 +782,12 @@ public class SalesService {
                 {"Date",       dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
                 {"Status",     kit.l(dc.getStatus())},
             }));
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                {"Customer",   customerName},
-                {"Warehouse",  warehouseName},
-                {"Deliver to", delivery.address() != null ? delivery.address() : ""},
-            }));
+            List<String[]> toRows = new ArrayList<>(customerRows(bn, custOpt.orElse(null), delivery));
+            toRows.addAll(salespersonRows(bn, dc.getSalespersonId() != null ? dc.getSalespersonId()
+                : dcSo != null ? dcSo.getSalespersonId() : null));
+            toRows.add(new String[]{"Warehouse", warehouseName});
+            toRows.add(new String[]{"Deliver to", delivery.address() != null ? delivery.address() : ""});
+            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, rowsArray(toRows)));
             doc.add(meta);
 
             // line items table — no prices (delivery document)
@@ -891,11 +885,6 @@ public class SalesService {
 
         var custOpt = customers.findById(so.getCustomerId());
         DeliveryInfo delivery = resolveDelivery(so, custOpt.orElse(null));
-        String customerName = custOpt.map(c -> {
-            StringBuilder sb = new StringBuilder(nm(bn, c.getNameBn(), c.getName()));
-            if (delivery.mobile() != null) sb.append("  ·  ").append(delivery.mobile());
-            return sb.toString();
-        }).orElse("—");
 
         try {
             Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
@@ -958,17 +947,17 @@ public class SalesService {
                 PdfPTable custMeta = new PdfPTable(1);
                 custMeta.setWidthPercentage(100);
                 custMeta.setSpacingAfter(12);
-                custMeta.addCell(metaBlock(kit, kit.pageWidth(), new String[][]{
-                    {"Customer",   customerName},
-                    {"Deliver to", delivery.address() != null ? delivery.address() : ""},
-                }));
+                List<String[]> toRows = new ArrayList<>(customerRows(bn, custOpt.orElse(null), delivery));
+                toRows.addAll(salespersonRows(bn, so.getSalespersonId()));
+                toRows.add(new String[]{"Deliver to", delivery.address() != null ? delivery.address() : ""});
+                custMeta.addCell(metaBlock(kit, kit.pageWidth(), rowsArray(toRows)));
                 doc.add(custMeta);
 
                 // product table
                 PdfPTable tbl = new PdfPTable(3);
                 tbl.setWidthPercentage(100);
-                tbl.setWidths(new float[]{0.8f, 5f, 1.5f});
-            float[] colW = kit.cols(0.8f, 5f, 1.5f);
+                tbl.setWidths(new float[]{24f, 296f, 48f});
+            float[] colW = kit.cols(24f, 296f, 48f);
                 tbl.setSpacingAfter(8);
 
                 String[] heads  = {"#", "Product", "Qty"};
@@ -1251,6 +1240,44 @@ public class SalesService {
     }
 
     /** Bangla name when printing Bangla and one exists, else the English name. */
+    /**
+     * Label/value rows for a bilingual name: the Bangla slip shows the Bangla name; the English slip shows
+     * the English name with the Bangla name on the line just below it. `suffix` (e.g. a mobile number)
+     * goes after the first line.
+     */
+    private static List<String[]> nameRows(String label, boolean bn, String name, String nameBn, String suffix) {
+        boolean hasBn = nameBn != null && !nameBn.isBlank();
+        String first = (bn && hasBn ? nameBn.trim() : (name != null ? name : "—")) + (suffix != null ? suffix : "");
+        List<String[]> rows = new ArrayList<>();
+        rows.add(new String[]{label, first});
+        if (!bn && hasBn && !nameBn.trim().equals(name)) rows.add(new String[]{"", nameBn.trim()});
+        return rows;
+    }
+
+    private static List<String[]> customerRows(boolean bn, Customer c, DeliveryInfo d) {
+        if (c == null) return Collections.singletonList(new String[]{"Customer", "—"});
+        List<String[]> rows = new ArrayList<>(nameRows("Customer", bn, c.getName(), c.getNameBn(), null));
+        // own row: a long name plus number wraps in a half-width column
+        if (d != null && d.mobile() != null) rows.add(new String[]{"Contact", d.mobile()});
+        return rows;
+    }
+
+    /** The salesperson on a slip; empty when the document has none. */
+    private List<String[]> salespersonRows(boolean bn, UUID userId) {
+        if (userId == null) return List.of();
+        return users.findById(userId).map(u -> {
+            List<String[]> rows = new ArrayList<>(nameRows("Salesperson", bn,
+                u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : u.getUsername(),
+                u.getFullNameBn(), null));
+            // mobile so anyone can reach the salesperson in an emergency
+            if (u.getMobile() != null && !u.getMobile().isBlank())
+                rows.add(new String[]{"Mobile", u.getMobile().trim()});
+            return rows;
+        }).orElse(List.of());
+    }
+
+    private static String[][] rowsArray(List<String[]> rows) { return rows.toArray(new String[0][]); }
+
     private static String nm(boolean bn, String nameBn, String name) {
         return bn && nameBn != null && !nameBn.isBlank() ? nameBn : name;
     }
