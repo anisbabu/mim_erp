@@ -23,7 +23,10 @@ public class Product {
     private BigDecimal taxRate;     // nullable: tax-aware, inactive
     @Column(name = "supplier_id") private UUID supplierId;
     private String category;
-    private String productGroup;    // stock group from old system, e.g. A.R HANDLE
+    @Column(name = "product_group_id") private UUID productGroupId;   // FK to product_group
+    /** Read-only group name for lists, search and reports; change the group through productGroupId. */
+    @org.hibernate.annotations.Formula("(select g.name from product_group g where g.id = product_group_id)")
+    private String productGroup;
     private String supplierTag;     // supplier/brand as written in the old system, e.g. AHMED, CHINA
     private String edgingSize;      // set instead of thicknessMm when category is EDGING
     private String color;

@@ -92,7 +92,7 @@ public class StockReportService {
 
         String sql = """
             with prm as (select ?::date d_from, ?::date d_to)
-            select m.product_id, p.product_group,
+            select m.product_id, g.name as product_group,
               sum(case when m.move_date < prm.d_from then m.qty else 0 end) open_qty,
               sum(case when m.move_date < prm.d_from then m.qty * m.unit_cost else 0 end) open_val,
               sum(case when m.move_date >= prm.d_from and m.qty > 0 and %1$s then m.qty else 0 end) in_qty,
@@ -103,10 +103,11 @@ public class StockReportService {
             from stock_movement m
             cross join prm
             join product p on p.id = m.product_id
+            left join product_group g on g.id = p.product_group_id
             where m.move_date <= prm.d_to %2$s
-            group by m.product_id, p.product_group
+            group by m.product_id, g.name
             having sum(abs(m.qty)) > 0
-            order by p.product_group nulls last, m.product_id
+            order by g.name nulls last, m.product_id
             """.formatted(counted, whFilter);
 
         return jdbc.query(sql, (rs, i) -> new SummaryRow(

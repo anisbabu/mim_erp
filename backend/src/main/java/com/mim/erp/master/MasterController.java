@@ -27,10 +27,13 @@ public class MasterController {
     private final ShopRepository shops;
     private final CustomerRepository customers;
     private final JdbcTemplate jdbc;
+    private final ProductGroupRepository productGroups;
 
     public MasterController(ProductRepository products, WarehouseRepository warehouses,
                             SupplierRepository suppliers, SupplierGroupRepository supplierGroups,
-                            ShopRepository shops, CustomerRepository customers, JdbcTemplate jdbc) {
+                            ShopRepository shops, CustomerRepository customers, JdbcTemplate jdbc,
+                            ProductGroupRepository productGroups) {
+        this.productGroups = productGroups;
         this.jdbc = jdbc;
         this.products = products; this.warehouses = warehouses;
         this.suppliers = suppliers; this.supplierGroups = supplierGroups;
@@ -41,6 +44,7 @@ public class MasterController {
     @GetMapping("/products")   @Cacheable(value = MasterCache.NAME, key = "'products'")   public List<Product>   products()   { return products.findAllByOrderByCreatedAtDesc(); }
     @GetMapping("/warehouses") @Cacheable(value = MasterCache.NAME, key = "'warehouses'") public List<Warehouse> warehouses() { return warehouses.findAll(); }
     @GetMapping("/suppliers")  @Cacheable(value = MasterCache.NAME, key = "'suppliers'")  public List<Supplier>  suppliers()  { return suppliers.findAll(); }
+    @GetMapping("/product-groups") @Cacheable(value = MasterCache.NAME, key = "'product-groups'") public List<ProductGroup> productGroups() { return productGroups.findAllByOrderByNameAsc(); }
     @GetMapping("/supplier-groups") @Cacheable(value = MasterCache.NAME, key = "'supplier-groups'") public List<SupplierGroup> supplierGroups() { return supplierGroups.findAll(); }
     @GetMapping("/shops")      @Cacheable(value = MasterCache.NAME, key = "'shops'")      public List<Shop>      shops()      { return shops.findAll(); }
     @GetMapping("/customers")  @Cacheable(value = MasterCache.NAME, key = "'customers'")  public List<Customer>  customers()  { return customers.findAll(); }
@@ -83,6 +87,20 @@ public class MasterController {
     @PostMapping("/warehouses") public Warehouse saveWarehouse(@RequestBody Warehouse w) { w.setName(upper(w.getName())); return warehouses.save(w); }
     @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/shops")      public Shop      saveShop(@RequestBody Shop s)           { checkShopAmounts(s); return shops.save(s); }
+
+    /** Add a product group; a name that already exists (any case) returns the existing one. */
+    @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
+    @PostMapping("/product-groups")
+    public ProductGroup saveProductGroup(@RequestBody ProductGroup in) {
+        String name = upper(in.getName());
+        if (name == null || name.isBlank()) throw new ApiException("Group name is required");
+        if (name.length() > 100) throw new ApiException("Group name is too long (max 100 characters)");
+        return productGroups.findByNameIgnoreCase(name).orElseGet(() -> {
+            ProductGroup g = new ProductGroup();
+            g.setName(name);
+            return productGroups.save(g);
+        });
+    }
 
     private static String upper(String s) { return s == null ? null : s.trim().toUpperCase(Locale.ROOT); }
 
@@ -137,7 +155,7 @@ public class MasterController {
         p.setThicknessMm(in.getThicknessMm()); p.setThicknessLabel(in.getThicknessLabel()); p.setUnit(in.getUnit());
         p.setPriceLower(in.getPriceLower()); p.setPriceUpper(in.getPriceUpper());
         p.setSupplierId(in.getSupplierId()); p.setCategory(in.getCategory()); p.setColor(in.getColor());
-        p.setProductGroup(in.getProductGroup());
+        p.setProductGroupId(in.getProductGroupId());
         p.setSupplierTag(in.getSupplierTag());
         p.setSide(in.getSide());
         p.setEdgingSize(in.getEdgingSize());

@@ -3,6 +3,8 @@ import { Fragment, useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type SalesOrder, type Customer, type SoLineView, type Warehouse, type WarehouseStock, type PickupView } from "@/lib/api";
 import { beep } from "@/lib/beep";
 import { useI18n } from "@/lib/i18n";
+import PageHeader from "@/components/PageHeader";
+import { Download, Loader2, Printer, Share2 } from "lucide-react";
 
 const PAGE_SIZE = 5;
 
@@ -168,26 +170,36 @@ export default function SalesOrdersPage() {
     }
   }
 
+  const statusChip = (s: string) =>
+    s === "DELIVERED" ? "chip chip-posted" : s === "PARTIALLY_DELIVERED" ? "chip chip-hold" : "chip chip-pending";
+
   return (
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="page-title">{t("Sales orders")}</h1>
-        </div>
-
-        <input
-            className="inp mb-4 max-w-sm"
-            placeholder={t("Search SO no, customer, mobile, date…")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+        <PageHeader
+            crumbs={["Sales"]}
+            title={t("Sales orders")}
+            subtitle={t("Track deliveries and print the dispatch token, challan and invoice for each order.")}
         />
 
-        <div className="border border-line rounded-xl bg-surface overflow-hidden">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <input
+              className="inp max-w-sm"
+              placeholder={t("Search SO no, customer, mobile, date…")}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="card overflow-hidden">
           <div className="table-wrap">
           <table className="tbl">
-            <thead><tr><th>{t("SO no")}</th><th>{t("Customer")}</th><th>{t("Workflow")}</th><th>{t("Date")}</th><th>{t("Status")}</th></tr></thead>
+            <thead><tr>
+              <th>{t("SO no")}</th><th>{t("Customer")}</th><th>{t("Workflow")}</th><th>{t("Date")}</th>
+              <th>{t("Status")}</th><th>{t("Documents")}</th><th>{t("Actions")}</th>
+            </tr></thead>
             <tbody>
             {pageItems.length === 0 && (
-                <tr><td colSpan={5} className="text-[#6b6960]">
+                <tr><td colSpan={7} className="muted">
                   {search ? t("No matching orders.") : t("No sales orders yet.")}
                 </td></tr>
             )}
@@ -196,105 +208,55 @@ export default function SalesOrdersPage() {
               const wtKey  = o.id + "wt";
               const dcKey  = o.id + "dc";
               const invKey = o.id + "inv";
-              const wtBusy  = busy === wtKey;
-              const dcBusy  = busy === dcKey;
-              const invBusy = busy === invKey;
               const notYetFulfilled = o.status === "PENDING"; // SO_FIRST order with zero challans so far
+              const offTitle = t("Nothing delivered yet — fulfill the order first");
               return (
                   <Fragment key={o.id}>
                     <tr className="border-t border-line">
-                      <td className="font-mono text-[13px] text-center">{o.soNo}</td>
+                      <td className="font-mono text-[13px] text-center whitespace-nowrap">{o.soNo}</td>
                       <td className="text-center">
                         <div>{cust ? dn(cust) : "—"}</div>
-                        {cust?.mobile && (
-                            <div className="text-[12px] text-[#6b6960]">{cust.mobile}</div>
-                        )}
+                        {cust?.mobile && <div className="text-[12px] muted">{cust.mobile}</div>}
                       </td>
                       <td className="text-xs text-center">{t(o.workflow)}</td>
-                      <td className="text-center">{fmtDate(o.orderDate)}</td>
-                      <td className="text-center">{t(o.status)}</td>
-                    </tr>
-
-                    {/* Document actions row — separate section below the order's data row */}
-                    <tr className="bg-[#faf9f6]">
-                      <td colSpan={5} className="py-2">
-                        <div className="flex flex-wrap items-center gap-6">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[12px] text-[#6b6960] w-[110px]">{t("Dispatch token")}</span>
-                            <button className="btn-ghost btn-sm" disabled={wtBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Print dispatch token")}
-                                    onClick={() => openDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey)}>
-                              {wtBusy ? "…" : "🖨"}
-                            </button>
-                            <button className="btn-ghost btn-sm" disabled={wtBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Download dispatch token")}
-                                    onClick={() => downloadDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey, `dispatch-${o.soNo}.pdf`)}>
-                              ↓
-                            </button>
-                            <button className="btn btn-sm" disabled={wtBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Share dispatch token")}
-                                    onClick={() => shareDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey, `dispatch-${o.soNo}.pdf`, `Dispatch Token ${o.soNo}`)}>
-                              ↗
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-[12px] text-[#6b6960] w-[70px]">{t("Challan")}</span>
-                            <button className="btn-ghost btn-sm" disabled={dcBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Print challan")}
-                                    onClick={() => openDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey)}>
-                              {dcBusy ? "…" : "🖨"}
-                            </button>
-                            <button className="btn-ghost btn-sm" disabled={dcBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Download challan")}
-                                    onClick={() => downloadDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey, `challan-${o.soNo}.pdf`)}>
-                              ↓
-                            </button>
-                            <button className="btn btn-sm" disabled={dcBusy || notYetFulfilled}
-                                    title={notYetFulfilled ? t("Nothing delivered yet — fulfill the order first") : t("Share challan")}
-                                    onClick={() => shareDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey, `challan-${o.soNo}.pdf`, `Challan ${o.soNo}`)}>
-                              ↗
-                            </button>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-[12px] text-[#6b6960] w-[60px]">{t("Invoice")}</span>
-                            <button className="btn-ghost btn-sm" disabled={invBusy} title={t("Print invoice")}
-                                    onClick={() => openDoc(() => endpoints.invoiceBlob(o.id, lang), invKey)}>
-                              {invBusy ? "…" : "🖨"}
-                            </button>
-                            <button className="btn-ghost btn-sm" disabled={invBusy} title={t("Download invoice")}
-                                    onClick={() => downloadDoc(() => endpoints.invoiceBlob(o.id, lang), invKey, `${o.soNo}.pdf`)}>
-                              ↓
-                            </button>
-                            <button className="btn btn-sm" disabled={invBusy} title={t("Share invoice")}
-                                    onClick={() => shareDoc(() => endpoints.invoiceBlob(o.id, lang), invKey, `${o.soNo}.pdf`, `Invoice ${o.soNo}`)}>
-                              ↗
-                            </button>
-                          </div>
-
+                      <td className="text-center whitespace-nowrap">{fmtDate(o.orderDate)}</td>
+                      <td className="text-center"><span className={statusChip(o.status)}>{t(o.status)}</span></td>
+                      <td>
+                        <div className="flex items-start justify-center gap-4">
+                          <DocGroup label={t("Token")} busy={busy === wtKey} offTitle={notYetFulfilled ? offTitle : undefined}
+                                    titles={[t("Print dispatch token"), t("Download dispatch token"), t("Share dispatch token")]}
+                                    onOpen={() => openDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey)}
+                                    onDownload={() => downloadDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey, `dispatch-${o.soNo}.pdf`)}
+                                    onShare={() => shareDoc(() => endpoints.warehouseTokenBlob(o.id, lang), wtKey, `dispatch-${o.soNo}.pdf`, `Dispatch Token ${o.soNo}`)} />
+                          <DocGroup label={t("Challan")} busy={busy === dcKey} offTitle={notYetFulfilled ? offTitle : undefined}
+                                    titles={[t("Print challan"), t("Download challan"), t("Share challan")]}
+                                    onOpen={() => openDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey)}
+                                    onDownload={() => downloadDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey, `challan-${o.soNo}.pdf`)}
+                                    onShare={() => shareDoc(() => endpoints.orderChallanBlob(o.id, lang), dcKey, `challan-${o.soNo}.pdf`, `Challan ${o.soNo}`)} />
+                          <DocGroup label={t("Invoice")} busy={busy === invKey}
+                                    titles={[t("Print invoice"), t("Download invoice"), t("Share invoice")]}
+                                    onOpen={() => openDoc(() => endpoints.invoiceBlob(o.id, lang), invKey)}
+                                    onDownload={() => downloadDoc(() => endpoints.invoiceBlob(o.id, lang), invKey, `${o.soNo}.pdf`)}
+                                    onShare={() => shareDoc(() => endpoints.invoiceBlob(o.id, lang), invKey, `${o.soNo}.pdf`, `Invoice ${o.soNo}`)} />
+                        </div>
+                      </td>
+                      <td>
+                        <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                           {o.workflow === "SO_FIRST" && o.status !== "DELIVERED" && (
-                            <div className="flex items-center gap-2">
-                              <span className="text-[12px] text-[#6b6960] w-[60px]">{t("Fulfill")}</span>
-                              <button className="btn btn-sm" onClick={() => toggleFulfill(o.id)}>
-                                {fulfillOpenId === o.id ? t("Close") : t("Fulfill")}
-                              </button>
-                            </div>
-                          )}
-
-                          <div className="flex items-center gap-2">
-                            <span className="text-[12px] text-[#6b6960] w-[60px]">{t("Pickups")}</span>
-                            <button className="btn-ghost btn-sm" onClick={() => togglePickups(o.id)}>
-                              {pickupsOpenId === o.id ? t("Close") : t("History")}
+                            <button className="btn btn-sm" onClick={() => toggleFulfill(o.id)}>
+                              {fulfillOpenId === o.id ? t("Close") : t("Fulfill")}
                             </button>
-                          </div>
+                          )}
+                          <button className="btn-ghost btn-sm" title={t("Pickups")} onClick={() => togglePickups(o.id)}>
+                            {pickupsOpenId === o.id ? t("Close") : t("History")}
+                          </button>
                         </div>
                       </td>
                     </tr>
 
                     {pickupsOpenId === o.id && (
                       <tr className="bg-[#faf9f6] border-t border-line">
-                        <td colSpan={5} className="py-3">
+                        <td colSpan={7} className="py-3">
                           {!pickups[o.id] && !pickupsErr && (
                             <div className="text-[12px] text-[#6b6960]">{t("Loading pickups…")}</div>
                           )}
@@ -340,7 +302,7 @@ export default function SalesOrdersPage() {
 
                     {fulfillOpenId === o.id && (
                       <tr className="bg-[#faf9f6] border-t border-line">
-                        <td colSpan={5} className="py-3">
+                        <td colSpan={7} className="py-3">
                           {!pendingLines[o.id] && !fulfillErr && (
                             <div className="text-[12px] text-[#6b6960]">{t("Loading pending lines…")}</div>
                           )}
@@ -417,5 +379,27 @@ export default function SalesOrdersPage() {
             </div>
         )}
       </div>
+  );
+}
+
+/** One document's print / download / share buttons as a joined group, label above. */
+function DocGroup({ label, busy, offTitle, titles, onOpen, onDownload, onShare }: {
+  label: string; busy: boolean; offTitle?: string; titles: [string, string, string];
+  onOpen: () => void; onDownload: () => void; onShare: () => void;
+}) {
+  const off = busy || !!offTitle;
+  const cell = "inline-flex items-center justify-center h-7 w-8 transition-colors hover:bg-[var(--tbl-tr-hover)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent";
+  const sep = { borderLeft: "1px solid var(--input-border)" };
+  return (
+    <div className="flex flex-col items-center gap-1" title={offTitle}>
+      <span className="text-[10px] uppercase tracking-wide muted leading-none whitespace-nowrap">{label}</span>
+      <div className="inline-flex overflow-hidden rounded" style={{ border: "1px solid var(--input-border)", background: "var(--surface)" }}>
+        <button className={cell} disabled={off} title={offTitle ?? titles[0]} onClick={onOpen}>
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
+        </button>
+        <button className={cell} style={sep} disabled={off} title={offTitle ?? titles[1]} onClick={onDownload}><Download size={14} /></button>
+        <button className={cell} style={{ ...sep, color: "#0f766e" }} disabled={off} title={offTitle ?? titles[2]} onClick={onShare}><Share2 size={14} /></button>
+      </div>
+    </div>
   );
 }

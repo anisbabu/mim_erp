@@ -512,21 +512,26 @@ public class SalesService {
                 }));
             }
 
-            // line items: Product | Qty | Unit Price | Total (discount, if any, is one row under the lines)
+            // line items: # | Product | Qty | Unit Price | Total (discount, if any, is one row under the lines)
             Color teal = new Color(0x0f, 0x76, 0x6e);
-            PdfPTable tbl = new PdfPTable(4);
+            PdfPTable tbl = new PdfPTable(5);
             tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{6.5f, 1.5f, 2.2f, 2.5f});
-            float[] colW = kit.cols(6.5f, 1.5f, 2.2f, 2.5f);
+            // numeric columns sized for qty up to hundreds, unit price to thousands, total to lakhs; product takes the rest
+            tbl.setWidths(new float[]{24f, 176f, 38f, 60f, 72f});
+            float[] colW = kit.cols(24f, 176f, 38f, 60f, 72f);
             tbl.setSpacingAfter(8);
 
-            String[] heads = {"Product", "Qty", "Unit Price", "Gross Total"};
-            int[] aligns  = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
+            String[] heads = {"#", "Product", "Qty", "Unit Price", "Gross Total"};
+            int[] aligns  = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
             for (int i = 0; i < heads.length; i++) {
-                PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, Color.WHITE, aligns[i], colW[i], 5);
+                String headLabel = i == 4 && kit.bn() ? "মোট" : kit.l(heads[i]);   // invoice has no discount column: plain "মোট"
+                float hPad = (i == 0 || i == 2) ? 2f : 5f;   // the narrow Qty column needs slim side padding so the Bangla heading stays on one line
+                PdfPCell h = kit.cell(headLabel, true, 9, Color.WHITE, aligns[i], colW[i], hPad);
                 h.setBackgroundColor(teal);
                 h.setHorizontalAlignment(aligns[i]);
-                h.setPadding(5);
+                h.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                h.setPaddingTop(5); h.setPaddingBottom(5); h.setPaddingLeft(hPad); h.setPaddingRight(hPad);
+                centerInk(h, headLabel);
                 tbl.addCell(h);
             }
 
@@ -544,29 +549,31 @@ public class SalesService {
             }
 
             BigDecimal grossSum = BigDecimal.ZERO, discSum = BigDecimal.ZERO;
+            int serial = 0;
             for (InvLine line : grouped.values()) {
                 BigDecimal unitPrice = line.qty().compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO
                     : line.grossTotal().divide(line.qty(), 2, RoundingMode.HALF_UP);
                 grossSum = grossSum.add(line.grossTotal());
                 discSum  = discSum.add(line.disc());
 
-                pdfCell(tbl, kit, line.name(), Element.ALIGN_LEFT, colW[0]);
-                pdfCell(tbl, kit, line.qty().stripTrailingZeros().toPlainString(), Element.ALIGN_RIGHT, colW[1]);   // 1 not 1.00; 2.5 stays
-                pdfCell(tbl, kit, fmt(unitPrice), Element.ALIGN_RIGHT, colW[2]);
-                pdfCell(tbl, kit, fmt(line.grossTotal()), Element.ALIGN_RIGHT, colW[3]);
+                midCell(tbl, kit, String.valueOf(++serial), Element.ALIGN_CENTER, colW[0]);
+                midCell(tbl, kit, line.name(), Element.ALIGN_LEFT, colW[1]);
+                midCell(tbl, kit, line.qty().stripTrailingZeros().toPlainString(), Element.ALIGN_CENTER, colW[2]);   // 1 not 1.00; 2.5 stays
+                midCell(tbl, kit, fmt(unitPrice), Element.ALIGN_RIGHT, colW[3]);
+                midCell(tbl, kit, fmt(line.grossTotal()), Element.ALIGN_RIGHT, colW[4]);
             }
 
-            float labelW = colW[0] + colW[1] + colW[2];
+            float labelW = colW[0] + colW[1] + colW[2] + colW[3];
             BigDecimal grandTotal = grossSum.subtract(discSum);
             // keep the arithmetic visible: discount and transport are part of what was invoiced and posted
             if (discSum.signum() > 0)
-                summaryRow(tbl, kit, kit.l("Discount"), "-" + fmt(discSum), false, labelW, colW[3]);
+                summaryRow(tbl, kit, kit.l("Discount"), "-" + fmt(discSum), false, labelW, colW[4]);
             BigDecimal transport = so.getTransportAndLifting() != null ? so.getTransportAndLifting() : BigDecimal.ZERO;
             if (transport.signum() > 0) {
-                summaryRow(tbl, kit, kit.l("Transport & lifting"), fmt(transport), false, labelW, colW[3]);
+                summaryRow(tbl, kit, kit.l("Transport & lifting"), fmt(transport), false, labelW, colW[4]);
                 grandTotal = grandTotal.add(transport);
             }
-            summaryRow(tbl, kit, kit.l("TOTAL"), fmt(grandTotal), true, labelW, colW[3]);
+            summaryRow(tbl, kit, kit.l("TOTAL"), fmt(grandTotal), true, labelW, colW[4]);
             doc.add(tbl);
 
             // separate account box: what the customer owed before, this sale, and what is due now
@@ -1169,22 +1176,44 @@ public class SalesService {
             ? gross : gross.subtract(discountAmt);
     }
 
+    /**
+     * Bangla text cells are an image whose blank leading/descender space sits below the ink, so a
+     * middle-aligned image looks high next to Latin text. Move the padding from bottom to top to compensate.
+     */
+    private static void centerInk(PdfPCell c, String text) {
+        if (!com.mim.erp.common.BanglaPdf.hasBengali(text)) return;
+        float d = Math.min(2.3f, c.getPaddingBottom());
+        c.setPaddingTop(c.getPaddingTop() + d);
+        c.setPaddingBottom(c.getPaddingBottom() - d);
+    }
+
+    /** Invoice body cell: vertically centred so top and bottom padding match. */
+    private static void midCell(PdfPTable t, PdfKit kit, String text, int align, float colWidth) {
+        PdfPCell c = kit.cell(text != null ? text : "", false, 9, Color.BLACK, align, colWidth, 4);
+        c.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        centerInk(c, text);
+        t.addCell(c);
+    }
+
     private static void pdfCell(PdfPTable t, PdfKit kit, String text, int align, float colWidth) {
         t.addCell(kit.cell(text != null ? text : "", false, 9, Color.BLACK, align, colWidth, 4));
     }
 
     /** Label/value pairs in a borderless 2-column block; width is the width of the outer cell. */
-    /** One label-across-three-columns + amount row at the foot of the invoice table. */
+    /** One label-across-four-columns + amount row at the foot of the invoice table. */
     private static void summaryRow(PdfPTable tbl, PdfKit kit, String label, String amount, boolean bold,
                                    float labelW, float amountW) {
         PdfPCell lc = kit.cell(label, bold, 9, Color.BLACK, Element.ALIGN_RIGHT, labelW, 5);
-        lc.setColspan(3);
+        lc.setColspan(4);
         lc.setHorizontalAlignment(Element.ALIGN_RIGHT);
         lc.setPadding(5);
+        lc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        centerInk(lc, label);
         tbl.addCell(lc);
         PdfPCell vc = kit.cell(amount, bold, 9, Color.BLACK, Element.ALIGN_RIGHT, amountW, 5);
         vc.setHorizontalAlignment(Element.ALIGN_RIGHT);
         vc.setPadding(5);
+        vc.setVerticalAlignment(Element.ALIGN_MIDDLE);
         tbl.addCell(vc);
     }
 
@@ -1198,6 +1227,9 @@ public class SalesService {
         lc.setHorizontalAlignment(Element.ALIGN_LEFT);
         vc.setHorizontalAlignment(Element.ALIGN_RIGHT);
         if (strong) { lc.setBackgroundColor(teal); vc.setBackgroundColor(teal); }
+        lc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        centerInk(lc, label);
+        vc.setVerticalAlignment(Element.ALIGN_MIDDLE);
         t.addCell(lc);
         t.addCell(vc);
     }

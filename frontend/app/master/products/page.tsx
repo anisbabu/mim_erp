@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { endpoints, type Product, type Supplier } from "@/lib/api";
+import { endpoints, type Product, type ProductGroup, type Supplier } from "@/lib/api";
+import SearchSelect from "@/components/SearchSelect";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
 
@@ -185,10 +186,58 @@ function genFullName(
 
 const R = () => <span className="text-red-500 ml-0.5">*</span>;
 
+// Product group picker: choose from the list, or add a missing group with the + button.
+function GroupField({ groups, value, onChange, onCreated }: {
+  groups: ProductGroup[]; value: string;
+  onChange: (id: string) => void; onCreated: (g: ProductGroup) => void;
+}) {
+  const { t } = useI18n();
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const options = useMemo(() => groups.map((g) => ({ value: g.id, label: g.name })), [groups]);
+
+  function close() { setAdding(false); setName(""); setErr(""); }
+  async function add() {
+    if (!name.trim()) { setErr(t("Group name") + " " + t("is required")); return; }
+    setBusy(true); setErr("");
+    try {
+      const g = await endpoints.createProductGroup(name.trim());   // an existing name comes back as that group
+      onCreated(g); onChange(g.id); close();
+    } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="field"><label>{t("Product Group")}</label>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <SearchSelect options={options} value={value} onChange={onChange} placeholder={t("Select group")} />
+        </div>
+        <button type="button" className="btn-ghost h-8 w-8 px-0 text-base leading-none" title={t("Add new group")}
+                aria-label={t("Add new group")} onClick={() => (adding ? close() : setAdding(true))}>+</button>
+      </div>
+      {adding && (
+        <>
+          <div className="flex items-center gap-2 mt-2">
+            <input className="inp flex-1" autoFocus placeholder={t("New product group")} value={name}
+                   onChange={(e) => setName(e.target.value)}
+                   onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); add(); } else if (e.key === "Escape") { e.stopPropagation(); close(); } }} />
+            <button type="button" className="btn btn-sm" disabled={busy} onClick={add}>{t("Add")}</button>
+            <button type="button" className="btn-ghost btn-sm" onClick={close}>{t("Cancel")}</button>
+          </div>
+          <div className="text-[11px] h-4 leading-4" style={{ color: "#b3261e" }}>{err}</div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const { t, dn } = useI18n();
   const [rows, setRows]         = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [groups, setGroups]    = useState<ProductGroup[]>([]);
   const [f, setF]               = useState<Partial<Product>>({ type: "BOARD", unit: "PCS" });
   const [editId, setEditId]     = useState<string | null>(null);
   const [manualSku, setManualSku] = useState(false);
@@ -197,7 +246,7 @@ export default function ProductsPage() {
   const [msg, setMsg]           = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const load = () => endpoints.products().then(setRows).catch(() => {});
-  useEffect(() => { load(); endpoints.suppliers().then(setSuppliers).catch(() => {}); }, []);
+  useEffect(() => { load(); endpoints.suppliers().then(setSuppliers).catch(() => {}); endpoints.productGroups().then(setGroups).catch(() => {}); }, []);
 
   // Auto-generate SKU when creating new
   useEffect(() => {
@@ -259,6 +308,7 @@ export default function ProductsPage() {
       thicknessMm: isBoard && !isEdging ? f.thicknessMm : undefined,
       edgingSize: isEdging ? f.edgingSize : undefined,
       category: isBoard ? f.category : undefined,   // hardware has no category
+      productGroup: undefined,                       // name is read-only; the key is productGroupId
     };
     try {
       if (editId) await endpoints.updateProduct(editId, body);
@@ -388,9 +438,9 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Comments")}</label>
               <input className="inp" value={f.comments ?? ""}
                 onChange={(e) => setF((prev) => ({ ...prev, comments: e.target.value || undefined }))} /></div>
-            <div className="field"><label>{t("Product Group")}</label>
-              <input className="inp" value={f.productGroup ?? ""}
-                onChange={(e) => setF((prev) => ({ ...prev, productGroup: e.target.value || undefined }))} /></div>
+            <GroupField groups={groups} value={f.productGroupId ?? ""}
+              onChange={(id) => setF((prev) => ({ ...prev, productGroupId: id || undefined }))}
+              onCreated={(g) => setGroups((gs) => gs.some((x) => x.id === g.id) ? gs : [...gs, g].sort((a, b) => a.name.localeCompare(b.name)))} />
             <div className="field"><label>{t("Supplier Tag")}</label>
               <input className="inp" value={f.supplierTag ?? ""}
                 onChange={(e) => setF((prev) => ({ ...prev, supplierTag: e.target.value || undefined }))} /></div>
@@ -434,9 +484,9 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Comments")}</label>
               <input className="inp" value={f.comments ?? ""}
                 onChange={(e) => setF((prev) => ({ ...prev, comments: e.target.value || undefined }))} /></div>
-            <div className="field"><label>{t("Product Group")}</label>
-              <input className="inp" value={f.productGroup ?? ""}
-                onChange={(e) => setF((prev) => ({ ...prev, productGroup: e.target.value || undefined }))} /></div>
+            <GroupField groups={groups} value={f.productGroupId ?? ""}
+              onChange={(id) => setF((prev) => ({ ...prev, productGroupId: id || undefined }))}
+              onCreated={(g) => setGroups((gs) => gs.some((x) => x.id === g.id) ? gs : [...gs, g].sort((a, b) => a.name.localeCompare(b.name)))} />
             <div className="field"><label>{t("Supplier Tag")}</label>
               <input className="inp" value={f.supplierTag ?? ""}
                 onChange={(e) => setF((prev) => ({ ...prev, supplierTag: e.target.value || undefined }))} /></div>

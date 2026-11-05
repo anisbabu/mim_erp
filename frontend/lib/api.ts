@@ -72,10 +72,11 @@ export const api = {
 export type Product = {
   id: string; sku: string; name: string; nameBn?: string; type: "BOARD" | "HARDWARE";
   thicknessMm?: number; thicknessLabel?: string; unit?: string; priceLower?: number; priceUpper?: number;
-  supplierId?: string; category?: string; productGroup?: string; supplierTag?: string; edgingSize?: string; color?: string; side?: string; fullName?: string; comments?: string; active?: boolean;
+  supplierId?: string; category?: string; productGroup?: string; productGroupId?: string; supplierTag?: string; edgingSize?: string; color?: string; side?: string; fullName?: string; comments?: string; active?: boolean;
 };
 export type Warehouse = { id: string; code: string; name: string; nameBn?: string; branch?: string; address?: string };
 export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string; groupId?: string };
+export type ProductGroup = { id: string; name: string };
 export type SupplierGroup = { id: string; code: string; name: string; nameBn?: string };
 export type Shop      = {
   id: string; code: string; name: string; nameBn?: string; primaryLine: string;
@@ -257,6 +258,8 @@ export type UserView = { id: string; username: string; fullName?: string; fullNa
 export const endpoints = {
   // master
   products:   () => api.get<Product[]>("/api/master/products"),
+  productGroups: () => api.get<ProductGroup[]>("/api/master/product-groups"),
+  createProductGroup: (name: string) => api.post<ProductGroup>("/api/master/product-groups", { name }),
   warehouses: () => api.get<Warehouse[]>("/api/master/warehouses"),
   suppliers:  () => api.get<Supplier[]>("/api/master/suppliers"),
   supplierGroups: () => api.get<SupplierGroup[]>("/api/master/supplier-groups"),
