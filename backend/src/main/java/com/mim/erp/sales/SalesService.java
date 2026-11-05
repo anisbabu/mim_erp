@@ -680,8 +680,8 @@ public class SalesService {
             Color teal = new Color(0x0f, 0x76, 0x6e);
             PdfPTable tbl = new PdfPTable(3);
             tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{0.8f, 5f, 1.5f});
-            float[] colW = kit.cols(0.8f, 5f, 1.5f);
+            tbl.setWidths(new float[]{24f, 296f, 48f});
+            float[] colW = kit.cols(24f, 296f, 48f);
             tbl.setSpacingAfter(8);
 
             String[] heads  = {"#", "Product", "Qty"};
@@ -794,8 +794,8 @@ public class SalesService {
             Color teal = new Color(0x0f, 0x76, 0x6e);
             PdfPTable tbl = new PdfPTable(3);
             tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{0.8f, 5f, 1.5f});
-            float[] colW = kit.cols(0.8f, 5f, 1.5f);
+            tbl.setWidths(new float[]{24f, 296f, 48f});
+            float[] colW = kit.cols(24f, 296f, 48f);
             tbl.setSpacingAfter(8);
 
             String[] heads  = {"#", "Product", "Qty"};
