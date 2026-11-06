@@ -491,29 +491,17 @@ public class SalesService {
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
             co.setAlignment(Element.ALIGN_CENTER);
             doc.add(co);
-            doc.add(kit.para(kit.l("SALES INVOICE"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 14));
+            doc.add(kit.para(kit.l("SALES INVOICE"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
-            // meta table: invoice details | customer details
-            PdfPTable meta = new PdfPTable(2);
-            meta.setWidthPercentage(100);
-            meta.setSpacingAfter(14);
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                {"Invoice No", so.getSoNo()},
-                {"Date",       so.getOrderDate() != null ? so.getOrderDate().toString() : ""},
-                {"Payment",    kit.l(so.getPaymentMode())},
-            }));
-            // customer (English, then Bangla below it on English slips), contact and salesperson
-            List<String[]> custRows = new ArrayList<>(customerRows(bn, custOpt.orElse(null), null));
-            custRows.add(new String[]{"Contact", customerContact});
-            custRows.addAll(salespersonRows(bn, so.getSalespersonId()));
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, rowsArray(custRows)));
-            doc.add(meta);
-
-            if (so.getDiscountBy() != null && !so.getDiscountBy().isBlank()) {
-                meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                    {"Discount by", so.getDiscountBy()},
-                }));
-            }
+            // meta: invoice details, customer and salesperson in one compact grid
+            List<String[]> invFacts = new ArrayList<>(List.of(
+                new String[]{"Invoice No", so.getSoNo()},
+                new String[]{"Date", so.getOrderDate() != null ? so.getOrderDate().toString() : ""},
+                new String[]{"Payment", kit.l(so.getPaymentMode())}));
+            if (so.getDiscountBy() != null && !so.getDiscountBy().isBlank())
+                invFacts.add(new String[]{"Discount by", so.getDiscountBy()});
+            doc.add(slipMeta(kit, bn, invFacts.toArray(new String[0][]),
+                custOpt.orElse(null), customerContact, so.getSalespersonId(), null, null));
 
             // line items: # | Product | Qty | Unit Price | Total (discount, if any, is one row under the lines)
             Color teal = new Color(0x0f, 0x76, 0x6e);
@@ -659,22 +647,13 @@ public class SalesService {
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
             co.setAlignment(Element.ALIGN_CENTER);
             doc.add(co);
-            doc.add(kit.para(kit.l("DELIVERY CHALLAN"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 14));
+            doc.add(kit.para(kit.l("DELIVERY CHALLAN"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
             // meta
-            PdfPTable meta = new PdfPTable(2);
-            meta.setWidthPercentage(100);
-            meta.setSpacingAfter(14);
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                {"Order No",   so.getSoNo()},
-                {"Challan(s)", dcNos},
-                {"Date",       so.getOrderDate() != null ? so.getOrderDate().toString() : ""},
-            }));
-            List<String[]> toRows = new ArrayList<>(customerRows(bn, custOpt.orElse(null), delivery));
-            toRows.addAll(salespersonRows(bn, so.getSalespersonId()));
-            toRows.add(new String[]{"Deliver to", delivery.address() != null ? delivery.address() : ""});
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, rowsArray(toRows)));
-            doc.add(meta);
+            doc.add(slipMeta(kit, bn, new String[][]{
+                    {"Order No", so.getSoNo()}, {"Challan(s)", dcNos},
+                    {"Date", so.getOrderDate() != null ? so.getOrderDate().toString() : ""}},
+                custOpt.orElse(null), delivery.mobile(), so.getSalespersonId(), null, delivery.address()));
 
             // lines table
             Color teal = new Color(0x0f, 0x76, 0x6e);
@@ -771,24 +750,17 @@ public class SalesService {
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
             co.setAlignment(Element.ALIGN_CENTER);
             doc.add(co);
-            doc.add(kit.para(kit.l("DELIVERY CHALLAN"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 14));
+            doc.add(kit.para(kit.l("DELIVERY CHALLAN"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
             // meta
-            PdfPTable meta = new PdfPTable(2);
-            meta.setWidthPercentage(100);
-            meta.setSpacingAfter(14);
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                {"Challan No", dc.getDcNo()},
-                {"Date",       dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
-                {"Status",     kit.l(dc.getStatus())},
-            }));
-            List<String[]> toRows = new ArrayList<>(customerRows(bn, custOpt.orElse(null), delivery));
-            toRows.addAll(salespersonRows(bn, dc.getSalespersonId() != null ? dc.getSalespersonId()
-                : dcSo != null ? dcSo.getSalespersonId() : null));
-            toRows.add(new String[]{"Warehouse", warehouseName});
-            toRows.add(new String[]{"Deliver to", delivery.address() != null ? delivery.address() : ""});
-            meta.addCell(metaBlock(kit, kit.pageWidth() / 2, rowsArray(toRows)));
-            doc.add(meta);
+            doc.add(slipMeta(kit, bn, new String[][]{
+                    {"Challan No", dc.getDcNo()},
+                    {"Date", dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
+                    {"Status", kit.l(dc.getStatus())},
+                    {"Warehouse", warehouseName}},
+                custOpt.orElse(null), delivery.mobile(),
+                dc.getSalespersonId() != null ? dc.getSalespersonId() : dcSo != null ? dcSo.getSalespersonId() : null,
+                null, delivery.address()));
 
             // line items table — no prices (delivery document)
             Color teal = new Color(0x0f, 0x76, 0x6e);
@@ -915,43 +887,26 @@ public class SalesService {
                 co.setAlignment(Element.ALIGN_CENTER);
                 doc.add(co);
 
-                doc.add(kit.para(kit.l("WAREHOUSE DISPATCH TOKEN"), true, false, 12, Color.BLACK, Element.ALIGN_CENTER, 0, 10));
+                doc.add(kit.para(kit.l("WAREHOUSE DISPATCH TOKEN"), true, false, 12, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
                 // warehouse badge
                 PdfPTable badge = new PdfPTable(1);
                 badge.setWidthPercentage(100);
-                badge.setSpacingAfter(10);
-                PdfPCell bc = kit.cell(bn ? kit.l("WAREHOUSE") + ": " + whName : "  WAREHOUSE: " + whName.toUpperCase(), true, 11, Color.WHITE,
-                    Element.ALIGN_LEFT, kit.pageWidth(), 7);
+                badge.setSpacingAfter(6);
+                PdfPCell bc = kit.cell(bn ? kit.l("WAREHOUSE") + ": " + whName : "  WAREHOUSE: " + whName.toUpperCase(), true, 10, Color.WHITE,
+                    Element.ALIGN_LEFT, kit.pageWidth(), 3);
                 bc.setBackgroundColor(teal);
-                bc.setPadding(7);
+                bc.setPadding(3);
                 bc.setBorder(Rectangle.NO_BORDER);
                 badge.addCell(bc);
                 doc.add(badge);
 
-                // meta
-                PdfPTable meta = new PdfPTable(2);
-                meta.setWidthPercentage(100);
-                meta.setSpacingAfter(12);
-                meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                    {"Order No",  so.getSoNo()},
-                    {"DC No",     dc.getDcNo()},
-                    {"Date",      dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
-                }));
-                meta.addCell(metaBlock(kit, kit.pageWidth() / 2, new String[][]{
-                    {"Status",    kit.l(dc.getStatus())},
-                    {"Warehouse", whName},
-                }));
-                doc.add(meta);
-
-                PdfPTable custMeta = new PdfPTable(1);
-                custMeta.setWidthPercentage(100);
-                custMeta.setSpacingAfter(12);
-                List<String[]> toRows = new ArrayList<>(customerRows(bn, custOpt.orElse(null), delivery));
-                toRows.addAll(salespersonRows(bn, so.getSalespersonId()));
-                toRows.add(new String[]{"Deliver to", delivery.address() != null ? delivery.address() : ""});
-                custMeta.addCell(metaBlock(kit, kit.pageWidth(), rowsArray(toRows)));
-                doc.add(custMeta);
+                // dense grid (the warehouse is already in the badge above)
+                doc.add(slipMeta(kit, bn, new String[][]{
+                        {"Order No", so.getSoNo()}, {"DC No", dc.getDcNo()},
+                        {"Date", dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
+                        {"Status", kit.l(dc.getStatus())}},
+                    custOpt.orElse(null), delivery.mobile(), so.getSalespersonId(), null, delivery.address()));
 
                 // product table
                 PdfPTable tbl = new PdfPTable(3);
@@ -1222,6 +1177,74 @@ public class SalesService {
         t.addCell(lc);
         t.addCell(vc);
     }
+    /**
+     * Compact header grid shared by the invoice, challans and token. Document facts first (two per row), then
+     * customer | salesperson names, their Bangla lines, contact | salesperson mobile, any extra facts, and the
+     * delivery address across the full width. {@code docFacts}/{@code extra} are {label, value} pairs.
+     */
+    private PdfPTable slipMeta(PdfKit kit, boolean bn, String[][] docFacts, Customer c, String contact,
+                               UUID salespersonId, String[][] extra, String address) {
+        List<String[]> grid = new ArrayList<>();
+        addPairs(grid, docFacts);
+        List<String[]> custNames = c == null ? Collections.singletonList(new String[]{"Customer", "—"})
+            : nameRows("Customer", bn, c.getName(), c.getNameBn(), null);
+        String spMobile = null;
+        List<String[]> spNames = new ArrayList<>();
+        for (String[] r : salespersonRows(bn, salespersonId)) {
+            if ("Mobile".equals(r[0])) spMobile = r[1]; else spNames.add(r);
+        }
+        grid.add(new String[]{"Customer", custNames.get(0)[1], "Salesperson",
+            spNames.isEmpty() ? "—" : spNames.get(0)[1]});
+        String custBn = custNames.size() > 1 ? custNames.get(1)[1] : "";
+        String spBn = spNames.size() > 1 ? spNames.get(1)[1] : "";
+        if (!custBn.isEmpty() || !spBn.isEmpty()) grid.add(new String[]{"", custBn, "", spBn});
+        grid.add(new String[]{"Contact", contact != null && !contact.isBlank() ? contact : "—",
+            "Mobile", spMobile != null ? spMobile : "—"});
+        if (extra != null) addPairs(grid, extra);
+        if (address != null && !address.isBlank()) grid.add(new String[]{"Deliver to", address, null, null});
+        PdfPTable t = compactMeta(kit, grid);
+        t.setSpacingAfter(12);
+        return t;
+    }
+
+    private static void addPairs(List<String[]> grid, String[][] pairs) {
+        for (int i = 0; i < pairs.length; i += 2) {
+            String[] a = pairs[i];
+            String[] b = i + 1 < pairs.length ? pairs[i + 1] : new String[]{"", ""};
+            grid.add(new String[]{a[0], a[1], b[0], b[1]});
+        }
+    }
+
+    /**
+     * Dense label/value grid, two pairs per row: {label1, value1, label2, value2}. A null label2 makes
+     * value1 span the rest of the row. Tight padding so a slip with many lines keeps its room.
+     */
+    private static PdfPTable compactMeta(PdfKit kit, List<String[]> rows) {
+        PdfPTable t = new PdfPTable(4);
+        t.setWidthPercentage(100);
+        try { t.setWidths(new float[]{60f, 128f, 66f, 114f}); } catch (Exception ignored) { }
+        float[] w = kit.cols(60f, 128f, 66f, 114f);
+        for (String[] r : rows) {
+            t.addCell(compactCell(kit, kit.l(r[0]), true, w[0], 1));
+            boolean span = r[2] == null;
+            PdfPCell v = compactCell(kit, r[1], false, span ? w[1] + w[2] + w[3] : w[1], span ? 3 : 1);
+            t.addCell(v);
+            if (!span) {
+                t.addCell(compactCell(kit, kit.l(r[2]), true, w[2], 1));
+                t.addCell(compactCell(kit, r[3], false, w[3], 1));
+            }
+        }
+        return t;
+    }
+
+    private static PdfPCell compactCell(PdfKit kit, String text, boolean bold, float width, int colspan) {
+        PdfPCell c = kit.cell(text == null ? "" : text, bold, 9, Color.BLACK, Element.ALIGN_LEFT, width, 1.5f);
+        c.setBorder(Rectangle.NO_BORDER);
+        c.setColspan(colspan);
+        c.setVerticalAlignment(Element.ALIGN_TOP);
+        return c;
+    }
+
 
     private static PdfPCell metaBlock(PdfKit kit, float width, String[][] rows) {
         float colW = (width - 4f) / 2f;
@@ -1269,9 +1292,8 @@ public class SalesService {
             List<String[]> rows = new ArrayList<>(nameRows("Salesperson", bn,
                 u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : u.getUsername(),
                 u.getFullNameBn(), null));
-            // mobile so anyone can reach the salesperson in an emergency
-            if (u.getMobile() != null && !u.getMobile().isBlank())
-                rows.add(new String[]{"Mobile", u.getMobile().trim()});
+            // mobile so anyone can reach the salesperson in an emergency; "—" shows a number is still missing
+            rows.add(new String[]{"Mobile", u.getMobile() != null && !u.getMobile().isBlank() ? u.getMobile().trim() : "—"});
             return rows;
         }).orElse(List.of());
     }
