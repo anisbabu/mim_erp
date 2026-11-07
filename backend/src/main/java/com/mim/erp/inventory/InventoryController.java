@@ -4,6 +4,7 @@ import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
 import com.mim.erp.common.ApiException;
 import com.mim.erp.common.BanglaPdf;
+import com.mim.erp.common.PdfKit;
 import com.mim.erp.master.ProductRepository;
 import com.mim.erp.master.WarehouseRepository;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -144,7 +145,7 @@ public class InventoryController {
                 Image ti = BanglaPdf.text(cb, cache, titleText, true, 11, Color.BLACK, Element.ALIGN_CENTER, pageW);
                 doc.add(ti);
                 Image di = BanglaPdf.text(cb, cache, dateText, false, 9, grey, Element.ALIGN_CENTER, pageW);
-                di.setSpacingAfter(10);
+                di.setSpacingAfter(6);
                 doc.add(di);
             } else {
                 Paragraph title = new Paragraph(titleText, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11));
@@ -152,7 +153,7 @@ public class InventoryController {
                 doc.add(title);
                 Paragraph dateP = new Paragraph(dateText, FontFactory.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, grey));
                 dateP.setAlignment(Element.ALIGN_CENTER);
-                dateP.setSpacingAfter(10);
+                dateP.setSpacingAfter(6);
                 doc.add(dateP);
             }
 
@@ -161,7 +162,7 @@ public class InventoryController {
             float[] colW = new float[ratio.length];
             for (int i = 0; i < ratio.length; i++) colW[i] = ratio[i] / sum * pageW;
 
-            Color teal = new Color(0x0f, 0x76, 0x6e);
+            Color teal = PdfKit.TINT;
             PdfPTable tbl = new PdfPTable(4);
             tbl.setTotalWidth(colW);
             tbl.setLockedWidth(true);
@@ -173,7 +174,7 @@ public class InventoryController {
             int[]    aligns = {Element.ALIGN_LEFT, Element.ALIGN_LEFT,
                                Element.ALIGN_RIGHT, Element.ALIGN_RIGHT};
             for (int i = 0; i < heads.length; i++) {
-                PdfPCell h = pdfText(bn, cb, cache, heads[i], true, Color.WHITE, aligns[i], colW[i], 4);
+                PdfPCell h = pdfText(bn, cb, cache, heads[i], true, PdfKit.INK, aligns[i], colW[i], 3);
                 h.setBackgroundColor(teal);
                 tbl.addCell(h);
             }
@@ -186,10 +187,10 @@ public class InventoryController {
                 BigDecimal val   = r.getValue().setScale(2, RoundingMode.HALF_UP);
                 totalValue = totalValue.add(val);
 
-                tbl.addCell(pdfText(bn, cb, cache, product,   false, Color.BLACK, Element.ALIGN_LEFT,  colW[0], 3));
-                tbl.addCell(pdfText(bn, cb, cache, warehouse, false, Color.BLACK, Element.ALIGN_LEFT,  colW[1], 3));
-                tbl.addCell(pdfText(bn, cb, cache, qty.stripTrailingZeros().toPlainString(), false, Color.BLACK, Element.ALIGN_RIGHT, colW[2], 3));
-                tbl.addCell(pdfText(bn, cb, cache, String.format("%,.2f", val), false, Color.BLACK, Element.ALIGN_RIGHT, colW[3], 3));
+                tbl.addCell(pdfText(bn, cb, cache, product,   false, Color.BLACK, Element.ALIGN_LEFT,  colW[0], 2.5f));
+                tbl.addCell(pdfText(bn, cb, cache, warehouse, false, Color.BLACK, Element.ALIGN_LEFT,  colW[1], 2.5f));
+                tbl.addCell(pdfText(bn, cb, cache, qty.stripTrailingZeros().toPlainString(), false, Color.BLACK, Element.ALIGN_RIGHT, colW[2], 2.5f));
+                tbl.addCell(pdfText(bn, cb, cache, String.format("%,.2f", val), false, Color.BLACK, Element.ALIGN_RIGHT, colW[3], 2.5f));
             }
 
             PdfPCell tlabel = pdfText(bn, cb, cache, bn ? "মোট মজুদ মূল্য" : "TOTAL INVENTORY VALUE", true, Color.BLACK,
@@ -215,13 +216,17 @@ public class InventoryController {
     /** Table cell: Helvetica for English/digits, shaped vector outlines when the text has Bangla. 9pt, 5pt side padding. */
     private static PdfPCell pdfText(boolean bn, PdfContentByte cb, BanglaPdf.Cache cache, String text, boolean bold, Color color,
                                     int align, float colWidth, float padV) {
-        if (bn && BanglaPdf.hasBengali(text))
-            return BanglaPdf.cell(cb, cache, text, bold, 9, color, align, colWidth, padV, 5);
-        PdfPCell c = new PdfPCell(new Phrase(text != null ? text : "",
-            FontFactory.getFont(bold ? FontFactory.HELVETICA_BOLD : FontFactory.HELVETICA, 9, Font.NORMAL, color)));
-        c.setHorizontalAlignment(align);
-        c.setPaddingTop(padV); c.setPaddingBottom(padV);
-        c.setPaddingLeft(5);   c.setPaddingRight(5);
+        PdfPCell c;
+        if (bn && BanglaPdf.hasBengali(text)) {
+            c = BanglaPdf.cell(cb, cache, text, bold, 9, color, align, colWidth, padV, 5);
+        } else {
+            c = new PdfPCell(new Phrase(text != null ? text : "",
+                FontFactory.getFont(bold ? FontFactory.HELVETICA_BOLD : FontFactory.HELVETICA, 9, Font.NORMAL, color)));
+            c.setHorizontalAlignment(align);
+            c.setPaddingTop(padV); c.setPaddingBottom(padV);
+            c.setPaddingLeft(5);   c.setPaddingRight(5);
+        }
+        c.setVerticalAlignment(com.lowagie.text.Element.ALIGN_MIDDLE);
         return c;
     }
 }

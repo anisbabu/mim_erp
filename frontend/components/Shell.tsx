@@ -24,8 +24,8 @@ const BOOKS: Role[] = ["ACCOUNTANT", "ADMIN"];
 const groups: { label: string; items: Entry[] }[] = [
   { label: "", items: [{ href: "/", label: "Dashboard", roles: ALL, icon: LayoutDashboard }] },
   { label: "Purchase", items: [
-    { href: "/purchase/orders/new", label: "New purchase order", roles: ["MANAGER", "ADMIN"], icon: ShoppingCart },
-    { href: "/purchase/orders", label: "Purchase orders", roles: ["MANAGER", "ADMIN"], icon: ClipboardList },
+    { href: "/purchase/orders/new", label: "Purchase Order", roles: ["MANAGER", "ADMIN"], icon: ShoppingCart },
+    { href: "/purchase/orders", label: "Purchase Order List", roles: ["MANAGER", "ADMIN"], icon: ClipboardList },
     { href: "/purchase/receive", label: "Receive goods", roles: ["MANAGER", "ADMIN"], icon: PackageCheck },
   ]},
   { label: "Inventory", items: [
@@ -199,8 +199,12 @@ export default function Shell({ children }: { children: ReactNode }) {
     })
     .filter((g) => g.items.some((e) => !isHeading(e)));
 
-  const isActive = (n: Item) =>
+  const matches = (n: Item) =>
     pathname === n.href || (n.href !== "/" && pathname.startsWith(n.href + "/")) || !!n.also?.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  // the most specific entry wins: /purchase/orders/new must not also light up /purchase/orders
+  const allItems = groups.flatMap((g) => g.items).filter((e): e is Item => !isHeading(e));
+  const isActive = (n: Item) =>
+    matches(n) && !allItems.some((o) => o !== n && o.href.length > n.href.length && o.href.startsWith(n.href + "/") && matches(o));
   function toggleGroup(label: string) {
     setClosedGroups((prev) => {
       const next = new Set(prev);

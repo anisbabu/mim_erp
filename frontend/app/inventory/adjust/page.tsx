@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { endpoints, type Product, type Warehouse } from "@/lib/api";
+import SearchSelect from "@/components/SearchSelect";
 
 export default function AdjustPage() {
   const { t, lang, dn } = useI18n();
@@ -76,10 +77,23 @@ export default function AdjustPage() {
       <div className="space-y-4">
         <div>
           <label className="text-xs text-[#6b6960]">{t("Product")}</label>
-          <select className="inp mt-1" value={productId} onChange={(e) => setProductId(e.target.value)}>
-            <option value="">{t("Select…")}</option>
-            {products.map((p) => <option key={p.id} value={p.id}>{lang === "bn" && p.nameBn ? p.nameBn : p.fullName ?? p.name}{p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""}</option>)}
-          </select>
+          <div className="mt-1">
+            <SearchSelect
+              value={productId}
+              onChange={setProductId}
+              placeholder={t("Select…")}
+              options={products.map((p) => {
+                const en = p.fullName ?? p.name;
+                const main = lang === "bn" && p.nameBn ? p.nameBn : en;
+                const other = main === en ? p.nameBn : en;
+                return {
+                  value: String(p.id),
+                  label: `${main}${p.thicknessMm ? ` (${p.thicknessMm}mm)` : ""}`,
+                  sublabel: other && other !== main ? other : undefined,
+                };
+              })}
+            />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

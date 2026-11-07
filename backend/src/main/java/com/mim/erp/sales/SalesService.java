@@ -485,7 +485,7 @@ public class SalesService {
             Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
             Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
             Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, PdfKit.INK);
             Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
 
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
@@ -504,7 +504,7 @@ public class SalesService {
                 custOpt.orElse(null), customerContact, so.getSalespersonId(), null, null));
 
             // line items: # | Product | Qty | Unit Price | Total (discount, if any, is one row under the lines)
-            Color teal = new Color(0x0f, 0x76, 0x6e);
+            Color teal = PdfKit.TINT;
             PdfPTable tbl = new PdfPTable(5);
             tbl.setWidthPercentage(100);
             // numeric columns sized for qty up to hundreds, unit price to thousands, total to lakhs; product takes the rest
@@ -517,7 +517,7 @@ public class SalesService {
             for (int i = 0; i < heads.length; i++) {
                 String headLabel = i == 4 && kit.bn() ? "মোট" : kit.l(heads[i]);   // invoice has no discount column: plain "মোট"
                 float hPad = i == 0 ? 2f : i == 2 ? 1f : (i == 3 || i == 4) ? 3f : 5f;   // slim side padding keeps the narrow columns' headings (Bangla especially) tidy
-                PdfPCell h = kit.cell(headLabel, true, 9, Color.WHITE, aligns[i], colW[i], hPad);
+                PdfPCell h = kit.cell(headLabel, true, 9, PdfKit.INK, aligns[i], colW[i], hPad);
                 h.setBackgroundColor(teal);
                 h.setHorizontalAlignment(aligns[i]);
                 h.setVerticalAlignment(Element.ALIGN_MIDDLE);
@@ -574,14 +574,44 @@ public class SalesService {
             PdfPTable acct = new PdfPTable(2);
             acct.setTotalWidth(boxW);
             acct.setLockedWidth(true);
-            acct.setHorizontalAlignment(Element.ALIGN_RIGHT);
             acct.setWidths(new float[]{3f, 2f});
-            acct.setSpacingBefore(6);
-            acct.setSpacingAfter(8);
             acctRow(acct, kit, kit.l("Previous balance"), fmt(bal[0]), false, boxW * 0.6f, boxW * 0.4f);
             acctRow(acct, kit, kit.l(credit ? "This invoice (on credit)" : "Paid in cash"), fmt(grandTotal), false, boxW * 0.6f, boxW * 0.4f);
             acctRow(acct, kit, kit.l("BALANCE DUE"), fmt(bal[1]), true, boxW * 0.6f, boxW * 0.4f);
-            doc.add(acct);
+
+            // separate previous-balance status box beside it: owed (Dr), advance held (Cr) or clear
+            float statW = kit.pageWidth() * 0.37f;
+            String status = bal[0].signum() > 0 ? "Due (Dr)" : bal[0].signum() < 0 ? "Advance (Cr)" : "Clear (nil)";
+            PdfPTable stat = new PdfPTable(1);
+            stat.setTotalWidth(statW);
+            stat.setLockedWidth(true);
+            stat.setHorizontalAlignment(Element.ALIGN_LEFT);
+            PdfPCell sh = kit.cell(kit.l("PREVIOUS BALANCE STATUS"), true, 7.5f, PdfKit.INK, Element.ALIGN_CENTER, statW, 5);
+            sh.setBackgroundColor(PdfKit.TINT);
+            sh.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            centerInk(sh, kit.l("PREVIOUS BALANCE STATUS"));
+            stat.addCell(sh);
+            PdfPCell sv = kit.cell(kit.l(status) + "  " + fmt(bal[0].abs()), true, 10, Color.BLACK, Element.ALIGN_CENTER, statW, 8);
+            sv.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            centerInk(sv, kit.l(status));
+            stat.addCell(sv);
+
+            PdfPTable pair = new PdfPTable(2);
+            pair.setWidthPercentage(100);
+            pair.setWidths(new float[]{kit.pageWidth() - boxW, boxW});
+            pair.setSpacingBefore(6);
+            pair.setSpacingAfter(8);
+            PdfPCell left = new PdfPCell(stat);
+            left.setBorder(Rectangle.NO_BORDER);
+            left.setPadding(0);
+            left.setVerticalAlignment(Element.ALIGN_TOP);
+            PdfPCell right = new PdfPCell(acct);
+            right.setBorder(Rectangle.NO_BORDER);
+            right.setPadding(0);
+            right.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            pair.addCell(left);
+            pair.addCell(right);
+            doc.add(pair);
 
             doc.add(kit.para(kit.l("Thank you for your business."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));
 
@@ -641,7 +671,7 @@ public class SalesService {
             Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
             Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
             Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, PdfKit.INK);
             Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
 
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
@@ -656,7 +686,7 @@ public class SalesService {
                 custOpt.orElse(null), delivery.mobile(), so.getSalespersonId(), null, delivery.address()));
 
             // lines table
-            Color teal = new Color(0x0f, 0x76, 0x6e);
+            Color teal = PdfKit.TINT;
             PdfPTable tbl = new PdfPTable(3);
             tbl.setWidthPercentage(100);
             tbl.setWidths(new float[]{24f, 296f, 48f});
@@ -666,10 +696,12 @@ public class SalesService {
             String[] heads  = {"#", "Product", "Qty"};
             int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
             for (int i = 0; i < heads.length; i++) {
-                PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, Color.WHITE, aligns[i], colW[i], 5);
+                PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, PdfKit.INK, aligns[i], colW[i], 5);
                 h.setBackgroundColor(teal);
                 h.setHorizontalAlignment(aligns[i]);
                 h.setPadding(5);
+                h.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                centerInk(h, kit.l(heads[i]));
                 tbl.addCell(h);
             }
 
@@ -744,7 +776,7 @@ public class SalesService {
             Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
             Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
             Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, PdfKit.INK);
             Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
 
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
@@ -763,7 +795,7 @@ public class SalesService {
                 null, delivery.address()));
 
             // line items table — no prices (delivery document)
-            Color teal = new Color(0x0f, 0x76, 0x6e);
+            Color teal = PdfKit.TINT;
             PdfPTable tbl = new PdfPTable(3);
             tbl.setWidthPercentage(100);
             tbl.setWidths(new float[]{24f, 296f, 48f});
@@ -773,10 +805,12 @@ public class SalesService {
             String[] heads  = {"#", "Product", "Qty"};
             int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
             for (int i = 0; i < heads.length; i++) {
-                PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, Color.WHITE, aligns[i], colW[i], 5);
+                PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, PdfKit.INK, aligns[i], colW[i], 5);
                 h.setBackgroundColor(teal);
                 h.setHorizontalAlignment(aligns[i]);
                 h.setPadding(5);
+                h.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                centerInk(h, kit.l(heads[i]));
                 tbl.addCell(h);
             }
 
@@ -869,10 +903,10 @@ public class SalesService {
             Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
             Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
             Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, Color.WHITE);
+            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, PdfKit.INK);
             Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
             Font whFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-            Color teal       = new Color(0x0f, 0x76, 0x6e);
+            Color teal       = PdfKit.TINT;
 
             boolean first = true;
             for (DeliveryChallan dc : dcList) {
@@ -893,10 +927,12 @@ public class SalesService {
                 PdfPTable badge = new PdfPTable(1);
                 badge.setWidthPercentage(100);
                 badge.setSpacingAfter(6);
-                PdfPCell bc = kit.cell(bn ? kit.l("WAREHOUSE") + ": " + whName : "  WAREHOUSE: " + whName.toUpperCase(), true, 10, Color.WHITE,
+                PdfPCell bc = kit.cell(bn ? kit.l("WAREHOUSE") + ": " + whName : "  WAREHOUSE: " + whName.toUpperCase(), true, 10, PdfKit.INK,
                     Element.ALIGN_LEFT, kit.pageWidth(), 3);
                 bc.setBackgroundColor(teal);
                 bc.setPadding(3);
+                bc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                centerInk(bc, bn ? kit.l("WAREHOUSE") + ": " + whName : "WAREHOUSE");
                 bc.setBorder(Rectangle.NO_BORDER);
                 badge.addCell(bc);
                 doc.add(badge);
@@ -918,10 +954,12 @@ public class SalesService {
                 String[] heads  = {"#", "Product", "Qty"};
                 int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
                 for (int i = 0; i < heads.length; i++) {
-                    PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, Color.WHITE, aligns[i], colW[i], 5);
+                    PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, PdfKit.INK, aligns[i], colW[i], 5);
                     h.setBackgroundColor(teal);
                     h.setHorizontalAlignment(aligns[i]);
                     h.setPadding(5);
+                    h.setVerticalAlignment(Element.ALIGN_MIDDLE);
+                    centerInk(h, kit.l(heads[i]));
                     tbl.addCell(h);
                 }
 
@@ -1164,8 +1202,8 @@ public class SalesService {
     /** Row of the separate account box; the bold last row (balance due) is highlighted. */
     private static void acctRow(PdfPTable t, PdfKit kit, String label, String amount, boolean strong,
                                 float labelW, float amountW) {
-        Color teal = new Color(0x0f, 0x76, 0x6e);
-        Color fg = strong ? Color.WHITE : Color.BLACK;
+        Color teal = PdfKit.TINT;
+        Color fg = strong ? PdfKit.INK : Color.BLACK;
         PdfPCell lc = kit.cell(label, strong, 9, fg, Element.ALIGN_LEFT, labelW, 5);
         PdfPCell vc = kit.cell(amount, strong, 9, fg, Element.ALIGN_RIGHT, amountW, 5);
         lc.setHorizontalAlignment(Element.ALIGN_LEFT);

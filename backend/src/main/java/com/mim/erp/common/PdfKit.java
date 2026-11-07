@@ -19,6 +19,11 @@ import java.util.Map;
  * doc numbers and "MIM ENTERPRISE" look the same in both languages.
  */
 public final class PdfKit {
+    /** Light slate-blue fill for headers and boxes: little ink, prints clean on any printer. */
+    public static final Color TINT = new Color(0xE3, 0xEA, 0xF3);
+    /** Dark navy text and rules to go with TINT. */
+    public static final Color INK = new Color(0x1F, 0x35, 0x5E);
+
     private final boolean bn;
     private final PdfWriter writer;
     private final BanglaPdf.Cache cache = new BanglaPdf.Cache();
@@ -70,6 +75,7 @@ public final class PdfKit {
             c.setHorizontalAlignment(align);
             c.setPadding(pad);
         }
+        c.setVerticalAlignment(Element.ALIGN_MIDDLE);   // text sits mid-height in every cell and coloured box
         return c;
     }
 
@@ -96,6 +102,10 @@ public final class PdfKit {
     private static final Map<String, String> BN = Map.ofEntries(
         Map.entry("SALES INVOICE", "বিক্রয় ইনভয়েস"),
         Map.entry("Previous balance", "পূর্বের বাকি"),
+        Map.entry("PREVIOUS BALANCE STATUS", "পূর্বের বাকির অবস্থা"),
+        Map.entry("Due (Dr)", "বাকি (ডেবিট)"),
+        Map.entry("Advance (Cr)", "অগ্রিম (ক্রেডিট)"),
+        Map.entry("Clear (nil)", "পরিষ্কার (শূন্য)"),
         Map.entry("Salesperson", "বিক্রয়কর্মী"),
         Map.entry("This invoice (on credit)", "এই ইনভয়েস (বাকিতে)"),
         Map.entry("Paid in cash", "নগদ পরিশোধ"),

@@ -184,8 +184,8 @@ public class DemoInvoice {
             PdfPTable m = new PdfPTable(new float[]{1f, 3.4f});
             m.setWidthPercentage(100);
             for (String[] row : meta) {
-                PdfPCell a = k.cell(row[0], true, 8.5f, Color.BLACK, Element.ALIGN_LEFT, mw[0], 2);
-                PdfPCell b = k.cell(row[1], false, 8.5f, Color.BLACK, Element.ALIGN_LEFT, mw[1], 2);
+                PdfPCell a = k.cell(row[0], true, 8.5f, Color.BLACK, Element.ALIGN_LEFT, mw[0], 1.5f);
+                PdfPCell b = k.cell(row[1], false, 8.5f, Color.BLACK, Element.ALIGN_LEFT, mw[1], 1.5f);
                 a.setBorder(Rectangle.NO_BORDER);
                 b.setBorder(Rectangle.NO_BORDER);
                 m.addCell(a);
@@ -201,8 +201,8 @@ public class DemoInvoice {
             t.setHeaderRows(1);
             String[] heads = bn ? new String[]{"#", "পণ্য", "পরিমাণ", "একক দাম", "টাকা"} : new String[]{"#", "Item", "Qty", "Unit price", "Amount"};
             for (int i = 0; i < 5; i++) {
-                PdfPCell c = k.cell(heads[i], true, 8, Color.BLACK, i < 2 ? Element.ALIGN_LEFT : Element.ALIGN_RIGHT, w[i], 4);
-                c.setBackgroundColor(new Color(240, 240, 240));
+                PdfPCell c = k.cell(heads[i], true, 8, Color.BLACK, i < 2 ? Element.ALIGN_LEFT : Element.ALIGN_RIGHT, w[i], 3);
+                c.setBackgroundColor(PdfKit.TINT);
                 t.addCell(c);
             }
             BigDecimal gross = BigDecimal.ZERO, disc = BigDecimal.ZERO;
@@ -213,11 +213,11 @@ public class DemoInvoice {
                 gross = gross.add(g);
                 disc = disc.add(d);
                 String unit = l.unit() == null || l.unit().isBlank() ? "" : " " + l.unit().trim();
-                t.addCell(k.cell(String.valueOf(n++), false, 8.5f, Color.BLACK, Element.ALIGN_LEFT, w[0], 3));
-                t.addCell(k.cell(l.name().trim(), false, 8.5f, Color.BLACK, Element.ALIGN_LEFT, w[1], 3));
-                t.addCell(k.cell(qty(l.qty()) + unit, false, 8.5f, Color.BLACK, Element.ALIGN_RIGHT, w[2], 3));
-                t.addCell(k.cell(money(nz(l.unitPrice())), false, 8.5f, Color.BLACK, Element.ALIGN_RIGHT, w[3], 3));
-                t.addCell(k.cell(money(g.subtract(d)), false, 8.5f, Color.BLACK, Element.ALIGN_RIGHT, w[4], 3));
+                t.addCell(k.cell(String.valueOf(n++), false, 8.5f, Color.BLACK, Element.ALIGN_LEFT, w[0], 2f));
+                t.addCell(k.cell(l.name().trim(), false, 8.5f, Color.BLACK, Element.ALIGN_LEFT, w[1], 2f));
+                t.addCell(k.cell(qty(l.qty()) + unit, false, 8.5f, Color.BLACK, Element.ALIGN_RIGHT, w[2], 2f));
+                t.addCell(k.cell(money(nz(l.unitPrice())), false, 8.5f, Color.BLACK, Element.ALIGN_RIGHT, w[3], 2f));
+                t.addCell(k.cell(money(g.subtract(d)), false, 8.5f, Color.BLACK, Element.ALIGN_RIGHT, w[4], 2f));
             }
             float lab = w[0] + w[1] + w[2] + w[3];
             String[][] totals = disc.signum() > 0
@@ -227,10 +227,10 @@ public class DemoInvoice {
                 : new String[][]{{bn ? "সর্বমোট" : "Total", money(gross), "1"}};
             for (String[] row : totals) {
                 boolean strong = "1".equals(row[2]);
-                PdfPCell a = k.cell(row[0], strong, 9, Color.BLACK, Element.ALIGN_RIGHT, lab, 3);
+                PdfPCell a = k.cell(row[0], strong, 9, Color.BLACK, Element.ALIGN_RIGHT, lab, 2);
                 a.setColspan(4);
                 t.addCell(a);
-                t.addCell(k.cell(row[1], strong, 9, Color.BLACK, Element.ALIGN_RIGHT, w[4], 3));
+                t.addCell(k.cell(row[1], strong, 9, Color.BLACK, Element.ALIGN_RIGHT, w[4], 2f));
             }
             doc.add(t);
 

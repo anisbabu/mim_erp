@@ -55,8 +55,8 @@ final class SalesReturnPdf {
             m.setWidthPercentage(100);
             float[] mw = k.cols(1.2f, 3f);
             for (String[] row : meta) {
-                PdfPCell a = k.cell(row[0], true, 9, Color.BLACK, Element.ALIGN_LEFT, mw[0], 3);
-                PdfPCell b = k.cell(row[1], false, 9, Color.BLACK, Element.ALIGN_LEFT, mw[1], 3);
+                PdfPCell a = k.cell(row[0], true, 9, Color.BLACK, Element.ALIGN_LEFT, mw[0], 2.5f);
+                PdfPCell b = k.cell(row[1], false, 9, Color.BLACK, Element.ALIGN_LEFT, mw[1], 2.5f);
                 a.setBorder(Rectangle.NO_BORDER);
                 b.setBorder(Rectangle.NO_BORDER);
                 m.addCell(a);
@@ -68,24 +68,24 @@ final class SalesReturnPdf {
             float[] w = k.cols(ratio);
             PdfPTable t = new PdfPTable(ratio);
             t.setWidthPercentage(100);
-            t.setSpacingBefore(10);
+            t.setSpacingBefore(6);
             String[] heads = bn ? new String[]{"পণ্য", "পরিমাণ", "একক দাম", "টাকা"} : new String[]{"Product", "Qty", "Unit price", "Amount"};
             for (int i = 0; i < 4; i++) {
-                PdfPCell c = k.cell(heads[i], true, 8, Color.BLACK, i == 0 ? Element.ALIGN_LEFT : Element.ALIGN_RIGHT, w[i], 4);
-                c.setBackgroundColor(new Color(240, 240, 240));
+                PdfPCell c = k.cell(heads[i], true, 8, Color.BLACK, i == 0 ? Element.ALIGN_LEFT : Element.ALIGN_RIGHT, w[i], 3);
+                c.setBackgroundColor(PdfKit.TINT);
                 t.addCell(c);
             }
             for (Map<String, Object> l : (List<Map<String, Object>>) r.get("lines")) {
                 String name = k.name((String) l.get("product_name_bn"), (String) l.get("product_name"));
-                t.addCell(k.cell(name, false, 9, Color.BLACK, Element.ALIGN_LEFT, w[0], 3));
-                t.addCell(k.cell(qty(l.get("qty")) + (l.get("unit") == null ? "" : " " + l.get("unit")), false, 9, Color.BLACK, Element.ALIGN_RIGHT, w[1], 3));
-                t.addCell(k.cell(money(l.get("unit_price")), false, 9, Color.BLACK, Element.ALIGN_RIGHT, w[2], 3));
-                t.addCell(k.cell(money(l.get("amount")), false, 9, Color.BLACK, Element.ALIGN_RIGHT, w[3], 3));
+                t.addCell(k.cell(name, false, 9, Color.BLACK, Element.ALIGN_LEFT, w[0], 2.5f));
+                t.addCell(k.cell(qty(l.get("qty")) + (l.get("unit") == null ? "" : " " + l.get("unit")), false, 9, Color.BLACK, Element.ALIGN_RIGHT, w[1], 2.5f));
+                t.addCell(k.cell(money(l.get("unit_price")), false, 9, Color.BLACK, Element.ALIGN_RIGHT, w[2], 2.5f));
+                t.addCell(k.cell(money(l.get("amount")), false, 9, Color.BLACK, Element.ALIGN_RIGHT, w[3], 2.5f));
             }
-            PdfPCell tl = k.cell(bn ? "মোট ক্রেডিট" : "Total credited", true, 9, Color.BLACK, Element.ALIGN_RIGHT, w[0] + w[1] + w[2], 4);
+            PdfPCell tl = k.cell(bn ? "মোট ক্রেডিট" : "Total credited", true, 9, Color.BLACK, Element.ALIGN_RIGHT, w[0] + w[1] + w[2], 3);
             tl.setColspan(3);
             t.addCell(tl);
-            t.addCell(k.cell(money(r.get("goods_value")), true, 9, Color.BLACK, Element.ALIGN_RIGHT, w[3], 4));
+            t.addCell(k.cell(money(r.get("goods_value")), true, 9, Color.BLACK, Element.ALIGN_RIGHT, w[3], 3));
             doc.add(t);
 
             doc.add(k.para(credit
@@ -96,7 +96,7 @@ final class SalesReturnPdf {
 
             PdfPTable sign = new PdfPTable(2);
             sign.setWidthPercentage(100);
-            sign.setSpacingBefore(36);
+            sign.setSpacingBefore(30);
             float sw = k.pageWidth() / 2 - 20;
             for (String s : bn ? new String[]{"গ্রাহকের স্বাক্ষর", "অনুমোদনকারী"} : new String[]{"Customer signature", "Authorised by"}) {
                 PdfPCell cell = k.cell(s, true, 9, Color.BLACK, Element.ALIGN_CENTER, sw, 0);

@@ -100,12 +100,12 @@ final class StatementPdf {
         x.doc.add(k.para("MIM ENTERPRISE", true, false, 16, Color.BLACK, Element.ALIGN_CENTER, 0, 2));
         x.doc.add(k.para(name, true, false, 12, Color.BLACK, Element.ALIGN_CENTER, 0, 2));
         x.doc.add(k.para(period, false, false, 9, Color.DARK_GRAY, Element.ALIGN_CENTER, 0, 1));
-        x.doc.add(k.para(sub, false, true, 8, Color.GRAY, Element.ALIGN_CENTER, 0, 10));
+        x.doc.add(k.para(sub, false, true, 8, Color.GRAY, Element.ALIGN_CENTER, 0, 6));
     }
 
     /** Statement cell: no side borders; optional top rule and bottom rule (grand totals get a heavy one). */
     private static PdfPCell cell(PdfKit k, String text, boolean bold, int align, float w, float padLeft, float top, float bottom, float gridBottom) {
-        PdfPCell c = k.cell(text, bold, 9, Color.BLACK, align, w, 3.5f);
+        PdfPCell c = k.cell(text, bold, 9, Color.BLACK, align, w, 2.5f);
         c.setBorder(Rectangle.NO_BORDER);
         if (padLeft > 0) c.setPaddingLeft(padLeft);
         if (top > 0) { c.enableBorderSide(Rectangle.TOP); c.setBorderWidthTop(top); c.setBorderColorTop(Color.BLACK); }
@@ -115,7 +115,8 @@ final class StatementPdf {
     }
 
     private static PdfPCell head(PdfKit k, String text, int align, float w) {
-        PdfPCell c = k.cell(text, true, 8, Color.DARK_GRAY, align, w, 4);
+        PdfPCell c = k.cell(text, true, 8, PdfKit.INK, align, w, 3);
+        c.setBackgroundColor(PdfKit.TINT);
         c.setBorder(Rectangle.BOTTOM);
         c.setBorderWidthBottom(1.5f);
         c.setBorderColorBottom(Color.BLACK);

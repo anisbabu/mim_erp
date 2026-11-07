@@ -32,7 +32,7 @@ final class ChequeReceiptPdf {
             Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
             co.setAlignment(Element.ALIGN_CENTER);
             doc.add(co);
-            doc.add(kit.para(kit.l("CHEQUE RECEIPT"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 14));
+            doc.add(kit.para(kit.l("CHEQUE RECEIPT"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
             String amount = c.getAmount().setScale(2, RoundingMode.HALF_UP).toPlainString();
             String[][] rows = {
@@ -51,8 +51,8 @@ final class ChequeReceiptPdf {
             PdfPTable t = new PdfPTable(new float[]{1.1f, 3f});
             t.setWidthPercentage(100);
             for (String[] r : rows) {
-                PdfPCell k = kit.cell(kit.l(r[0]), true, 9, Color.BLACK, Element.ALIGN_LEFT, colW[0], 5);
-                PdfPCell v = kit.cell(r[1] != null ? r[1] : "", false, 9, Color.BLACK, Element.ALIGN_LEFT, colW[1], 5);
+                PdfPCell k = kit.cell(kit.l(r[0]), true, 9, Color.BLACK, Element.ALIGN_LEFT, colW[0], 3.5f);
+                PdfPCell v = kit.cell(r[1] != null ? r[1] : "", false, 9, Color.BLACK, Element.ALIGN_LEFT, colW[1], 3.5f);
                 for (PdfPCell cell : new PdfPCell[]{k, v}) cell.setBorderColor(Color.LIGHT_GRAY);
                 t.addCell(k); t.addCell(v);
             }
@@ -63,7 +63,7 @@ final class ChequeReceiptPdf {
 
             PdfPTable sign = new PdfPTable(2);
             sign.setWidthPercentage(100);
-            sign.setSpacingBefore(50);
+            sign.setSpacingBefore(36);
             float signW = kit.pageWidth() / 2 - 20;
             for (String s : new String[]{"Customer signature", "Received by"}) {
                 PdfPCell cell = kit.cell(kit.l(s), true, 9, Color.BLACK, Element.ALIGN_CENTER, signW, 0);
