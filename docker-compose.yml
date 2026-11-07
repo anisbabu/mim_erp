@@ -26,7 +26,7 @@ services:
       DB_USER: postgres
       MIM_PG_PASSWORD: ${MIM_PG_PASSWORD}
       PORT: "8082"
-      CORS_ORIGINS: http://localhost:3001,http://localhost:3000
+      CORS_ORIGINS: http://localhost:3004,http://localhost:3001,http://localhost:3000
       # business dates (LocalDate.now) must follow Bangladesh time, not the container's UTC
       TZ: Asia/Dhaka
       # WhatsApp cheque reminders (Meta Cloud API) — empty token = reminders are skipped
@@ -51,7 +51,7 @@ services:
     environment:
       BACKEND_URL: http://backend:8082
     ports:
-      - "3001:3000"     # host 3000 is used by other local apps
+      - "3004:3000"     # host 3000-3003 are used by other local apps
     depends_on:
       - backend
     restart: unless-stopped

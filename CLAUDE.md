@@ -7,7 +7,7 @@
 ## Run (Docker — normal way)
 ```bash
 docker compose up -d --build backend    # API :8082, runs Flyway on start
-docker compose up -d --build frontend   # web :3001 (host 3000 taken)
+docker compose up -d --build frontend   # web :3004 (host 3000-3003 taken)
 docker exec mim-postgres psql -U postgres -d mim_erpdb   # DB, host port 5440
 ```
 Local dev without Docker: `cd backend && mvn spring-boot:run`, `cd frontend && npm run dev`.
