@@ -123,7 +123,7 @@ export default function ChallanPage() {
       for (const [warehouseId, allocs] of byWarehouse) {
         const dc: any = await endpoints.issueChallan({
           shopId, customerId, salespersonId: needsSalesperson ? salespersonId : null, warehouseId, allocations: allocs,
-          priceOverrideBy: overrideBy.trim() || null, discountBy: null,
+          priceOverrideBy: overrideBy.trim() || "(not authorised)", discountBy: null,
         });
         dcNos.push(dc.dcNo);
       }

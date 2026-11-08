@@ -179,7 +179,6 @@ export default function NewSalePage() {
     return "ok";
   }
 
-  const anyOutOfBand  = lines.some((l) => bandState(l) === "out");
   const grandGross    = lines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
   const totalDiscount = Math.min(Number(discount) || 0, grandGross);
   const totalTransport = Number(transport) || 0;

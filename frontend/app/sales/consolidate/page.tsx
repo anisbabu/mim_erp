@@ -92,15 +92,13 @@ export default function ConsolidatePage() {
   async function submit() {
     setMsg(null);
     if (!customerId) { setMsg({ kind: "err", text: t("Select a customer.") }); return; }
-    if (anyOut && !overrideBy.trim()) {
-      setMsg({ kind: "err", text: t("Price out of band — enter authoriser name.") }); return;
-    }
+    // out-of-band is a warning only; saves with a placeholder authoriser for the backend audit column
     setBusy(true);
     try {
       const r: any = await endpoints.consolidate({
         customerId, paymentMode,
         creditOverrideBy: overrideBy || null,
-        priceOverrideBy:  anyOut ? overrideBy : null,
+        priceOverrideBy:  anyOut ? (overrideBy.trim() || "(not authorised)") : null,
         discountBy:       totalDiscount > 0 ? (overrideBy || null) : null,
         transportAndLifting: totalTransport || null,
         lineOverrides: lines.map((l) => {
