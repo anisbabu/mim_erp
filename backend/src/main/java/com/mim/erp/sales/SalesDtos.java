@@ -8,19 +8,14 @@ public class SalesDtos {
 
     /**
      * One allocation: take `qty` of a product FROM a specific warehouse. discountAmt is a flat line discount (null = 0).
-     * qtyNow (sales orders only): how much the customer takes today; the rest stays pending.
-     * null = all of it when a warehouse is set, none when it isn't.
+     * Sales orders: the whole qty is delivered at order time when a warehouse is set; with no warehouse it stays pending.
      */
     public record Allocation(UUID productId, UUID warehouseId, BigDecimal qty, BigDecimal unitPrice,
-                             BigDecimal discountAmt, BigDecimal qtyNow) {
-        public Allocation(UUID productId, UUID warehouseId, BigDecimal qty, BigDecimal unitPrice, BigDecimal discountAmt) {
-            this(productId, warehouseId, qty, unitPrice, discountAmt, null);
-        }
+                             BigDecimal discountAmt) {
 
         /** Quantity delivered at order time. */
         public BigDecimal deliverNow() {
-            if (warehouseId == null) return BigDecimal.ZERO;
-            return qtyNow != null ? qtyNow : qty;
+            return warehouseId == null ? BigDecimal.ZERO : qty;
         }
     }
 

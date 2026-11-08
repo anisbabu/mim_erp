@@ -75,9 +75,17 @@ public class InventoryController {
 
     /** Per-warehouse availability for a product — drives the sales-order stock picker. */
     @GetMapping("/availability")
-    public List<StockLayerRepository.WarehouseStock> availability(@RequestParam UUID productId) {
-        return layers.availabilityByWarehouse(productId);
+    public List<WarehouseAvailability> availability(@RequestParam UUID productId) {
+        return layers.availabilityByWarehouse(productId).stream()
+            .map(w -> new WarehouseAvailability(w.getWarehouseId(), w.getQty(),
+                // unit cost of the layer FIFO would consume next in that warehouse
+                layers.findFirstByProductIdAndWarehouseIdAndQtyRemainingGreaterThanOrderByReceivedDateAscSeqAsc(
+                        productId, w.getWarehouseId(), BigDecimal.ZERO)
+                    .map(StockLayer::getUnitCost).orElse(null)))
+            .toList();
     }
+
+    public record WarehouseAvailability(UUID warehouseId, BigDecimal qty, BigDecimal unitCost) {}
 
     /** Available qty of a product in a specific warehouse. */
     @GetMapping("/available")

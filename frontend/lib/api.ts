@@ -159,7 +159,7 @@ export type Returnable = {
 export type PickupLine = { productId: string; productName: string; qty: number };
 export type PickupView = { dcId: string; dcNo: string; date: string; warehouseName: string; lines: PickupLine[] };
 
-export type WarehouseStock = { warehouseId: string; qty: number };
+export type WarehouseStock = { warehouseId: string; qty: number; unitCost?: number | null };
 export type StockRow = { productId: string; warehouseId: string; qty: number; value: number };
 export type SupplierStockRow = { supplierId: string | null; productId: string; qty: number; value: number };
 export type StockStatusRow = { productId: string; onHand: number; committed: number; available: number; onOrder: number; value: number };

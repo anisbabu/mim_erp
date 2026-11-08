@@ -10,10 +10,7 @@ import QuickCustomer from "@/components/QuickCustomer";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { useI18n } from "@/lib/i18n";
 
-// takeNow: qty the customer picks up today ("" = all of it); the rest stays pending on the order
-type Line = { productId: string; warehouseId: string; qty: string; takeNow: string; unitPrice: string };
-
-const takeNowQty = (l: Line) => (l.takeNow === "" ? Number(l.qty) || 0 : Number(l.takeNow) || 0);
+type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 
 export default function NewSalePage() {
   const { user, activeShopId } = useAuth();
@@ -32,7 +29,7 @@ export default function NewSalePage() {
   const [salespersonId, setSalespersonId] = useState("");
   const [localShopId, setLocalShopId]   = useState("");
   const [paymentMode, setPaymentMode]   = useState<"CASH" | "CREDIT">("CASH");
-  const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", takeNow: "", unitPrice: "" }]);
+  const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
   const [overrideBy, setOverrideBy] = useState("");
   const [discountBy, setDiscountBy] = useState("");
   const [discount, setDiscount]     = useState("");
@@ -96,7 +93,7 @@ export default function NewSalePage() {
         const p = (l.productId && products.find((x) => x.id === l.productId)) || products.find((x) => x.name === l.name || x.fullName === l.name || x.nameBn === l.name);
         if (!p) { skipped.push(l.name); continue; }
         disc += Number(l.discount) || 0;
-        next.push({ productId: p.id, warehouseId: "", qty: String(l.qty), takeNow: "", unitPrice: String(l.unitPrice) });
+        next.push({ productId: p.id, warehouseId: "", qty: String(l.qty), unitPrice: String(l.unitPrice) });
       }
       if (next.length) {
         setLines(next);
@@ -118,7 +115,7 @@ export default function NewSalePage() {
     () => salespeople.map((s) => ({ value: s.id, label: s.fullName || s.username })),
     [salespeople]);
   const productOpts: Option[] = useMemo(
-    () => products.map((p) => {
+    () => products.filter((p) => p.active !== false).map((p) => {
       const supplierName = p.supplierId && supplierById[p.supplierId] ? dn(supplierById[p.supplierId]) : undefined;
       const thickness = p.thicknessLabel ?? (p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined);
       const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
@@ -147,19 +144,30 @@ export default function NewSalePage() {
       setStockPanel(s);
       setStockByProduct((m) => ({ ...m, [productId]: s }));
       const stocked = s.filter((x) => x.qty > 0);
-      if (stocked.length === 1) update(i, { warehouseId: stocked[0].warehouseId });
+      // unit price = FIFO cost from stock_layer (the only warehouse, or the first one until a warehouse is picked)
+      const first = stocked[0];
+      const patch: Partial<Line> = {};
+      if (stocked.length === 1) patch.warehouseId = first.warehouseId;
+      if (first?.unitCost != null) patch.unitPrice = String(first.unitCost);
+      update(i, patch);
     } catch { setStockPanel([]); }
+  }
+
+  // choosing a warehouse also sets the unit price to that warehouse's next FIFO layer cost
+  function pickWarehouse(i: number, warehouseId: string) {
+    const cost = stockByProduct[lines[i]?.productId]?.find((s) => s.warehouseId === warehouseId)?.unitCost;
+    update(i, cost != null ? { warehouseId, unitPrice: String(cost) } : { warehouseId });
   }
 
   function pickWarehouseFromPanel(warehouseId: string) {
     if (panelLineIndex == null) return;
-    update(panelLineIndex, { warehouseId });
+    pickWarehouse(panelLineIndex, warehouseId);
   }
 
   function update(i: number, patch: Partial<Line>) {
     setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   }
-  const addLine    = () => setLines((ls) => [...ls, { productId: "", warehouseId: "", qty: "", takeNow: "", unitPrice: "" }]);
+  const addLine    = () => setLines((ls) => [...ls, { productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
   const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
   function bandState(l: Line): "ok" | "out" | "none" {
@@ -182,7 +190,7 @@ export default function NewSalePage() {
 
   const pendingWarnings = useMemo(() => {
     const wantByProduct: Record<string, number> = {};
-    for (const l of lines) if (l.productId && l.warehouseId) wantByProduct[l.productId] = (wantByProduct[l.productId] ?? 0) + takeNowQty(l);
+    for (const l of lines) if (l.productId && l.warehouseId) wantByProduct[l.productId] = (wantByProduct[l.productId] ?? 0) + (Number(l.qty) || 0);
     return Object.entries(wantByProduct).flatMap(([pid, want]) => {
       const waiting = committedByProduct[pid] ?? [];
       if (!waiting.length || want <= 0) return [];
@@ -212,15 +220,11 @@ export default function NewSalePage() {
         : 0;
       if (!isLast) assigned += lineDisc;
       return { productId: l.productId, warehouseId: l.warehouseId || null, qty: Number(l.qty),
-               qtyNow: l.warehouseId ? takeNowQty(l) : null, unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
+               unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
     });
     if (!allocations.length) { setMsg({ kind: "err", text: t("Add at least one line with qty.") }); return; }
-    if (validLines.some((l) => takeNowQty(l) < 0 || takeNowQty(l) > Number(l.qty))) {
-      setMsg({ kind: "err", text: t("Take now must be between 0 and the ordered qty.") }); return;
-    }
-    if (anyOutOfBand && !overrideBy.trim()) {
-      setMsg({ kind: "err", text: t("A price is out of band — enter the authoriser name to override.") }); return;
-    }
+    // out-of-band price is only a warning here (red hint stays on the line); the order still saves,
+    // with a placeholder authoriser so the backend's audit column is filled
     if (anyDiscount && !discountBy.trim()) {
       setMsg({ kind: "err", text: t("Discount requires an authoriser — enter their name.") }); return;
     }
@@ -229,7 +233,7 @@ export default function NewSalePage() {
       const res: any = await endpoints.createOrder({
         shopId, customerId, salespersonId: needsSalesperson ? salespersonId : null, paymentMode, allocations,
         creditOverrideBy:    overrideBy || null,
-        priceOverrideBy:     overrideBy.trim() || null,   // server keeps it only on lines that need it (band or below FIFO cost)
+        priceOverrideBy:     overrideBy.trim() || "(not authorised)",   // server keeps it only on lines that need it (band or below FIFO cost)
         discountBy:          anyDiscount  ? discountBy : null,
         transportAndLifting: totalTransport || null,
         deliveryAddress:     deliveryAddress.trim() || null,
@@ -354,7 +358,6 @@ export default function NewSalePage() {
                 <th>{t("Product")}</th>
                 <th style={{ width: 150 }}>{t("Warehouse")}</th>
                 <th className="text-right" style={{ width: 90 }}>{t("Qty")}</th>
-                <th className="text-right" style={{ width: 90 }} title={t("How much the customer takes today; the rest stays pending")}>{t("Take now")}</th>
                 <th className="text-right" style={{ width: 110 }}>{t("Unit price")}</th>
                 <th className="text-right" style={{ width: 120 }}>{t("Gross total")}</th>
                 <th style={{ width: 40 }}></th>
@@ -379,7 +382,7 @@ export default function NewSalePage() {
                       </div>
                     </td>
                     <td className="align-top">
-                      <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
+                      <select className="inp" value={l.warehouseId} onChange={(e) => pickWarehouse(i, e.target.value)}>
                         <option value="">{t("Select…")}</option>
                         {stockedWarehouses.map((w) => (
                           <option key={w.id} value={w.id}>
@@ -398,15 +401,6 @@ export default function NewSalePage() {
                         type="number" min={0} value={l.qty}
                         onChange={(e) => update(i, { qty: e.target.value })} />
                       <div className="h-4 mt-1" />
-                    </td>
-                    <td className="text-right align-top">
-                      <input className="inp text-right tabular-nums" style={{ width: 75, marginLeft: "auto" }}
-                        type="number" min={0} value={l.warehouseId ? l.takeNow : ""} placeholder={l.warehouseId ? l.qty : "0"}
-                        disabled={!l.warehouseId}
-                        onChange={(e) => update(i, { takeNow: e.target.value })} />
-                      <div className="text-[11px] mt-1 h-4 leading-4 whitespace-nowrap" style={{ color: "#b4690e" }}>
-                        {l.warehouseId && Number(l.qty) - takeNowQty(l) > 0 ? `${Number(l.qty) - takeNowQty(l)} ${t("pending")}` : ""}
-                      </div>
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums"
@@ -466,7 +460,7 @@ export default function NewSalePage() {
                 </div>
                 <div className="field">
                   <label className="text-xs muted block mb-1">{t("Warehouse")}</label>
-                  <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
+                  <select className="inp" value={l.warehouseId} onChange={(e) => pickWarehouse(i, e.target.value)}>
                     <option value="">{t("Select…")}</option>
                     {stockedWarehouses.map((w) => (
                       <option key={w.id} value={w.id}>
@@ -485,15 +479,6 @@ export default function NewSalePage() {
                     <label className="text-xs muted block mb-1">{t("Qty")}</label>
                     <input className="inp text-right tabular-nums w-full" type="number" min={0}
                       value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-xs muted block mb-1">{t("Take now")}</label>
-                    <input className="inp text-right tabular-nums w-full" type="number" min={0}
-                      value={l.warehouseId ? l.takeNow : ""} placeholder={l.warehouseId ? l.qty : "0"} disabled={!l.warehouseId}
-                      onChange={(e) => update(i, { takeNow: e.target.value })} />
-                    <div className="text-[11px] mt-0.5 h-4 leading-4" style={{ color: "#b4690e" }}>
-                      {l.warehouseId && Number(l.qty) - takeNowQty(l) > 0 ? `${Number(l.qty) - takeNowQty(l)} ${t("pending")}` : ""}
-                    </div>
                   </div>
                   <div>
                     <label className="text-xs muted block mb-1">{t("Unit price")}</label>
