@@ -22,7 +22,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-ash">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <div className="font-mono text-brand text-lg">MIM</div>
+          <div className="text-2xl font-semibold tracking-tight" style={{ color: "var(--brand)" }}>MIM ERP</div>
           <div className="text-xs muted">{t("Plywood & Hardware")}</div>
         </div>
         <div className="card p-6">

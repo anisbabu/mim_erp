@@ -142,7 +142,7 @@ export default function ChallanPage() {
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: "#0f766e" }}>
+                <tr style={{ background: "var(--brand)" }}>
                   <th className="text-left text-xs font-semibold px-3 py-2 text-white">{t("Warehouse")}</th>
                   <th className="text-right text-xs font-semibold px-3 py-2 text-white">{t("Qty")}</th>
                 </tr>
@@ -162,7 +162,7 @@ export default function ChallanPage() {
                       }}>
                       <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
-                          style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
+                          style={{ color: s.qty === 0 ? "#b4690e" : "var(--brand)" }}>{s.qty}</td>
                     </tr>
                   );
                 })}

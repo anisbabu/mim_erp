@@ -7,7 +7,7 @@ const config: Config = {
     extend: {
       colors: {
         ink: "#0f172a",                       // slate-900, primary text
-        brand: { DEFAULT: "#0f766e", dark: "#0b5e57", soft: "#e6f2f0" }, // refined teal-green
+        brand: { DEFAULT: "#714b67", dark: "#5f3f57", soft: "#f3eef2" }, // Odoo-style plum
         ash: "#f1f5f9",                        // slate-100 sidebar
         ashdark: "#e2e8f0",                    // slate-200
         line: "#e8edf2",

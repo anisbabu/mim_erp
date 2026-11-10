@@ -150,6 +150,8 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Password": { en: "Password", bn: "পাসওয়ার্ড" },
   "Loading…": { en: "Loading…", bn: "লোড হচ্ছে…" },
   "Active shop": { en: "Active shop", bn: "সক্রিয় দোকান" },
+  "Apps": { en: "Apps", bn: "অ্যাপস" },
+  "Menu": { en: "Menu", bn: "মেনু" },
   // nav groups
   "Dashboard": { en: "Dashboard", bn: "ড্যাশবোর্ড" },
   "Purchase": { en: "Purchase", bn: "ক্রয়" },

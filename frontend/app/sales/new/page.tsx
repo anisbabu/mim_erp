@@ -263,7 +263,7 @@ export default function NewSalePage() {
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: "#0f766e" }}>
+                <tr style={{ background: "var(--brand)" }}>
                   <th className="text-left text-xs font-semibold px-3 py-2 text-white">{t("Warehouse")}</th>
                   <th className="text-right text-xs font-semibold px-3 py-2 text-white">{t("Qty")}</th>
                 </tr>
@@ -283,7 +283,7 @@ export default function NewSalePage() {
                       }}>
                       <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
-                          style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
+                          style={{ color: s.qty === 0 ? "#b4690e" : "var(--brand)" }}>{s.qty}</td>
                     </tr>
                   );
                 })}
@@ -316,7 +316,7 @@ export default function NewSalePage() {
         )}
         <div className="field">
           <label className="flex items-center justify-between">{t("Customer")}
-            <button type="button" className="text-[12px] font-medium" style={{ color: "#0f766e" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
+            <button type="button" className="text-[12px] font-medium" style={{ color: "var(--brand)" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
           <SearchSelect options={customerOpts} value={customerId}
             onChange={pickCustomer} placeholder={t("Search name or mobile…")} />
         </div>
@@ -519,7 +519,7 @@ export default function NewSalePage() {
               type="number" min={0} placeholder="0"
               value={transport} onChange={(e) => setTransport(e.target.value)} />
             <span className="text-xs muted font-semibold text-right">{t("Net total")}</span>
-            <span className="tabular-nums font-bold text-right text-base" style={{ color: "#0f766e" }}>
+            <span className="tabular-nums font-bold text-right text-base" style={{ color: "var(--brand)" }}>
               {netTotal.toFixed(2)}
             </span>
           </div>

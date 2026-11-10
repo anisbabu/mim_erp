@@ -398,7 +398,7 @@ function DocGroup({ label, busy, offTitle, titles, onOpen, onDownload, onShare }
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
         </button>
         <button className={cell} style={sep} disabled={off} title={offTitle ?? titles[1]} onClick={onDownload}><Download size={14} /></button>
-        <button className={cell} style={{ ...sep, color: "#0f766e" }} disabled={off} title={offTitle ?? titles[2]} onClick={onShare}><Share2 size={14} /></button>
+        <button className={cell} style={{ ...sep, color: "var(--brand)" }} disabled={off} title={offTitle ?? titles[2]} onClick={onShare}><Share2 size={14} /></button>
       </div>
     </div>
   );

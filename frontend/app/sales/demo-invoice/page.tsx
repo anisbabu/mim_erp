@@ -147,7 +147,7 @@ export default function DemoInvoicePage() {
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}>
             <label className="flex items-center justify-between">{t("Pick an existing customer (optional)")}
-              <button type="button" className="text-[12px] font-medium" style={{ color: "#0f766e" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
+              <button type="button" className="text-[12px] font-medium" style={{ color: "var(--brand)" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
             <SearchSelect options={custOpts} value={custId} onChange={pickCustomer} placeholder={t("Select…")} />
           </div>
           <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Customer name")}</label>
