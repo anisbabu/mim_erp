@@ -54,8 +54,9 @@ public class SecurityConfig {
                         "/api/accounting/accounts").authenticated()
                 // sales staff can add a customer from the sales screens
                 .requestMatchers(HttpMethod.POST, "/api/master/customers").hasAnyRole("SALESPERSON", "MANAGER", "ADMIN")
-                // master data writes
-                .requestMatchers(HttpMethod.POST, "/api/master/**").hasRole("ADMIN")
+                // master data writes — every method, not only POST: PUT and DELETE used to fall through
+                // to "any authenticated user", so any role could edit or delete master records
+                .requestMatchers("/api/master/**").hasRole("ADMIN")
                 // purchasing
                 .requestMatchers("/api/purchase/**").hasAnyRole("MANAGER", "ADMIN")
                 // stock adjustments + variance report
