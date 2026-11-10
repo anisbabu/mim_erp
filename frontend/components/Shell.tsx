@@ -25,8 +25,8 @@ const BOOKS: Role[] = ["ACCOUNTANT", "ADMIN"];
 // one group = one app: tile in the app switcher, its items become the top menu
 type Group = { label: string; icon: LucideIcon; color: string; items: Entry[] };
 const groups: Group[] = [
-  { label: "", icon: LayoutDashboard, color: "#714b67", items: [{ href: "/", label: "Dashboard", roles: ALL, icon: LayoutDashboard }] },
-  { label: "Purchase", icon: ShoppingCart, color: "#017e84", items: [
+  { label: "", icon: LayoutDashboard, color: "#1d4f91", items: [{ href: "/", label: "Dashboard", roles: ALL, icon: LayoutDashboard }] },
+  { label: "Purchase", icon: ShoppingCart, color: "#0f8a7e", items: [
     { href: "/purchase/orders/new", label: "Purchase Order", roles: ["MANAGER", "ADMIN"], icon: ShoppingCart },
     { href: "/purchase/orders", label: "Purchase Order List", roles: ["MANAGER", "ADMIN"], icon: ClipboardList },
     { href: "/purchase/receive", label: "Receive goods", roles: ["MANAGER", "ADMIN"], icon: PackageCheck },

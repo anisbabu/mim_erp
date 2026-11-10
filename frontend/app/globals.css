@@ -4,11 +4,11 @@
 
 /* ─── Theme tokens ──────────────────────────────────────────────────────────── */
 :root {
-  --brand:             #714b67;   /* Odoo-style plum: navbar, primary buttons */
-  --brand-dark:        #5f3f57;
-  --brand-soft:        #f3eef2;
-  --action:            #017e84;   /* links, focus, secondary accents */
-  --nav-bg:            #714b67;
+  --brand:             #1d4f91;   /* corporate blue: navbar, primary buttons */
+  --brand-dark:        #173f75;
+  --brand-soft:        #eaf1fa;
+  --action:            #1a66c2;   /* links, focus, secondary accents */
+  --nav-bg:            #1d4f91;
   --btn2-bg:           #e7e9ed;
   --btn2-hover:        #d8dadd;
   --bg:                #f9fafb;
@@ -59,11 +59,11 @@ html.dark {
   --st-today-bg:       #431407;  --st-today-fg:    #fed7aa;  --st-today-bd:   #c2410c;
   --st-soon-bg:        #422006;  --st-soon-fg:     #fde68a;  --st-soon-bd:    #a16207;
   --st-later-bg:       #134e4a;  --st-later-fg:    #99f6e4;  --st-later-bd:   #0f766e;
-  --brand:             #9a6b8c;
-  --brand-dark:        #87597a;
-  --brand-soft:        #3a2f3a;
-  --action:            #4fc3c9;
-  --nav-bg:            #3c2a38;
+  --brand:             #3f7fd0;
+  --brand-dark:        #346db8;
+  --brand-soft:        #22324d;
+  --action:            #7cb0ff;
+  --nav-bg:            #14233b;
   --btn2-bg:           #3c3f4c;
   --btn2-hover:        #4a4e5c;
   --bg:                #1b1d26;
@@ -76,7 +76,7 @@ html.dark {
   --input-bg:          #262a36;
   --input-disabled-bg: #2e3240;
   --placeholder:       #7b8190;
-  --header-bg:         #3c2a38;
+  --header-bg:         #14233b;
   --aside-bg:          #20232d;
   --aside-border:      #3c3f4c;
   --aside-text:        #d0d3da;
@@ -98,6 +98,10 @@ html.dark {
     background: var(--bg);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv11", "ss01", "calt";   /* Inter: single-storey a, open digits */
+    letter-spacing: -0.006em;
     font-size: 16px;
     font-weight: 400;
   }
@@ -145,7 +149,7 @@ html.dark {
   html.dark select.inp {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%238099cc' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
   }
-  /* Shop picker — soft plum tint so the active sales scope stands out. */
+  /* Shop picker — soft blue tint so the active sales scope stands out. */
   .inp-shop {
     background-color: var(--brand-soft);
     border-bottom-color: var(--brand);
@@ -201,7 +205,7 @@ html.dark {
     border: 1px solid transparent;
   }
   .btn-icon-edit { color: var(--action); }
-  .btn-icon-edit:hover { background: #e6f4f4; border-color: #9fd3d6; }
+  .btn-icon-edit:hover { background: #eaf1fa; border-color: #b3cdee; }
   .btn-icon-del  { color: #dc2626; }
   .btn-icon-del:hover  { background: #fef2f2; border-color: #fca5a5; }
   html.dark .btn-icon-edit:hover { background: #064e3b; border-color: #065f46; }
@@ -282,6 +286,8 @@ html.dark {
 @media (max-width: 640px) {
   .form-grid > [style*="grid-column"] { grid-column: auto !important; }
 }
+
+.font-mono { font-variant-numeric: tabular-nums; letter-spacing: 0; }
 
 /* Token aliases */
 .bg-body    { background: var(--bg); }
