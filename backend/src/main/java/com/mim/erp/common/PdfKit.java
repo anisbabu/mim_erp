@@ -11,7 +11,15 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfWriter;
 
 import java.awt.Color;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Per-document helper for PDFs that can print in English or Bangla. Text with Bengali characters
@@ -49,6 +57,42 @@ public final class PdfKit {
     public String name(String nameBn, String name) {
         return bn && nameBn != null && !nameBn.isBlank() ? nameBn : name;
     }
+
+    private static final DateTimeFormatter DMY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /** Printed date, dd/MM/yyyy; empty when there is none. */
+    public static String date(LocalDate d) {
+        return d == null ? "" : d.format(DMY);
+    }
+
+    /** Quantity with its unit: "30 PCS", or "30 পিস" in Bangla. 1 not 1.00; 2.5 stays. No unit = number only. */
+    public String qty(BigDecimal qty, String unit) {
+        String n = qty.stripTrailingZeros().toPlainString();
+        if (unit == null || unit.isBlank()) return n;
+        String u = unit.trim().toUpperCase(Locale.ROOT);
+        return n + " " + (bn ? UNIT_BN.getOrDefault(u, u) : u);
+    }
+
+    /** The unit every listed product shares, or null when they differ (a total across units has no unit). */
+    public static String sharedUnit(Collection<UUID> productIds, Map<UUID, String> units) {
+        Set<String> seen = new HashSet<>();
+        for (UUID id : productIds) {
+            String u = units.get(id);
+            seen.add(u == null ? "" : u.trim().toUpperCase(Locale.ROOT));
+        }
+        return seen.size() == 1 ? seen.iterator().next() : null;
+    }
+
+    private static final Map<String, String> UNIT_BN = Map.ofEntries(
+        Map.entry("PCS", "পিস"), Map.entry("PC", "পিস"),
+        Map.entry("FT", "ফুট"), Map.entry("SFT", "বর্গফুট"),
+        Map.entry("INCH", "ইঞ্চি"), Map.entry("IN", "ইঞ্চি"),
+        Map.entry("MTR", "মিটার"), Map.entry("M", "মিটার"),
+        Map.entry("KG", "কেজি"), Map.entry("GM", "গ্রাম"), Map.entry("LTR", "লিটার"),
+        Map.entry("BOX", "বক্স"), Map.entry("PAC", "প্যাকেট"), Map.entry("PKT", "প্যাকেট"),
+        Map.entry("ROLL", "রোল"), Map.entry("SET", "সেট"), Map.entry("PAIR", "জোড়া"),
+        Map.entry("DOZ", "ডজন"), Map.entry("BAG", "ব্যাগ"), Map.entry("SHEET", "শিট")
+    );
 
     /** Column widths in points for a table spanning the page, from relative widths. */
     public float[] cols(float... ratios) {
@@ -143,9 +187,9 @@ public final class PdfKit {
         Map.entry("TOTAL ITEMS", "মোট পণ্য"),
         Map.entry("Thank you for your business.", "আপনার ব্যবসার জন্য ধন্যবাদ।"),
         Map.entry("Received by", "গ্রহণকারী"),
-        Map.entry("Seller's by", "বিক্রেতা"),
+        Map.entry("Seller's Signature", "বিক্রেতার স্বাক্ষর"),
+        Map.entry("Customer Signature", "গ্রাহকের স্বাক্ষর"),
         Map.entry("Dispatched by", "প্রেরক"),
-        Map.entry("Checked by", "যাচাইকারী"),
         Map.entry("Received on", "গ্রহণের তারিখ"),
         Map.entry("Mobile", "মোবাইল"),
         Map.entry("Cheque no.", "চেক নং"),
