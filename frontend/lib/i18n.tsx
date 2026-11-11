@@ -166,6 +166,7 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Action": { en: "Action", bn: "কাজ" },
   "Record": { en: "Record", bn: "রেকর্ড" },
   "Changed fields": { en: "Changed fields", bn: "পরিবর্তিত ফিল্ড" },
+  "What changed": { en: "What changed (old → new)", bn: "কী পরিবর্তন হয়েছে (আগে → পরে)" },
   "IP address": { en: "IP address", bn: "আইপি ঠিকানা" },
   "User agent": { en: "User agent", bn: "ব্রাউজার" },
   "Old value": { en: "Old value", bn: "আগের মান" },
