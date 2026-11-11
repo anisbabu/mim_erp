@@ -26,6 +26,7 @@ export default function SearchSelect({
   const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
 
   const selected = options.find((o) => o.value === value) || null;
 
@@ -60,11 +61,20 @@ export default function SearchSelect({
     setOpen((o) => !o);
   }
 
-  function pick(v: string) { onChange(v); setOpen(false); setQ(""); }
+  // closing hands focus back to the field, so Tab carries on to the next field of the form
+  function close() { setOpen(false); setQ(""); btnRef.current?.focus(); }
+  function pick(v: string) { onChange(v); close(); }
 
   return (
     <div className={`relative ${className ?? ""}`} ref={boxRef}>
-      <button type="button" disabled={disabled} onClick={toggle}
+      <button type="button" ref={btnRef} disabled={disabled} onClick={toggle}
+        onKeyDown={(e) => {
+          // start typing on the focused field to search straight away
+          if (open || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || e.key === " ") return;
+          e.preventDefault();
+          setQ(e.key); setHi(0);
+          toggle();
+        }}
         className="inp text-left flex items-center justify-between" style={{ width: "100%" }}>
         <span className={selected ? "" : "text-[#8b929b]"}
               style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -83,7 +93,9 @@ export default function SearchSelect({
                 if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(h + 1, filtered.length - 1)); }
                 else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
                 else if (e.key === "Enter") { e.preventDefault(); if (filtered[hi]) pick(filtered[hi].value); }
-                else if (e.key === "Escape") { setOpen(false); setQ(""); }
+                else if (e.key === "Escape") close();
+                // the list lives at the end of <body>: go back to the field first so Tab moves on from there
+                else if (e.key === "Tab") close();
               }} />
           </div>
           <div style={{ maxHeight: 240, overflowY: "auto" }}>
