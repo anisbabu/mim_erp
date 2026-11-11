@@ -563,45 +563,16 @@ public class SalesService {
             acct.setTotalWidth(boxW);
             acct.setLockedWidth(true);
             acct.setWidths(new float[]{3f, 2f});
-            acctRow(acct, kit, kit.l("Previous balance"), fmt(bal[0]), false, boxW * 0.6f, boxW * 0.4f);
-            acctRow(acct, kit, kit.l(credit ? "This invoice (on credit)" : "Paid in cash"), fmt(grandTotal), false, boxW * 0.6f, boxW * 0.4f);
-            acctRow(acct, kit, kit.l("BALANCE DUE"), fmt(bal[1]), true, boxW * 0.6f, boxW * 0.4f);
+            // sits on the left, where the old previous-balance status box was
+            acct.setHorizontalAlignment(Element.ALIGN_LEFT);
+            acct.setSpacingBefore(6);
+            acct.setSpacingAfter(8);
+            acctRow(acct, kit, kit.l("Previous Balance"), fmt(bal[0]), false, boxW * 0.6f, boxW * 0.4f);
+            acctRow(acct, kit, kit.l(credit ? "This Invoice (On Credit)" : "Paid In Cash"), fmt(grandTotal), false, boxW * 0.6f, boxW * 0.4f);
+            acctRow(acct, kit, kit.l("Balance Due"), fmt(bal[1]), true, boxW * 0.6f, boxW * 0.4f);
+            doc.add(acct);
 
-            // separate previous-balance status box beside it: owed (Dr), advance held (Cr) or clear
-            float statW = kit.pageWidth() * 0.37f;
-            String status = bal[0].signum() > 0 ? "Due (Dr)" : bal[0].signum() < 0 ? "Advance (Cr)" : "Clear (nil)";
-            PdfPTable stat = new PdfPTable(1);
-            stat.setTotalWidth(statW);
-            stat.setLockedWidth(true);
-            stat.setHorizontalAlignment(Element.ALIGN_LEFT);
-            PdfPCell sh = kit.cell(kit.l("PREVIOUS BALANCE STATUS"), true, 7.5f, PdfKit.INK, Element.ALIGN_CENTER, statW, 5);
-            sh.setBackgroundColor(PdfKit.TINT);
-            sh.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            centerInk(sh, kit.l("PREVIOUS BALANCE STATUS"));
-            stat.addCell(sh);
-            PdfPCell sv = kit.cell(kit.l(status) + "  " + fmt(bal[0].abs()), true, 10, Color.BLACK, Element.ALIGN_CENTER, statW, 8);
-            sv.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            centerInk(sv, kit.l(status));
-            stat.addCell(sv);
-
-            PdfPTable pair = new PdfPTable(2);
-            pair.setWidthPercentage(100);
-            pair.setWidths(new float[]{kit.pageWidth() - boxW, boxW});
-            pair.setSpacingBefore(6);
-            pair.setSpacingAfter(8);
-            PdfPCell left = new PdfPCell(stat);
-            left.setBorder(Rectangle.NO_BORDER);
-            left.setPadding(0);
-            left.setVerticalAlignment(Element.ALIGN_TOP);
-            PdfPCell right = new PdfPCell(acct);
-            right.setBorder(Rectangle.NO_BORDER);
-            right.setPadding(0);
-            right.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            pair.addCell(left);
-            pair.addCell(right);
-            doc.add(pair);
-
-            doc.add(kit.para(kit.l("Thank you for your business."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));
+            doc.add(kit.para(kit.l("Thank you for your business with us."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));
             }, "Customer Signature", salespersonName(bn, so.getSalespersonId()))));
         } catch (Exception e) {
             log.error("generateInvoicePdf failed for SO {}", soId, e);
@@ -1080,11 +1051,17 @@ public class SalesService {
     }
 
     /** Net line value = qty × unitPrice − flat discount amount. */
+    /**
+     * Net value of one line, worked from the figures as they are stored (qty, price and discount
+     * columns hold 2 decimals) and rounded per line exactly like the invoice PDF. The screen can send
+     * prices such as 2371.7647; posting the unrounded value left the ledger 1 paisa off the invoice.
+     */
     private static BigDecimal lineNet(BigDecimal qty, BigDecimal unitPrice, BigDecimal discountAmt) {
-        BigDecimal gross = qty.multiply(unitPrice);
-        return discountAmt == null || discountAmt.compareTo(BigDecimal.ZERO) == 0
-            ? gross : gross.subtract(discountAmt);
+        BigDecimal gross = money(qty).multiply(money(unitPrice)).setScale(2, RoundingMode.HALF_UP);
+        return discountAmt == null ? gross : gross.subtract(money(discountAmt));
     }
+
+    private static BigDecimal money(BigDecimal v) { return v.setScale(2, RoundingMode.HALF_UP); }
 
     /**
      * Bangla text cells are an image whose blank leading/descender space sits below the ink, so a

@@ -1,7 +1,6 @@
 {
   "permissions": {
     "deny": [
-      "Read(./document/**)",
       "Read(./**/node_modules/**)",
       "Read(./frontend/.next/**)",
       "Read(./backend/target/**)",
