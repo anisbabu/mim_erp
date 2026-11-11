@@ -7,6 +7,9 @@ import com.lowagie.text.FontFactory;
 import com.lowagie.text.Image;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
+import com.lowagie.text.Rectangle;
+import com.lowagie.text.pdf.PdfBoolean;
+import com.lowagie.text.pdf.PdfName;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfWriter;
 
@@ -41,6 +44,47 @@ public final class PdfKit {
         this.bn = bn;
         this.writer = writer;
         this.pageW = doc.right() - doc.left();
+    }
+
+    private static final float CM = 72f / 2.54f;   // points per centimetre
+
+    /** Inner padding inside the slip margins: 0.5 mm at top, left and right. */
+    public static final float SLIP_PAD = 0.05f * CM;
+    /** Inner padding above the bottom margin: 1 mm. */
+    public static final float SLIP_PAD_BOTTOM = 0.1f * CM;
+
+    /**
+     * Blank sales slip (invoice, challan, token) for pre-printed stationery: page 5.5 x 8.5 in,
+     * margins top 3.5 cm (letterhead), bottom 1.5 cm, left and right 0.5 cm, plus padding inside them
+     * (0.5 mm top/left/right, 1 mm bottom). Content starts on the padded top edge and the signature
+     * block sits on the padded bottom edge.
+     */
+    public static Document slip() {
+        return new Document(new Rectangle(5.5f * 72f, 8.5f * 72f),
+            0.5f * CM + SLIP_PAD, 0.5f * CM + SLIP_PAD, 3.5f * CM + SLIP_PAD, 1.5f * CM + SLIP_PAD_BOTTOM);
+    }
+
+    /**
+     * Ask the viewer to print at 100 % ("actual size") and pick paper by the PDF page size. Without it a
+     * browser or Acrobat shrinks the page to fit the printer's paper, and every margin comes out wrong.
+     */
+    public static void printActualSize(PdfWriter writer) {
+        writer.addViewerPreference(PdfName.PRINTSCALING, PdfName.NONE);
+        writer.addViewerPreference(PdfName.PICKTRAYBYPDFSIZE, PdfBoolean.PDFTRUE);
+    }
+
+    /**
+     * Slip title as the first line of the page: the tops of its capitals sit on the top margin itself,
+     * not one line-spacing lower, so the measured 3.5 cm is where the print starts.
+     */
+    public Element title(String text, float size, Color color, int align, float before, float after) {
+        if (BanglaPdf.hasBengali(text)) return para(text, true, false, size, color, align, before, after);
+        Paragraph p = new Paragraph(text, font(true, false, size, color));
+        p.setLeading(size * 0.72f);   // Helvetica cap height: baseline sits one cap height below the margin
+        p.setAlignment(align);
+        p.setSpacingBefore(before);
+        p.setSpacingAfter(after + size * 0.3f);
+        return p;
     }
 
     public static boolean isBn(String lang) { return "bn".equalsIgnoreCase(lang); }
@@ -156,13 +200,11 @@ public final class PdfKit {
         Map.entry("BALANCE DUE", "মোট বাকি"),
         Map.entry("Transport & lifting", "পরিবহন ও উঠানামা"),
         Map.entry("DELIVERY CHALLAN", "ডেলিভারি চালান"),
-        Map.entry("WAREHOUSE DISPATCH TOKEN", "গুদাম ডিসপ্যাচ টোকেন"),
+        Map.entry("TOKEN", "টোকেন"),
         Map.entry("CHEQUE RECEIPT", "চেক প্রাপ্তি রসিদ"),
         Map.entry("Invoice No", "ইনভয়েস নং"),
         Map.entry("Order No", "অর্ডার নং"),
         Map.entry("Challan No", "চালান নং"),
-        Map.entry("Challan(s)", "চালান"),
-        Map.entry("DC No", "চালান নং"),
         Map.entry("Date", "তারিখ"),
         Map.entry("Payment", "পেমেন্ট"),
         Map.entry("CASH", "নগদ"),
@@ -195,6 +237,8 @@ public final class PdfKit {
         Map.entry("Cheque no.", "চেক নং"),
         Map.entry("Bank", "ব্যাংক"),
         Map.entry("Branch", "শাখা"),
+        Map.entry("Branch Name", "শাখার নাম"),
+        Map.entry("Address", "ঠিকানা"),
         Map.entry("Maturity date", "পাকার তারিখ"),
         Map.entry("Amount", "টাকার পরিমাণ"),
         Map.entry("In words", "কথায়"),
