@@ -567,7 +567,7 @@ public class SalesService {
             acct.setHorizontalAlignment(Element.ALIGN_LEFT);
             acct.setSpacingBefore(6);
             acct.setSpacingAfter(8);
-            acctRow(acct, kit, kit.l("Previous Balance"), fmt(bal[0]), false, boxW * 0.6f, boxW * 0.4f);
+            acctRow(acct, kit, kit.l("Previous Balance"), fmt(bal[0]), true, boxW * 0.6f, boxW * 0.4f);
             acctRow(acct, kit, kit.l(credit ? "This Invoice (On Credit)" : "Paid In Cash"), fmt(grandTotal), false, boxW * 0.6f, boxW * 0.4f);
             acctRow(acct, kit, kit.l("Balance Due"), fmt(bal[1]), true, boxW * 0.6f, boxW * 0.4f);
             doc.add(acct);
