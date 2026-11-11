@@ -875,7 +875,21 @@ public class SalesService {
 
         List<DeliveryChallan> dcList = challans.findBySoIdWithLines(soId);
         if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
+        return tokenPdf(so, dcList, bn);
+    }
 
+    /** Dispatch token for one pickup only — a customer who collects an order in parts gets a token per pickup. */
+    @Transactional(readOnly = true)
+    public byte[] generateChallanTokenPdf(UUID dcId, boolean bn) {
+        DeliveryChallan dc = challans.findByIdWithLines(dcId)
+            .orElseThrow(() -> new ApiException("Challan not found"));
+        if (dc.getSoId() == null) throw new ApiException("This challan is not under a sales order yet");
+        SalesOrder so = orders.findById(dc.getSoId())
+            .orElseThrow(() -> new ApiException("Sales order not found"));
+        return tokenPdf(so, List.of(dc), bn);
+    }
+
+    private byte[] tokenPdf(SalesOrder so, List<DeliveryChallan> dcList, boolean bn) {
         // collect all product names
         Set<UUID> pids = dcList.stream()
             .flatMap(dc -> dc.getLines().stream().map(DcLine::getProductId))

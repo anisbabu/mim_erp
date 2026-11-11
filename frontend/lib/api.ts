@@ -390,6 +390,18 @@ export const endpoints = {
     }
     return res.blob();
   },
+  challanTokenBlob: async (dcId: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/sales/challans/${dcId}/token?lang=${lang}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      let msg = `Request failed (${res.status})`;
+      try { const b = await res.json(); if (b?.message) msg = b.message; } catch { /* ignore */ }
+      throw new Error(msg);
+    }
+    return res.blob();
+  },
   challanBlob: async (dcId: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
     const res = await fetch(`${BASE}/api/sales/challans/${dcId}/pdf?lang=${lang}`, {

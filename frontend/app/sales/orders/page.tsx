@@ -279,6 +279,11 @@ export default function SalesOrdersPage() {
                                     <span className="text-[12px] text-[#6b6960]">{fmtDate(p.date)}</span>
                                     <span className="text-[12px] text-[#6b6960]">{p.warehouseName}</span>
                                     <span className="text-[13px]">{itemsText}</span>
+                                    <DocGroup label={t("Token")} busy={busy === p.dcId + "tk"}
+                                              titles={[t("Print dispatch token"), t("Download dispatch token"), t("Share dispatch token")]}
+                                              onOpen={() => openDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk")}
+                                              onDownload={() => downloadDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk", `token-${p.dcNo}.pdf`)}
+                                              onShare={() => shareDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk", `token-${p.dcNo}.pdf`, `Dispatch Token ${p.dcNo}`)} />
                                     <button className="btn-ghost btn-sm" disabled={pBusy} title={t("Print this pickup's challan")}
                                             onClick={() => openDoc(() => endpoints.challanBlob(p.dcId, lang), pKey)}>
                                       {pBusy ? "…" : "🖨"}
