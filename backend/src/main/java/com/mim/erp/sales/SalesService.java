@@ -1149,7 +1149,6 @@ public class SalesService {
         String custBn = custNames.size() > 1 ? "\n" + custNames.get(1)[1] : "";
         String spBn = spNames.size() > 1 ? "\n" + spNames.get(1)[1] : "";
         List<String[]> left = new ArrayList<>(List.of(docFacts));
-        left.add(new String[]{"Customer", custNames.get(0)[1] + custBn});
         String branch = shopId == null ? null
             : shops.findById(shopId).map(s -> nm(bn, s.getNameBn(), s.getName())).orElse(null);
         List<String[]> right = new ArrayList<>();
@@ -1157,40 +1156,46 @@ public class SalesService {
         right.add(new String[]{"Branch Name", branch != null && !branch.isBlank() ? branch : "—"});
         if (rightExtra != null) right.addAll(List.of(rightExtra));
 
-        List<String[]> grid = new ArrayList<>();
-        for (int i = 0; i < Math.max(left.size(), right.size()); i++) {
-            String[] l = i < left.size() ? left.get(i) : new String[]{"", ""};
-            String[] r = i < right.size() ? right.get(i) : new String[]{"", ""};
-            grid.add(new String[]{l[0], l[1], r[0], r[1]});
+        // left and right columns are stacked independently, so a two-line salesperson on the right
+        // does not stretch the "Invoice No" row and open a gap above "Date"
+        float[] w = kit.cols(52f, 95f, 61f, 160f);
+        PdfPTable t = new PdfPTable(4);
+        t.setWidthPercentage(100);
+        try { t.setWidths(new float[]{52f, 95f, 61f, 160f}); } catch (Exception ignored) { }
+        t.addCell(metaColumn(kit, left, w[0], w[1]));
+        t.addCell(metaColumn(kit, right, w[2], w[3]));
+        // everything about the customer sits together underneath, full width; labels centred on their value
+        List<String[]> contact = List.of(
+            new String[]{"Customer", custNames.get(0)[1] + custBn},
+            new String[]{"Mobile", mobile != null && !mobile.isBlank() ? mobile : "—"},
+            new String[]{"Address", address != null && !address.isBlank() ? address : "—"});
+        for (String[] r : contact) {
+            PdfPCell lc = compactCell(kit, kit.l(r[0]), true, w[0], 1);
+            lc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            t.addCell(lc);
+            PdfPCell vc = compactCell(kit, r[1], boldValue(r[0]), w[1] + w[2] + w[3], 3);
+            vc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            t.addCell(vc);
         }
-        grid.add(new String[]{"Mobile", mobile != null && !mobile.isBlank() ? mobile : "—", null, null});
-        grid.add(new String[]{"Address", address != null && !address.isBlank() ? address : "—", null, null});
-        PdfPTable t = compactMeta(kit, grid);
         t.setSpacingAfter(12);
         return t;
     }
 
-    /**
-     * Dense label/value grid, two pairs per row: {label1, value1, label2, value2}. A null label2 makes
-     * value1 span the rest of the row. Tight padding so a slip with many lines keeps its room.
-     */
-    private static PdfPTable compactMeta(PdfKit kit, List<String[]> rows) {
-        PdfPTable t = new PdfPTable(4);
-        t.setWidthPercentage(100);
-        // right-hand value is the wide one: it holds "salesperson name - mobile" on one line
-        try { t.setWidths(new float[]{52f, 95f, 61f, 160f}); } catch (Exception ignored) { }
-        float[] w = kit.cols(52f, 95f, 61f, 160f);
+    /** One side of the slip header: {label, value} rows packed tight, spanning two columns of the outer grid. */
+    private static PdfPCell metaColumn(PdfKit kit, List<String[]> rows, float labelW, float valueW) {
+        PdfPTable inner = new PdfPTable(2);
+        inner.setWidthPercentage(100);
+        try { inner.setWidths(new float[]{labelW, valueW}); } catch (Exception ignored) { }
         for (String[] r : rows) {
-            t.addCell(compactCell(kit, kit.l(r[0]), true, w[0], 1));
-            boolean span = r[2] == null;
-            PdfPCell v = compactCell(kit, r[1], boldValue(r[0]), span ? w[1] + w[2] + w[3] : w[1], span ? 3 : 1);
-            t.addCell(v);
-            if (!span) {
-                t.addCell(compactCell(kit, kit.l(r[2]), true, w[2], 1));
-                t.addCell(compactCell(kit, r[3], boldValue(r[2]), w[3], 1));
-            }
+            inner.addCell(compactCell(kit, kit.l(r[0]), true, labelW, 1));
+            inner.addCell(compactCell(kit, r[1], boldValue(r[0]), valueW, 1));
         }
-        return t;
+        PdfPCell c = new PdfPCell(inner);
+        c.setBorder(Rectangle.NO_BORDER);
+        c.setPadding(0);
+        c.setColspan(2);
+        c.setVerticalAlignment(Element.ALIGN_TOP);
+        return c;
     }
 
     /** Who the slip is for and who sold it stand out: their values print bold. */
