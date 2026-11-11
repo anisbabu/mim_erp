@@ -26,6 +26,8 @@
         <maven.compiler.target>23</maven.compiler.target>
         <!-- Lombok that supports JDK 23 -->
         <lombok.version>1.18.36</lombok.version>
+        <!-- Boot 3.4.1 manages 1.20.4, whose Docker client speaks an API version Docker Engine 29+ refuses -->
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <dependencies>
@@ -96,6 +98,22 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Tests run against a real PostgreSQL (the audit log is built on triggers). Needs Docker. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

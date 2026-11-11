@@ -23,6 +23,8 @@ Default admin: `admin` / `admin123`. Old Neon DB = env `DB_URL`/`DB_USER`/`DB_PA
 - `sales/` SO_FIRST (order → per-warehouse challans) and DC_FIRST (challans → day-end consolidation). Price-band + credit-limit checks with logged overrides.
 - `accounting/` balanced double-entry; auto-post on receipt and sale. Trial balance, P&L, balance sheet.
 - `hr/` employees (customer.salesperson_id → employee).
+- `audit/` append-only `audit_log` (V70). A DB trigger (`zz_audit_row`) on every table records create/update/delete, so JPA, raw `JdbcTemplate` SQL and psql are all covered — never add per-controller log calls. `AuditDataSource` stamps each connection with the acting user (`mim.audit_*` settings); no request = `system`. New tables get the trigger on backend start (`audit_attach_all()`). Not audited: `audit_log`, `flyway_schema_history`, `doc_counter`. Columns named like password/token/secret/hash are masked. If the audit insert fails the change rolls back. No update/delete path for audit rows — keep it that way. Read API `/api/audit-log` is ADMIN + GET only.
+- Tests: `cd backend && mvn test` (Testcontainers Postgres — Docker must be running).
 
 ## Frontend (`frontend/`)
 - Pages directly under `app/` (sales, purchase, inventory, accounting, master, hr, admin, login).

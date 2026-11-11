@@ -253,6 +253,21 @@ export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
 export type Me = { token?: string; username: string; fullName?: string; role: Role; shopIds: string[] };
 export type DemoInvoiceRow = { id: string; code: string; demo_date: string; customer_name?: string; customer_mobile?: string; salesperson?: string; total: number; so_id?: string | null; so_no?: string | null; created_at: string };
 export type DemoInvoiceSaved = { id: string; code: string; demoDate: string; request: { customerId?: string; customerName?: string; customerMobile?: string; customerAddress?: string; salesperson?: string; salespersonBn?: string; note?: string; lines: { productId?: string; name: string; unit?: string; qty: number; unitPrice: number; discount: number }[] } };
+export type AuditAction = "create" | "update" | "delete" | "restore" | "role_change" | "login" | "logout" | "login_failed";
+export type AuditEntry = {
+  id: number; at: string; userId?: string | null; login: string; userName: string; userRole: string;
+  action: AuditAction; module: string; tableName?: string | null; recordId?: string | null;
+  ipAddress?: string | null; userAgent?: string | null; fields?: string | null;
+};
+export type AuditDetail = AuditEntry & { oldValues: Record<string, unknown> | null; newValues: Record<string, unknown> | null };
+export type AuditPage = { items: AuditEntry[]; total: number; page: number; size: number };
+export type AuditFacets = { modules: string[]; actions: string[]; users: { id: string; name: string; username: string }[] };
+export type AuditFilter = { user?: string; module?: string; action?: string; from?: string; to?: string; recordId?: string; q?: string };
+function auditQuery(f: AuditFilter): string {
+  const p = new URLSearchParams();
+  Object.entries(f).forEach(([k, v]) => { if (v && v.trim()) p.set(k, v.trim()); });
+  return p.toString();
+}
 export type UserView = { id: string; username: string; fullName?: string; fullNameBn?: string; mobile?: string; role: Role; active: boolean; shopIds: string[] };
 
 export const endpoints = {
@@ -467,6 +482,22 @@ export const endpoints = {
     api.post<Me>("/api/auth/login", { username, password }),
   me:    () => api.get<Me>("/api/auth/me"),
   users: () => api.get<UserView[]>("/api/users"),
+  logout: () => api.post<void>("/api/auth/logout", {}),
+
+  // activity log (admin only, read only)
+  auditLog:    (f: AuditFilter, page: number, size: number) =>
+    api.get<AuditPage>(`/api/audit-log?${auditQuery(f)}&page=${page}&size=${size}`),
+  auditEntry:  (id: number) => api.get<AuditDetail>(`/api/audit-log/${id}`),
+  auditFacets: () => api.get<AuditFacets>("/api/audit-log/facets"),
+  auditExport: async (f: AuditFilter): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/audit-log/export?${auditQuery(f)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (res.status === 403) throw new Error("You don't have permission for this.");
+    if (!res.ok) throw new Error("Failed to export the activity log");
+    return res.blob();
+  },
   createUser: (b: unknown) => api.post<UserView>("/api/users", b),
   updateUser: (id: string, b: { username?: string; password?: string; fullName?: string; fullNameBn?: string; mobile?: string; role: string; shopIds: string[]; active?: boolean }) =>
     api.put<UserView>(`/api/users/${id}`, b),

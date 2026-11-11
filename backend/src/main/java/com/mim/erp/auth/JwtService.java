@@ -30,6 +30,7 @@ public class JwtService {
             .subject(user.getUsername())
             .claim("uid", user.getId().toString())
             .claim("role", user.getRole())
+            .claim("name", user.getFullName())          // display name for the audit log
             .issuedAt(Date.from(now))
             .expiration(Date.from(now.plusSeconds(expiryMinutes * 60)))
             .signWith(key)
@@ -44,7 +45,8 @@ public class JwtService {
             return new AuthPrincipal(
                 UUID.fromString(c.get("uid", String.class)),
                 c.getSubject(),
-                c.get("role", String.class));
+                c.get("role", String.class),
+                c.get("name", String.class));
         } catch (Exception e) {
             return null;
         }

@@ -9,7 +9,7 @@ import { useI18n } from "@/lib/i18n";
 import { endpoints, type Role, type Shop } from "@/lib/api";
 import {
   ArrowLeftRight, Banknote, BarChart3, BookOpen, Boxes, Building2, CalendarRange, ChevronDown,
-  ClipboardList, FileText, Landmark, LayoutDashboard, LayoutGrid, ListTree, LogOut, Menu, Moon, Package, PackageCheck,
+  ClipboardList, FileText, History, Landmark, LayoutDashboard, LayoutGrid, ListTree, LogOut, Menu, Moon, Package, PackageCheck,
   ReceiptText, Scale, Settings, Sun,
   FilePen, ShoppingCart, Store, Truck, Undo2, UserCog, Users, Wallet, Warehouse, type LucideIcon,
 } from "lucide-react";
@@ -62,6 +62,7 @@ const groups: Group[] = [
   ]},
   { label: "Administration", icon: Settings, color: "#6b7280", items: [
     { href: "/admin/users", label: "Users", roles: ["ADMIN"], icon: UserCog },
+    { href: "/admin/activity-log", label: "Activity Log", roles: ["ADMIN"], icon: History },
     { href: "/hr/employees", label: "Employees", roles: ["ADMIN", "ACCOUNTANT"], icon: Users },
     { href: "/master/products", label: "Products", roles: ["ADMIN"], icon: Package },
     { href: "/master/suppliers", label: "Suppliers", roles: ["ADMIN"], icon: Building2 },
