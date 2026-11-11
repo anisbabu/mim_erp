@@ -9,9 +9,9 @@ import { useI18n } from "@/lib/i18n";
 import { endpoints, type Role, type Shop } from "@/lib/api";
 import {
   ArrowLeftRight, Banknote, BarChart3, BookOpen, Boxes, Building2, CalendarRange, ChevronDown,
-  ClipboardList, FileText, History, Landmark, LayoutDashboard, LayoutGrid, ListTree, LogOut, Menu, Moon, Package, PackageCheck,
+  ClipboardList, History, Landmark, LayoutDashboard, LayoutGrid, ListTree, LogOut, Menu, Moon, Package, PackageCheck,
   ReceiptText, Scale, Settings, Sun,
-  FilePen, ShoppingCart, Store, Truck, Undo2, UserCog, Users, Wallet, Warehouse, type LucideIcon,
+  FilePen, ShoppingCart, Store, Undo2, UserCog, Users, Wallet, Warehouse, type LucideIcon,
 } from "lucide-react";
 
 type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[] };
@@ -38,10 +38,9 @@ const groups: Group[] = [
   ]},
   { label: "Sales", icon: ReceiptText, color: "#e46e78", items: [
     { href: "/sales/new", label: "Sales Order", roles: SALES, icon: ReceiptText },
-    { href: "/sales/orders", label: "Sales Orders List", roles: SALES, icon: ClipboardList },
+    // challans are reached from the Sales Orders List header, not the menu
+    { href: "/sales/orders", label: "Sales Orders List", roles: SALES, icon: ClipboardList, also: ["/sales/challan", "/sales/challans"] },
     { href: "/sales/demo-invoice", label: "Demo invoice", roles: SALES, icon: FilePen },
-    { href: "/sales/challan", label: "Challan", roles: SALES, icon: Truck },
-    { href: "/sales/challans", label: "Challan list", roles: SALES, icon: FileText },
     { href: "/sales/consolidate", label: "Day-end consolidate", roles: SALES, icon: CalendarRange },
     { href: "/sales/returns", label: "Sales returns", roles: ["MANAGER", "ADMIN"], icon: Undo2 },
   ]},
