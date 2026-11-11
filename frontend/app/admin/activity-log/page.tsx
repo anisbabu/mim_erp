@@ -29,6 +29,35 @@ function show(v: unknown): string {
   return String(v);
 }
 
+const LIST_FIELDS = 3;   // values shown per row in the list; the rest are in the detail drawer
+// bookkeeping columns say nothing about what the person did
+const NOISE = /^(id|version|created_at|updated_at|created_by|updated_by)$|_id$/;
+// the columns that identify a record or carry its business meaning come first
+const KEY_FIELDS = ["name", "full_name", "username", "so_no", "dc_no", "po_no", "grn_no", "doc_no", "entry_no", "code",
+  "role", "status", "qty", "unit_price", "amount", "total", "mobile"];
+
+function short(v: unknown): string {
+  const s = show(v);
+  return s.length > 40 ? s.slice(0, 39) + "…" : s;
+}
+
+/**
+ * What an entry changed, as rows of {field, old, new}: an update lists each changed field with its old and
+ * new value; a create or delete lists the record's own values (ids and timestamps left out).
+ */
+function changes(r: AuditEntry): { field: string; from?: string; to?: string }[] {
+  const o = r.oldValues ?? null, n = r.newValues ?? null;
+  if (o && n) return Object.keys(n).sort().map((k) => ({ field: k, from: short(o[k]), to: short(n[k]) }));
+  const row = n ?? o;
+  if (!row) return [];
+  const keys = Object.keys(row).filter((k) => !NOISE.test(k) && row[k] !== null && row[k] !== "");
+  keys.sort((a, b) => {
+    const ia = KEY_FIELDS.indexOf(a), ib = KEY_FIELDS.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  });
+  return keys.map((k) => (n ? { field: k, to: short(row[k]) } : { field: k, from: short(row[k]) }));
+}
+
 /** Admin-only, read-only view of the audit log. The API answers 403 to every other role. */
 export default function ActivityLogPage() {
   const { t } = useI18n();
@@ -164,7 +193,7 @@ export default function ActivityLogPage() {
           <thead><tr>
             <th style={{ textAlign: "left" }}>{t("Time")}</th><th style={{ textAlign: "left" }}>{t("User")}</th>
             <th style={{ textAlign: "left" }}>{t("Action")}</th><th style={{ textAlign: "left" }}>{t("Module")}</th>
-            <th style={{ textAlign: "left" }}>{t("Record")}</th><th style={{ textAlign: "left" }}>{t("Changed fields")}</th>
+            <th style={{ textAlign: "left" }}>{t("Record")}</th><th style={{ textAlign: "left" }}>{t("What changed")}</th>
             <th style={{ textAlign: "left" }}>{t("IP address")}</th>
           </tr></thead>
           <tbody>
@@ -181,7 +210,24 @@ export default function ActivityLogPage() {
                   <div>{r.tableName ?? "—"}</div>
                   {r.recordId && <div className="font-mono text-[11px] muted">{r.recordId}</div>}
                 </td>
-                <td className="text-[12px] muted" style={{ maxWidth: 260 }}><div className="truncate">{r.fields ?? ""}</div></td>
+                <td className="text-[12px]" style={{ maxWidth: 380, verticalAlign: "top" }}>
+                  {(() => {
+                    const all = changes(r);
+                    return (
+                      <>
+                        {all.slice(0, LIST_FIELDS).map((c) => (
+                          <div key={c.field} className="truncate">
+                            <span className="font-mono muted">{c.field}: </span>
+                            {c.from !== undefined && <span style={{ color: "var(--note-err-fg)" }}>{c.from}</span>}
+                            {c.from !== undefined && c.to !== undefined && <span className="muted"> → </span>}
+                            {c.to !== undefined && <span style={{ color: "var(--note-ok-fg)" }}>{c.to}</span>}
+                          </div>
+                        ))}
+                        {all.length > LIST_FIELDS && <div className="muted">+{all.length - LIST_FIELDS} {t("more")}</div>}
+                      </>
+                    );
+                  })()}
+                </td>
                 <td className="font-mono text-[12px] whitespace-nowrap">{r.ipAddress ?? "—"}</td>
               </tr>
             ))}

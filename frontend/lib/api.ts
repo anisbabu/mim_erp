@@ -258,6 +258,7 @@ export type AuditEntry = {
   id: number; at: string; userId?: string | null; login: string; userName: string; userRole: string;
   action: AuditAction; module: string; tableName?: string | null; recordId?: string | null;
   ipAddress?: string | null; userAgent?: string | null; fields?: string | null;
+  oldValues?: Record<string, unknown> | null; newValues?: Record<string, unknown> | null;
 };
 export type AuditDetail = AuditEntry & { oldValues: Record<string, unknown> | null; newValues: Record<string, unknown> | null };
 export type AuditPage = { items: AuditEntry[]; total: number; page: number; size: number };

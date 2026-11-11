@@ -563,45 +563,16 @@ public class SalesService {
             acct.setTotalWidth(boxW);
             acct.setLockedWidth(true);
             acct.setWidths(new float[]{3f, 2f});
-            acctRow(acct, kit, kit.l("Previous balance"), fmt(bal[0]), false, boxW * 0.6f, boxW * 0.4f);
-            acctRow(acct, kit, kit.l(credit ? "This invoice (on credit)" : "Paid in cash"), fmt(grandTotal), false, boxW * 0.6f, boxW * 0.4f);
-            acctRow(acct, kit, kit.l("BALANCE DUE"), fmt(bal[1]), true, boxW * 0.6f, boxW * 0.4f);
+            // sits on the left, where the old previous-balance status box was
+            acct.setHorizontalAlignment(Element.ALIGN_LEFT);
+            acct.setSpacingBefore(6);
+            acct.setSpacingAfter(8);
+            acctRow(acct, kit, kit.l("Previous Balance"), fmt(bal[0]), false, boxW * 0.6f, boxW * 0.4f);
+            acctRow(acct, kit, kit.l(credit ? "This Invoice (On Credit)" : "Paid In Cash"), fmt(grandTotal), false, boxW * 0.6f, boxW * 0.4f);
+            acctRow(acct, kit, kit.l("Balance Due"), fmt(bal[1]), true, boxW * 0.6f, boxW * 0.4f);
+            doc.add(acct);
 
-            // separate previous-balance status box beside it: owed (Dr), advance held (Cr) or clear
-            float statW = kit.pageWidth() * 0.37f;
-            String status = bal[0].signum() > 0 ? "Due (Dr)" : bal[0].signum() < 0 ? "Advance (Cr)" : "Clear (nil)";
-            PdfPTable stat = new PdfPTable(1);
-            stat.setTotalWidth(statW);
-            stat.setLockedWidth(true);
-            stat.setHorizontalAlignment(Element.ALIGN_LEFT);
-            PdfPCell sh = kit.cell(kit.l("PREVIOUS BALANCE STATUS"), true, 7.5f, PdfKit.INK, Element.ALIGN_CENTER, statW, 5);
-            sh.setBackgroundColor(PdfKit.TINT);
-            sh.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            centerInk(sh, kit.l("PREVIOUS BALANCE STATUS"));
-            stat.addCell(sh);
-            PdfPCell sv = kit.cell(kit.l(status) + "  " + fmt(bal[0].abs()), true, 10, Color.BLACK, Element.ALIGN_CENTER, statW, 8);
-            sv.setVerticalAlignment(Element.ALIGN_MIDDLE);
-            centerInk(sv, kit.l(status));
-            stat.addCell(sv);
-
-            PdfPTable pair = new PdfPTable(2);
-            pair.setWidthPercentage(100);
-            pair.setWidths(new float[]{kit.pageWidth() - boxW, boxW});
-            pair.setSpacingBefore(6);
-            pair.setSpacingAfter(8);
-            PdfPCell left = new PdfPCell(stat);
-            left.setBorder(Rectangle.NO_BORDER);
-            left.setPadding(0);
-            left.setVerticalAlignment(Element.ALIGN_TOP);
-            PdfPCell right = new PdfPCell(acct);
-            right.setBorder(Rectangle.NO_BORDER);
-            right.setPadding(0);
-            right.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            pair.addCell(left);
-            pair.addCell(right);
-            doc.add(pair);
-
-            doc.add(kit.para(kit.l("Thank you for your business."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));
+            doc.add(kit.para(kit.l("Thank you for your business with us."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));
             }, "Customer Signature", salespersonName(bn, so.getSalespersonId()))));
         } catch (Exception e) {
             log.error("generateInvoicePdf failed for SO {}", soId, e);
@@ -1080,11 +1051,17 @@ public class SalesService {
     }
 
     /** Net line value = qty × unitPrice − flat discount amount. */
+    /**
+     * Net value of one line, worked from the figures as they are stored (qty, price and discount
+     * columns hold 2 decimals) and rounded per line exactly like the invoice PDF. The screen can send
+     * prices such as 2371.7647; posting the unrounded value left the ledger 1 paisa off the invoice.
+     */
     private static BigDecimal lineNet(BigDecimal qty, BigDecimal unitPrice, BigDecimal discountAmt) {
-        BigDecimal gross = qty.multiply(unitPrice);
-        return discountAmt == null || discountAmt.compareTo(BigDecimal.ZERO) == 0
-            ? gross : gross.subtract(discountAmt);
+        BigDecimal gross = money(qty).multiply(money(unitPrice)).setScale(2, RoundingMode.HALF_UP);
+        return discountAmt == null ? gross : gross.subtract(money(discountAmt));
     }
+
+    private static BigDecimal money(BigDecimal v) { return v.setScale(2, RoundingMode.HALF_UP); }
 
     /**
      * Bangla text cells are an image whose blank leading/descender space sits below the ink, so a
@@ -1172,7 +1149,6 @@ public class SalesService {
         String custBn = custNames.size() > 1 ? "\n" + custNames.get(1)[1] : "";
         String spBn = spNames.size() > 1 ? "\n" + spNames.get(1)[1] : "";
         List<String[]> left = new ArrayList<>(List.of(docFacts));
-        left.add(new String[]{"Customer", custNames.get(0)[1] + custBn});
         String branch = shopId == null ? null
             : shops.findById(shopId).map(s -> nm(bn, s.getNameBn(), s.getName())).orElse(null);
         List<String[]> right = new ArrayList<>();
@@ -1180,40 +1156,46 @@ public class SalesService {
         right.add(new String[]{"Branch Name", branch != null && !branch.isBlank() ? branch : "—"});
         if (rightExtra != null) right.addAll(List.of(rightExtra));
 
-        List<String[]> grid = new ArrayList<>();
-        for (int i = 0; i < Math.max(left.size(), right.size()); i++) {
-            String[] l = i < left.size() ? left.get(i) : new String[]{"", ""};
-            String[] r = i < right.size() ? right.get(i) : new String[]{"", ""};
-            grid.add(new String[]{l[0], l[1], r[0], r[1]});
+        // left and right columns are stacked independently, so a two-line salesperson on the right
+        // does not stretch the "Invoice No" row and open a gap above "Date"
+        float[] w = kit.cols(52f, 95f, 61f, 160f);
+        PdfPTable t = new PdfPTable(4);
+        t.setWidthPercentage(100);
+        try { t.setWidths(new float[]{52f, 95f, 61f, 160f}); } catch (Exception ignored) { }
+        t.addCell(metaColumn(kit, left, w[0], w[1]));
+        t.addCell(metaColumn(kit, right, w[2], w[3]));
+        // everything about the customer sits together underneath, full width; labels centred on their value
+        List<String[]> contact = List.of(
+            new String[]{"Customer", custNames.get(0)[1] + custBn},
+            new String[]{"Mobile", mobile != null && !mobile.isBlank() ? mobile : "—"},
+            new String[]{"Address", address != null && !address.isBlank() ? address : "—"});
+        for (String[] r : contact) {
+            PdfPCell lc = compactCell(kit, kit.l(r[0]), true, w[0], 1);
+            lc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            t.addCell(lc);
+            PdfPCell vc = compactCell(kit, r[1], boldValue(r[0]), w[1] + w[2] + w[3], 3);
+            vc.setVerticalAlignment(Element.ALIGN_MIDDLE);
+            t.addCell(vc);
         }
-        grid.add(new String[]{"Mobile", mobile != null && !mobile.isBlank() ? mobile : "—", null, null});
-        grid.add(new String[]{"Address", address != null && !address.isBlank() ? address : "—", null, null});
-        PdfPTable t = compactMeta(kit, grid);
         t.setSpacingAfter(12);
         return t;
     }
 
-    /**
-     * Dense label/value grid, two pairs per row: {label1, value1, label2, value2}. A null label2 makes
-     * value1 span the rest of the row. Tight padding so a slip with many lines keeps its room.
-     */
-    private static PdfPTable compactMeta(PdfKit kit, List<String[]> rows) {
-        PdfPTable t = new PdfPTable(4);
-        t.setWidthPercentage(100);
-        // right-hand value is the wide one: it holds "salesperson name - mobile" on one line
-        try { t.setWidths(new float[]{52f, 95f, 61f, 160f}); } catch (Exception ignored) { }
-        float[] w = kit.cols(52f, 95f, 61f, 160f);
+    /** One side of the slip header: {label, value} rows packed tight, spanning two columns of the outer grid. */
+    private static PdfPCell metaColumn(PdfKit kit, List<String[]> rows, float labelW, float valueW) {
+        PdfPTable inner = new PdfPTable(2);
+        inner.setWidthPercentage(100);
+        try { inner.setWidths(new float[]{labelW, valueW}); } catch (Exception ignored) { }
         for (String[] r : rows) {
-            t.addCell(compactCell(kit, kit.l(r[0]), true, w[0], 1));
-            boolean span = r[2] == null;
-            PdfPCell v = compactCell(kit, r[1], boldValue(r[0]), span ? w[1] + w[2] + w[3] : w[1], span ? 3 : 1);
-            t.addCell(v);
-            if (!span) {
-                t.addCell(compactCell(kit, kit.l(r[2]), true, w[2], 1));
-                t.addCell(compactCell(kit, r[3], boldValue(r[2]), w[3], 1));
-            }
+            inner.addCell(compactCell(kit, kit.l(r[0]), true, labelW, 1));
+            inner.addCell(compactCell(kit, r[1], boldValue(r[0]), valueW, 1));
         }
-        return t;
+        PdfPCell c = new PdfPCell(inner);
+        c.setBorder(Rectangle.NO_BORDER);
+        c.setPadding(0);
+        c.setColspan(2);
+        c.setVerticalAlignment(Element.ALIGN_TOP);
+        return c;
     }
 
     /** Who the slip is for and who sold it stand out: their values print bold. */

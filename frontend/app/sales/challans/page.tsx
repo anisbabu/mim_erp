@@ -3,8 +3,6 @@ import { useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type DeliveryChallan, type Customer } from "@/lib/api";
 import { beep } from "@/lib/beep";
 import { useI18n } from "@/lib/i18n";
-import Link from "next/link";
-import PageHeader from "@/components/PageHeader";
 
 const PAGE_SIZE = 20;
 
@@ -89,23 +87,16 @@ export default function ChallanListPage() {
 
   return (
     <div>
-      <PageHeader
-        crumbs={["Sales", { label: "Sales orders", href: "/sales/orders" }]}
-        title={t("Challans")}
-        subtitle={t("Every delivery challan issued, one per warehouse pickup. Print, download or share any of them.")}
-        actions={<Link href="/sales/challan" className="btn">+ {t("New challan")}</Link>}
+      <h1 className="page-title mb-4">{t("Challans")}</h1>
+
+      <input
+        className="inp mb-4 max-w-sm"
+        placeholder={t("Search DC no, customer, mobile, date…")}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
       />
 
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <input
-          className="inp max-w-sm"
-          placeholder={t("Search DC no, customer, mobile, date…")}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      <div className="card overflow-hidden">
+      <div className="border border-line rounded-xl bg-surface overflow-hidden">
         <div className="table-wrap">
         <table className="tbl">
           <thead><tr><th>{t("DC no")}</th><th>{t("Customer")}</th><th>{t("Date")}</th><th>{t("Status")}</th><th></th></tr></thead>
@@ -129,7 +120,7 @@ export default function ChallanListPage() {
                   </td>
                   <td>{fmtDate(dc.challanDate)}</td>
                   <td>
-                    <span className="chip"
+                    <span className="text-xs px-2 py-0.5 rounded-full"
                       style={{
                         background: dc.status === "ISSUED" ? "var(--chip-open-bg)" : "var(--chip-other-bg)",
                         color:      dc.status === "ISSUED" ? "var(--chip-open-fg)" : "var(--chip-other-fg)",

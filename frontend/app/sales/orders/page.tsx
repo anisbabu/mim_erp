@@ -3,7 +3,6 @@ import { Fragment, useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type SalesOrder, type Customer, type SoLineView, type Warehouse, type WarehouseStock, type PickupView } from "@/lib/api";
 import { beep } from "@/lib/beep";
 import { useI18n } from "@/lib/i18n";
-import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { Download, Loader2, Printer, Share2 } from "lucide-react";
 
@@ -180,10 +179,6 @@ export default function SalesOrdersPage() {
             crumbs={["Sales"]}
             title={t("Sales orders")}
             subtitle={t("Track deliveries and print the dispatch token, challan and invoice for each order.")}
-            actions={<>
-              <Link href="/sales/challans" className="btn-ghost">{t("Challan list")}</Link>
-              <Link href="/sales/challan" className="btn">+ {t("New challan")}</Link>
-            </>}
         />
 
         <div className="flex flex-wrap items-center gap-2 mb-3">

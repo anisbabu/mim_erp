@@ -63,11 +63,17 @@ public class AuditController {
         List<Object> pageArgs = new ArrayList<>(args);
         pageArgs.add(size);
         pageArgs.add((long) page * size);
-        // "fields" = the changed columns of an update, so the list reads without opening each row
+        // "fields" = the changed columns of an update; old/new values come along too, so the list itself
+        // shows what was changed (update: changed fields only, create/delete: the row) without opening each entry
         List<Map<String, Object>> items = jdbc.queryForList(
             "select " + COLS + ", case when old_values is not null and new_values is not null then "
-          + "(select string_agg(k, ', ' order by k) from jsonb_object_keys(new_values) k) end as fields "
+          + "(select string_agg(k, ', ' order by k) from jsonb_object_keys(new_values) k) end as fields, "
+          + "old_values::text as old_json, new_values::text as new_json "
           + "from audit_log" + where + " order by created_at desc, id desc limit ? offset ?", pageArgs.toArray());
+        for (Map<String, Object> row : items) {
+            row.put("oldValues", parse((String) row.remove("old_json")));
+            row.put("newValues", parse((String) row.remove("new_json")));
+        }
 
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("items", items);
