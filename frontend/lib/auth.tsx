@@ -72,6 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // tell the server first (activity log); the request reads the token before it is cleared below
+    endpoints.logout().catch(() => {});
     setToken(null);
     applyUser(null);
     router.replace("/login");

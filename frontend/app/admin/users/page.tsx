@@ -178,7 +178,7 @@ export default function UsersPage() {
                 return (
                   <button key={s.id} onClick={() => toggleShop(s.id)} type="button"
                     className="px-3 py-1.5 rounded-lg text-sm border transition-colors"
-                    style={{ background: on ? "#ecfdf5" : "#fff", color: on ? "#0f766e" : "#374151",
+                    style={{ background: on ? "#ecfdf5" : "#fff", color: on ? "var(--brand)" : "#374151",
                              borderColor: on ? "#14b8a6" : "#e5e7eb", fontWeight: on ? 600 : 500 }}>
                     {dn(s)}
                   </button>

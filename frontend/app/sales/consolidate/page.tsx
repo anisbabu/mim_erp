@@ -240,7 +240,7 @@ export default function ConsolidatePage() {
                     </tr>
                     <tr>
                       <td colSpan={4} className="text-right font-semibold">{t("Net total")}</td>
-                      <td colSpan={2} className="text-right tabular-nums font-bold text-base" style={{ color: "#0f766e" }}>
+                      <td colSpan={2} className="text-right tabular-nums font-bold text-base" style={{ color: "var(--brand)" }}>
                         {netTotal.toFixed(2)}
                       </td>
                     </tr>

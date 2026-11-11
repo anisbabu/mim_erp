@@ -58,6 +58,7 @@ public class SalesService {
     private final com.mim.erp.accounting.LedgerService ledgers;
     private final WarehouseRepository warehouses;
     private final com.mim.erp.auth.AppUserRepository users;
+    private final com.mim.erp.master.ShopRepository shops;
 
     public SalesService(SalesOrderRepository orders, DeliveryChallanRepository challans,
                         ProductRepository products, CustomerRepository customers,
@@ -65,8 +66,10 @@ public class SalesService {
                         DocNumberService docNo, CurrentUserService currentUser,
                         com.mim.erp.accounting.LedgerService ledgers,
                         WarehouseRepository warehouses,
-                        com.mim.erp.auth.AppUserRepository users) {
+                        com.mim.erp.auth.AppUserRepository users,
+                        com.mim.erp.master.ShopRepository shops) {
         this.users = users;
+        this.shops = shops;
         this.orders = orders; this.challans = challans; this.products = products;
         this.customers = customers; this.inventory = inventory;
         this.accounting = accounting; this.docNo = docNo; this.currentUser = currentUser;
@@ -466,54 +469,38 @@ public class SalesService {
 
         var custOpt = customers.findById(so.getCustomerId());
         DeliveryInfo delivery = resolveDelivery(so, custOpt.orElse(null));
-        String customerContact = (delivery.mobile() != null ? delivery.mobile() : "") +
-            (delivery.mobile() != null && delivery.address() != null ? " · " : "") +
-            (delivery.address() != null ? delivery.address() : "");
 
         Set<UUID> pids = so.getLines().stream().map(SoLine::getProductId).collect(Collectors.toSet());
         Map<UUID, String> productNames = new HashMap<>();
-        products.findAllById(pids).forEach(p -> productNames.put(p.getId(), pname(bn, p)));
+        Map<UUID, String> productUnits = new HashMap<>();
+        products.findAllById(pids).forEach(p -> {
+            productNames.put(p.getId(), pname(bn, p));
+            productUnits.put(p.getId(), p.getUnit());
+        });
 
         try {
-            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(doc, out);
-            doc.open();
-            PdfKit kit = new PdfKit(bn, doc, writer);
+            return renderSlips(bn, List.of(new SlipPage((doc, writer, kit) -> {
 
-            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20);
-            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, PdfKit.INK);
-            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-
-            Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
-            co.setAlignment(Element.ALIGN_CENTER);
-            doc.add(co);
-            doc.add(kit.para(kit.l("SALES INVOICE"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
+            doc.add(kit.title(kit.l("SALES INVOICE"), 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
             // meta: invoice details, customer and salesperson in one compact grid
-            List<String[]> invFacts = new ArrayList<>(List.of(
-                new String[]{"Invoice No", so.getSoNo()},
-                new String[]{"Date", so.getOrderDate() != null ? so.getOrderDate().toString() : ""},
-                new String[]{"Payment", kit.l(so.getPaymentMode())}));
-            if (so.getDiscountBy() != null && !so.getDiscountBy().isBlank())
-                invFacts.add(new String[]{"Discount by", so.getDiscountBy()});
-            doc.add(slipMeta(kit, bn, invFacts.toArray(new String[0][]),
-                custOpt.orElse(null), customerContact, so.getSalespersonId(), null, null));
+            // payment mode and "discount by" are not printed (the balance box already says cash or credit)
+            String[][] invFacts = {{"Invoice No", so.getSoNo()}, {"Date", PdfKit.date(so.getOrderDate())}};
+            doc.add(slipMeta(kit, bn, invFacts, custOpt.orElse(null), so.getSalespersonId(), so.getShopId(),
+                null, delivery.mobile(), delivery.address()));
 
             // line items: # | Product | Qty | Unit Price | Total (discount, if any, is one row under the lines)
             Color teal = PdfKit.TINT;
             PdfPTable tbl = new PdfPTable(5);
             tbl.setWidthPercentage(100);
             // numeric columns sized for qty up to hundreds, unit price to thousands, total to lakhs; product takes the rest
-            tbl.setWidths(new float[]{24f, 202f, 36f, 50f, 60f});
-            float[] colW = kit.cols(24f, 202f, 36f, 50f, 60f);
+            tbl.setWidths(new float[]{24f, 186f, 52f, 50f, 60f});   // qty carries its unit ("120 PCS")
+            float[] colW = kit.cols(24f, 186f, 52f, 50f, 60f);
             tbl.setSpacingAfter(8);
 
             String[] heads = {"#", "Product", "Qty", "Unit Price", "Gross Total"};
-            int[] aligns  = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
+            // money columns are right-aligned, heading included, so figures line up on the decimal point
+            int[] aligns  = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_RIGHT, Element.ALIGN_RIGHT};
             for (int i = 0; i < heads.length; i++) {
                 String headLabel = i == 4 && kit.bn() ? "মোট" : kit.l(heads[i]);   // invoice has no discount column: plain "মোট"
                 float hPad = i == 0 ? 2f : i == 2 ? 1f : (i == 3 || i == 4) ? 3f : 5f;   // slim side padding keeps the narrow columns' headings (Bangla especially) tidy
@@ -541,7 +528,8 @@ public class SalesService {
 
             BigDecimal grossSum = BigDecimal.ZERO, discSum = BigDecimal.ZERO;
             int serial = 0;
-            for (InvLine line : grouped.values()) {
+            for (var e : grouped.entrySet()) {
+                InvLine line = e.getValue();
                 BigDecimal unitPrice = line.qty().compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO
                     : line.grossTotal().divide(line.qty(), 2, RoundingMode.HALF_UP);
                 grossSum = grossSum.add(line.grossTotal());
@@ -549,7 +537,7 @@ public class SalesService {
 
                 midCell(tbl, kit, String.valueOf(++serial), Element.ALIGN_CENTER, colW[0]);
                 midCell(tbl, kit, line.name(), Element.ALIGN_LEFT, colW[1]);
-                midCell(tbl, kit, line.qty().stripTrailingZeros().toPlainString(), Element.ALIGN_CENTER, colW[2]);   // 1 not 1.00; 2.5 stays
+                midCell(tbl, kit, kit.qty(line.qty(), productUnits.get(e.getKey())), Element.ALIGN_CENTER, colW[2]);
                 midCell(tbl, kit, fmt(unitPrice), Element.ALIGN_RIGHT, colW[3]);
                 midCell(tbl, kit, fmt(line.grossTotal()), Element.ALIGN_RIGHT, colW[4]);
             }
@@ -614,9 +602,7 @@ public class SalesService {
             doc.add(pair);
 
             doc.add(kit.para(kit.l("Thank you for your business."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));
-
-            doc.close();
-            return out.toByteArray();
+            }, "Customer Signature", salespersonName(bn, so.getSalespersonId()))));
         } catch (Exception e) {
             log.error("generateInvoicePdf failed for SO {}", soId, e);
             throw new ApiException("Failed to generate invoice: " + e.getMessage());
@@ -643,7 +629,11 @@ public class SalesService {
             .flatMap(dc -> dc.getLines().stream().map(DcLine::getProductId))
             .collect(Collectors.toSet());
         Map<UUID, String> productNames = new HashMap<>();
-        products.findAllById(pids).forEach(p -> productNames.put(p.getId(), pname(bn, p)));
+        Map<UUID, String> productUnits = new HashMap<>();
+        products.findAllById(pids).forEach(p -> {
+            productNames.put(p.getId(), pname(bn, p));
+            productUnits.put(p.getId(), p.getUnit());
+        });
 
         // group all lines across all challans by productId
         record ChallanLine(String name, BigDecimal qty) {}
@@ -656,45 +646,28 @@ public class SalesService {
             }
         }
 
-        // DC numbers for reference
-        String dcNos = dcList.stream().map(DeliveryChallan::getDcNo)
-            .collect(java.util.stream.Collectors.joining(", "));
 
         try {
-            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(doc, out);
-            doc.open();
-            PdfKit kit = new PdfKit(bn, doc, writer);
+            return renderSlips(bn, List.of(new SlipPage((doc, writer, kit) -> {
 
-            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20);
-            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, PdfKit.INK);
-            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-
-            Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
-            co.setAlignment(Element.ALIGN_CENTER);
-            doc.add(co);
-            doc.add(kit.para(kit.l("DELIVERY CHALLAN"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
+            doc.add(kit.title(kit.l("DELIVERY CHALLAN"), 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
             // meta
             doc.add(slipMeta(kit, bn, new String[][]{
-                    {"Order No", so.getSoNo()}, {"Challan(s)", dcNos},
-                    {"Date", so.getOrderDate() != null ? so.getOrderDate().toString() : ""}},
-                custOpt.orElse(null), delivery.mobile(), so.getSalespersonId(), null, delivery.address()));
+                    {"Order No", so.getSoNo()},   // challan numbers are not printed; the order identifies the slip
+                    {"Date", PdfKit.date(so.getOrderDate())}},
+                custOpt.orElse(null), so.getSalespersonId(), so.getShopId(), null, delivery.mobile(), delivery.address()));
 
             // lines table
             Color teal = PdfKit.TINT;
             PdfPTable tbl = new PdfPTable(3);
             tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{24f, 296f, 48f});
-            float[] colW = kit.cols(24f, 296f, 48f);
+            tbl.setWidths(new float[]{24f, 280f, 64f});
+            float[] colW = kit.cols(24f, 280f, 64f);
             tbl.setSpacingAfter(8);
 
             String[] heads  = {"#", "Product", "Qty"};
-            int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
+            int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
             for (int i = 0; i < heads.length; i++) {
                 PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, PdfKit.INK, aligns[i], colW[i], 5);
                 h.setBackgroundColor(teal);
@@ -707,10 +680,11 @@ public class SalesService {
 
             int serial = 1;
             BigDecimal totalQty = BigDecimal.ZERO;
-            for (ChallanLine line : grouped.values()) {
+            for (var e : grouped.entrySet()) {
+                ChallanLine line = e.getValue();
                 pdfCell(tbl, kit, String.valueOf(serial++), Element.ALIGN_CENTER, colW[0]);
                 pdfCell(tbl, kit, line.name(), Element.ALIGN_LEFT, colW[1]);
-                pdfCell(tbl, kit, line.qty().toPlainString(), Element.ALIGN_RIGHT, colW[2]);
+                pdfCell(tbl, kit, kit.qty(line.qty(), productUnits.get(e.getKey())), Element.ALIGN_CENTER, colW[2]);
                 totalQty = totalQty.add(line.qty());
             }
 
@@ -719,26 +693,13 @@ public class SalesService {
             tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
             tlabel.setPadding(5);
             tbl.addCell(tlabel);
-            PdfPCell tval = kit.cell(totalQty.toPlainString(), true, 9, Color.BLACK, Element.ALIGN_RIGHT, colW[2], 5);
-            tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            PdfPCell tval = kit.cell(kit.qty(totalQty, PdfKit.sharedUnit(grouped.keySet(), productUnits)), true, 9, Color.BLACK, Element.ALIGN_CENTER, colW[2], 5);
+            tval.setHorizontalAlignment(Element.ALIGN_CENTER);
             tval.setPadding(5);
             tbl.addCell(tval);
             doc.add(tbl);
 
-            // signature block
-            PdfPTable sig = new PdfPTable(2);
-            sig.setWidthPercentage(100);
-            sig.setSpacingBefore(40);
-            PdfPCell r1 = kit.cell(kit.l("Received by") + ": _______________________", false, 9, Color.BLACK, Element.ALIGN_LEFT, kit.pageWidth() / 2, 2);
-            r1.setBorder(Rectangle.NO_BORDER);
-            PdfPCell r2 = kit.cell(kit.l("Seller's by") + ": _______________________", false, 9, Color.BLACK, Element.ALIGN_RIGHT, kit.pageWidth() / 2, 2);
-            r2.setBorder(Rectangle.NO_BORDER);
-            r2.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            sig.addCell(r1); sig.addCell(r2);
-            doc.add(sig);
-
-            doc.close();
-            return out.toByteArray();
+            }, "Received by", salespersonName(bn, so.getSalespersonId()))));
         } catch (Exception e) {
             log.error("generateOrderChallanPdf failed for SO {}", soId, e);
             throw new ApiException("Failed to generate challan PDF: " + e.getMessage());
@@ -763,47 +724,38 @@ public class SalesService {
 
         Set<UUID> pids = dc.getLines().stream().map(DcLine::getProductId).collect(Collectors.toSet());
         Map<UUID, String> productNames = new HashMap<>();
-        products.findAllById(pids).forEach(p -> productNames.put(p.getId(), pname(bn, p)));
+        Map<UUID, String> productUnits = new HashMap<>();
+        products.findAllById(pids).forEach(p -> {
+            productNames.put(p.getId(), pname(bn, p));
+            productUnits.put(p.getId(), p.getUnit());
+        });
 
         try {
-            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(doc, out);
-            doc.open();
-            PdfKit kit = new PdfKit(bn, doc, writer);
+            return renderSlips(bn, List.of(new SlipPage((doc, writer, kit) -> {
 
-            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20);
-            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13);
-            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, PdfKit.INK);
-            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-
-            Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
-            co.setAlignment(Element.ALIGN_CENTER);
-            doc.add(co);
-            doc.add(kit.para(kit.l("DELIVERY CHALLAN"), true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
+            doc.add(kit.title(kit.l("DELIVERY CHALLAN"), 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
             // meta
             doc.add(slipMeta(kit, bn, new String[][]{
-                    {"Challan No", dc.getDcNo()},
-                    {"Date", dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
-                    {"Status", kit.l(dc.getStatus())},
-                    {"Warehouse", warehouseName}},
-                custOpt.orElse(null), delivery.mobile(),
+                    // identified by its order; only a direct challan with no order yet prints its own number
+                    dcSo != null ? new String[]{"Order No", dcSo.getSoNo()} : new String[]{"Challan No", dc.getDcNo()},
+                    {"Date", PdfKit.date(dc.getChallanDate())}},
+                custOpt.orElse(null),
                 dc.getSalespersonId() != null ? dc.getSalespersonId() : dcSo != null ? dcSo.getSalespersonId() : null,
-                null, delivery.address()));
+                dc.getShopId(),
+                new String[][]{{"Warehouse", warehouseName}},   // one pickup = one warehouse; the picker needs it
+                delivery.mobile(), delivery.address()));
 
             // line items table — no prices (delivery document)
             Color teal = PdfKit.TINT;
             PdfPTable tbl = new PdfPTable(3);
             tbl.setWidthPercentage(100);
-            tbl.setWidths(new float[]{24f, 296f, 48f});
-            float[] colW = kit.cols(24f, 296f, 48f);
+            tbl.setWidths(new float[]{24f, 280f, 64f});
+            float[] colW = kit.cols(24f, 280f, 64f);
             tbl.setSpacingAfter(8);
 
             String[] heads  = {"#", "Product", "Qty"};
-            int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
+            int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
             for (int i = 0; i < heads.length; i++) {
                 PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, PdfKit.INK, aligns[i], colW[i], 5);
                 h.setBackgroundColor(teal);
@@ -825,10 +777,11 @@ public class SalesService {
 
             int serial = 1;
             BigDecimal totalQty = BigDecimal.ZERO;
-            for (ChallanLine line : grouped.values()) {
+            for (var e : grouped.entrySet()) {
+                ChallanLine line = e.getValue();
                 pdfCell(tbl, kit, String.valueOf(serial++), Element.ALIGN_CENTER, colW[0]);
                 pdfCell(tbl, kit, line.name(), Element.ALIGN_LEFT, colW[1]);
-                pdfCell(tbl, kit, line.qty().toPlainString(), Element.ALIGN_RIGHT, colW[2]);
+                pdfCell(tbl, kit, kit.qty(line.qty(), productUnits.get(e.getKey())), Element.ALIGN_CENTER, colW[2]);
                 totalQty = totalQty.add(line.qty());
             }
 
@@ -838,26 +791,14 @@ public class SalesService {
             tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
             tlabel.setPadding(5);
             tbl.addCell(tlabel);
-            PdfPCell tval = kit.cell(totalQty.toPlainString(), true, 9, Color.BLACK, Element.ALIGN_RIGHT, colW[2], 5);
-            tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            PdfPCell tval = kit.cell(kit.qty(totalQty, PdfKit.sharedUnit(grouped.keySet(), productUnits)), true, 9, Color.BLACK, Element.ALIGN_CENTER, colW[2], 5);
+            tval.setHorizontalAlignment(Element.ALIGN_CENTER);
             tval.setPadding(5);
             tbl.addCell(tval);
             doc.add(tbl);
 
-            // signature line
-            PdfPTable sig = new PdfPTable(2);
-            sig.setWidthPercentage(100);
-            sig.setSpacingBefore(40);
-            PdfPCell r1 = kit.cell(kit.l("Received by") + ": _______________________", false, 9, Color.BLACK, Element.ALIGN_LEFT, kit.pageWidth() / 2, 2);
-            r1.setBorder(Rectangle.NO_BORDER);
-            PdfPCell r2 = kit.cell(kit.l("Seller's by") + ": _______________________", false, 9, Color.BLACK, Element.ALIGN_RIGHT, kit.pageWidth() / 2, 2);
-            r2.setBorder(Rectangle.NO_BORDER);
-            r2.setHorizontalAlignment(Element.ALIGN_RIGHT);
-            sig.addCell(r1); sig.addCell(r2);
-            doc.add(sig);
-
-            doc.close();
-            return out.toByteArray();
+            }, "Received by", salespersonName(bn,
+                dc.getSalespersonId() != null ? dc.getSalespersonId() : dcSo != null ? dcSo.getSalespersonId() : null))));
         } catch (Exception e) {
             log.error("generateChallanPdf failed for DC {}", dcId, e);
             throw new ApiException("Failed to generate challan PDF: " + e.getMessage());
@@ -875,13 +816,31 @@ public class SalesService {
 
         List<DeliveryChallan> dcList = challans.findBySoIdWithLines(soId);
         if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
+        return tokenPdf(so, dcList, bn);
+    }
 
+    /** Dispatch token for one pickup only — a customer who collects an order in parts gets a token per pickup. */
+    @Transactional(readOnly = true)
+    public byte[] generateChallanTokenPdf(UUID dcId, boolean bn) {
+        DeliveryChallan dc = challans.findByIdWithLines(dcId)
+            .orElseThrow(() -> new ApiException("Challan not found"));
+        if (dc.getSoId() == null) throw new ApiException("This challan is not under a sales order yet");
+        SalesOrder so = orders.findById(dc.getSoId())
+            .orElseThrow(() -> new ApiException("Sales order not found"));
+        return tokenPdf(so, List.of(dc), bn);
+    }
+
+    private byte[] tokenPdf(SalesOrder so, List<DeliveryChallan> dcList, boolean bn) {
         // collect all product names
         Set<UUID> pids = dcList.stream()
             .flatMap(dc -> dc.getLines().stream().map(DcLine::getProductId))
             .collect(Collectors.toSet());
         Map<UUID, String> productNames = new HashMap<>();
-        products.findAllById(pids).forEach(p -> productNames.put(p.getId(), pname(bn, p)));
+        Map<UUID, String> productUnits = new HashMap<>();
+        products.findAllById(pids).forEach(p -> {
+            productNames.put(p.getId(), pname(bn, p));
+            productUnits.put(p.getId(), p.getUnit());
+        });
 
         // collect warehouse names
         Set<UUID> wids = dcList.stream().map(DeliveryChallan::getWarehouseId)
@@ -893,35 +852,17 @@ public class SalesService {
         DeliveryInfo delivery = resolveDelivery(so, custOpt.orElse(null));
 
         try {
-            Document doc = new Document(new Rectangle(396f, 612f), 14.17f, 14.17f, 104.88f, 42.52f);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            PdfWriter writer = PdfWriter.getInstance(doc, out);
-            doc.open();
-            PdfKit kit = new PdfKit(bn, doc, writer);
-
-            Font companyFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
-            Font titleFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            Font labelFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font valueFont   = FontFactory.getFont(FontFactory.HELVETICA, 9);
-            Font thFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, Font.NORMAL, PdfKit.INK);
-            Font totalFont   = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-            Font whFont      = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11);
-            Color teal       = PdfKit.TINT;
-
-            boolean first = true;
+            // one page per warehouse pickup
+            List<SlipPage> pages = new ArrayList<>();
             for (DeliveryChallan dc : dcList) {
-                if (!first) doc.newPage();
-                first = false;
-
+                pages.add(new SlipPage((doc, writer, kit) -> {
+                Color teal = PdfKit.TINT;
                 String whName = dc.getWarehouseId() != null
                     ? warehouseNames.getOrDefault(dc.getWarehouseId(), "—") : "—";
 
                 // header
-                Paragraph co = new Paragraph("MIM ENTERPRISE", companyFont);
-                co.setAlignment(Element.ALIGN_CENTER);
-                doc.add(co);
 
-                doc.add(kit.para(kit.l("WAREHOUSE DISPATCH TOKEN"), true, false, 12, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
+                doc.add(kit.title(kit.l("TOKEN"), 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
                 // warehouse badge
                 PdfPTable badge = new PdfPTable(1);
@@ -939,20 +880,19 @@ public class SalesService {
 
                 // dense grid (the warehouse is already in the badge above)
                 doc.add(slipMeta(kit, bn, new String[][]{
-                        {"Order No", so.getSoNo()}, {"DC No", dc.getDcNo()},
-                        {"Date", dc.getChallanDate() != null ? dc.getChallanDate().toString() : ""},
-                        {"Status", kit.l(dc.getStatus())}},
-                    custOpt.orElse(null), delivery.mobile(), so.getSalespersonId(), null, delivery.address()));
+                        {"Order No", so.getSoNo()},
+                        {"Date", PdfKit.date(dc.getChallanDate())}},
+                    custOpt.orElse(null), so.getSalespersonId(), so.getShopId(), null, delivery.mobile(), delivery.address()));
 
                 // product table
                 PdfPTable tbl = new PdfPTable(3);
                 tbl.setWidthPercentage(100);
-                tbl.setWidths(new float[]{24f, 296f, 48f});
-            float[] colW = kit.cols(24f, 296f, 48f);
+                tbl.setWidths(new float[]{24f, 280f, 64f});
+            float[] colW = kit.cols(24f, 280f, 64f);
                 tbl.setSpacingAfter(8);
 
                 String[] heads  = {"#", "Product", "Qty"};
-                int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_RIGHT};
+                int[]    aligns = {Element.ALIGN_CENTER, Element.ALIGN_CENTER, Element.ALIGN_CENTER};
                 for (int i = 0; i < heads.length; i++) {
                     PdfPCell h = kit.cell(kit.l(heads[i]), true, 9, PdfKit.INK, aligns[i], colW[i], 5);
                     h.setBackgroundColor(teal);
@@ -974,10 +914,11 @@ public class SalesService {
 
                 int serial = 1;
                 BigDecimal totalQty = BigDecimal.ZERO;
-                for (DispatchLine line : grouped.values()) {
+                for (var e : grouped.entrySet()) {
+                    DispatchLine line = e.getValue();
                     pdfCell(tbl, kit, String.valueOf(serial++), Element.ALIGN_CENTER, colW[0]);
                     pdfCell(tbl, kit, line.name(), Element.ALIGN_LEFT, colW[1]);
-                    pdfCell(tbl, kit, line.qty().toPlainString(), Element.ALIGN_RIGHT, colW[2]);
+                    pdfCell(tbl, kit, kit.qty(line.qty(), productUnits.get(e.getKey())), Element.ALIGN_CENTER, colW[2]);
                     totalQty = totalQty.add(line.qty());
                 }
 
@@ -986,31 +927,18 @@ public class SalesService {
                 tlabel.setHorizontalAlignment(Element.ALIGN_RIGHT);
                 tlabel.setPadding(5);
                 tbl.addCell(tlabel);
-                PdfPCell tval = kit.cell(totalQty.toPlainString(), true, 9, Color.BLACK, Element.ALIGN_RIGHT, colW[2], 5);
-                tval.setHorizontalAlignment(Element.ALIGN_RIGHT);
+                PdfPCell tval = kit.cell(kit.qty(totalQty, PdfKit.sharedUnit(grouped.keySet(), productUnits)), true, 9, Color.BLACK, Element.ALIGN_CENTER, colW[2], 5);
+                tval.setHorizontalAlignment(Element.ALIGN_CENTER);
                 tval.setPadding(5);
                 tbl.addCell(tval);
                 doc.add(tbl);
 
-                // dispatch signature block
-                PdfPTable sig = new PdfPTable(2);
-                sig.setWidthPercentage(100);
-                sig.setSpacingBefore(30);
-                PdfPCell s1 = kit.cell(kit.l("Dispatched by") + ": _______________________", false, 9, Color.BLACK, Element.ALIGN_LEFT, kit.pageWidth() / 2, 2);
-                s1.setBorder(Rectangle.NO_BORDER);
-                PdfPCell s2 = kit.cell(kit.l("Checked by") + ": _______________________", false, 9, Color.BLACK, Element.ALIGN_RIGHT, kit.pageWidth() / 2, 2);
-                s2.setBorder(Rectangle.NO_BORDER);
-                s2.setHorizontalAlignment(Element.ALIGN_RIGHT);
-                sig.addCell(s1); sig.addCell(s2);
-                doc.add(sig);
-
                 String noteText = bn ? String.format(kit.l("dispatch note"), whName)
                     : "* This token authorises dispatch from " + whName + " only. Do not release without this token.";
                 doc.add(kit.para(noteText, false, true, 8, Color.BLACK, Element.ALIGN_CENTER, 16, 0));
+                }, "Dispatched by", salespersonName(bn, so.getSalespersonId())));
             }
-
-            doc.close();
-            return out.toByteArray();
+            return renderSlips(bn, pages);
         } catch (Exception e) {
             throw new ApiException("Failed to generate warehouse token: " + e.getMessage());
         }
@@ -1195,6 +1123,7 @@ public class SalesService {
         PdfPCell vc = kit.cell(amount, bold, 9, Color.BLACK, Element.ALIGN_RIGHT, amountW, 5);
         vc.setHorizontalAlignment(Element.ALIGN_RIGHT);
         vc.setPadding(5);
+        vc.setPaddingRight(4);   // same right edge as the line amounts above it
         vc.setVerticalAlignment(Element.ALIGN_MIDDLE);
         tbl.addCell(vc);
     }
@@ -1217,13 +1146,17 @@ public class SalesService {
     }
     /**
      * Compact header grid shared by the invoice, challans and token. Document facts first (two per row), then
-     * customer | salesperson names, their Bangla lines, contact | salesperson mobile, any extra facts, and the
+     * customer | salesperson name - mobile, their Bangla lines, customer contact, any extra facts, and the
      * delivery address across the full width. {@code docFacts}/{@code extra} are {label, value} pairs.
      */
-    private PdfPTable slipMeta(PdfKit kit, boolean bn, String[][] docFacts, Customer c, String contact,
-                               UUID salespersonId, String[][] extra, String address) {
-        List<String[]> grid = new ArrayList<>();
-        addPairs(grid, docFacts);
+    /**
+     * Slip header, the same on invoice, challan and token:
+     *   left column  — document no, date, customer (Bangla name under the English one)
+     *   right column — salesperson ("name - mobile"), branch name, then any extra facts
+     *   full width   — customer mobile, then address
+     */
+    private PdfPTable slipMeta(PdfKit kit, boolean bn, String[][] docFacts, Customer c, UUID salespersonId,
+                               UUID shopId, String[][] rightExtra, String mobile, String address) {
         List<String[]> custNames = c == null ? Collections.singletonList(new String[]{"Customer", "—"})
             : nameRows("Customer", bn, c.getName(), c.getNameBn(), null);
         String spMobile = null;
@@ -1231,26 +1164,33 @@ public class SalesService {
         for (String[] r : salespersonRows(bn, salespersonId)) {
             if ("Mobile".equals(r[0])) spMobile = r[1]; else spNames.add(r);
         }
-        grid.add(new String[]{"Customer", custNames.get(0)[1], "Salesperson",
-            spNames.isEmpty() ? "—" : spNames.get(0)[1]});
-        String custBn = custNames.size() > 1 ? custNames.get(1)[1] : "";
-        String spBn = spNames.size() > 1 ? spNames.get(1)[1] : "";
-        if (!custBn.isEmpty() || !spBn.isEmpty()) grid.add(new String[]{"", custBn, "", spBn});
-        grid.add(new String[]{"Contact", contact != null && !contact.isBlank() ? contact : "—",
-            "Mobile", spMobile != null ? spMobile : "—"});
-        if (extra != null) addPairs(grid, extra);
-        if (address != null && !address.isBlank()) grid.add(new String[]{"Deliver to", address, null, null});
+        // salesperson name and mobile on one line ("Arif (017...)"), same in the English and Bangla slip
+        String spLine = spNames.isEmpty() ? "—" : spNames.get(0)[1];
+        if (!spNames.isEmpty() && spMobile != null && !"—".equals(spMobile)) spLine += " (" + spMobile + ")";
+        // the Bangla name goes in the same cell as the English one ("\n"), so it stays right under it
+        // even when the other side of the row wraps onto a second line
+        String custBn = custNames.size() > 1 ? "\n" + custNames.get(1)[1] : "";
+        String spBn = spNames.size() > 1 ? "\n" + spNames.get(1)[1] : "";
+        List<String[]> left = new ArrayList<>(List.of(docFacts));
+        left.add(new String[]{"Customer", custNames.get(0)[1] + custBn});
+        String branch = shopId == null ? null
+            : shops.findById(shopId).map(s -> nm(bn, s.getNameBn(), s.getName())).orElse(null);
+        List<String[]> right = new ArrayList<>();
+        right.add(new String[]{"Salesperson", spLine + spBn});
+        right.add(new String[]{"Branch Name", branch != null && !branch.isBlank() ? branch : "—"});
+        if (rightExtra != null) right.addAll(List.of(rightExtra));
+
+        List<String[]> grid = new ArrayList<>();
+        for (int i = 0; i < Math.max(left.size(), right.size()); i++) {
+            String[] l = i < left.size() ? left.get(i) : new String[]{"", ""};
+            String[] r = i < right.size() ? right.get(i) : new String[]{"", ""};
+            grid.add(new String[]{l[0], l[1], r[0], r[1]});
+        }
+        grid.add(new String[]{"Mobile", mobile != null && !mobile.isBlank() ? mobile : "—", null, null});
+        grid.add(new String[]{"Address", address != null && !address.isBlank() ? address : "—", null, null});
         PdfPTable t = compactMeta(kit, grid);
         t.setSpacingAfter(12);
         return t;
-    }
-
-    private static void addPairs(List<String[]> grid, String[][] pairs) {
-        for (int i = 0; i < pairs.length; i += 2) {
-            String[] a = pairs[i];
-            String[] b = i + 1 < pairs.length ? pairs[i + 1] : new String[]{"", ""};
-            grid.add(new String[]{a[0], a[1], b[0], b[1]});
-        }
     }
 
     /**
@@ -1260,23 +1200,44 @@ public class SalesService {
     private static PdfPTable compactMeta(PdfKit kit, List<String[]> rows) {
         PdfPTable t = new PdfPTable(4);
         t.setWidthPercentage(100);
-        try { t.setWidths(new float[]{60f, 128f, 66f, 114f}); } catch (Exception ignored) { }
-        float[] w = kit.cols(60f, 128f, 66f, 114f);
+        // right-hand value is the wide one: it holds "salesperson name - mobile" on one line
+        try { t.setWidths(new float[]{52f, 95f, 61f, 160f}); } catch (Exception ignored) { }
+        float[] w = kit.cols(52f, 95f, 61f, 160f);
         for (String[] r : rows) {
             t.addCell(compactCell(kit, kit.l(r[0]), true, w[0], 1));
             boolean span = r[2] == null;
-            PdfPCell v = compactCell(kit, r[1], false, span ? w[1] + w[2] + w[3] : w[1], span ? 3 : 1);
+            PdfPCell v = compactCell(kit, r[1], boldValue(r[0]), span ? w[1] + w[2] + w[3] : w[1], span ? 3 : 1);
             t.addCell(v);
             if (!span) {
                 t.addCell(compactCell(kit, kit.l(r[2]), true, w[2], 1));
-                t.addCell(compactCell(kit, r[3], false, w[3], 1));
+                t.addCell(compactCell(kit, r[3], boldValue(r[2]), w[3], 1));
             }
         }
         return t;
     }
 
+    /** Who the slip is for and who sold it stand out: their values print bold. */
+    private static boolean boldValue(String label) {
+        return "Customer".equals(label) || "Salesperson".equals(label);
+    }
+
+    private static final float META_PT = 8.5f;   // header grid text: four columns must fit the 5.5 in slip
+
     private static PdfPCell compactCell(PdfKit kit, String text, boolean bold, float width, int colspan) {
-        PdfPCell c = kit.cell(text == null ? "" : text, bold, 9, Color.BLACK, Element.ALIGN_LEFT, width, 1.5f);
+        if (text != null && text.contains("\n")) {
+            // one inner row per line: each line picks its own font (Latin or Bangla) and they sit tight together
+            PdfPTable lines = new PdfPTable(1);
+            for (String line : text.split("\n")) {
+                PdfPCell lc = kit.cell(line, bold, META_PT, Color.BLACK, Element.ALIGN_LEFT, width, 1.5f);
+                lc.setBorder(Rectangle.NO_BORDER);
+                lines.addCell(lc);
+            }
+            PdfPCell wrap = new PdfPCell(lines);
+            wrap.setBorder(Rectangle.NO_BORDER);
+            wrap.setColspan(colspan);
+            return wrap;
+        }
+        PdfPCell c = kit.cell(text == null ? "" : text, bold, META_PT, Color.BLACK, Element.ALIGN_LEFT, width, 1.5f);
         c.setBorder(Rectangle.NO_BORDER);
         c.setColspan(colspan);
         c.setVerticalAlignment(Element.ALIGN_TOP);
@@ -1334,6 +1295,115 @@ public class SalesService {
             rows.add(new String[]{"Mobile", u.getMobile() != null && !u.getMobile().isBlank() ? u.getMobile().trim() : "—"});
             return rows;
         }).orElse(List.of());
+    }
+
+    /** Salesperson's printed name for a slip: Bangla when printing Bangla and one exists; "" when none. */
+    private String salespersonName(boolean bn, UUID userId) {
+        if (userId == null) return "";
+        return users.findById(userId)
+            .map(u -> nm(bn, u.getFullNameBn(),
+                u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : u.getUsername()))
+            .orElse("");
+    }
+
+    /** Writes the body of one slip page (everything above the signature block). */
+    @FunctionalInterface
+    private interface SlipBody { void write(Document doc, PdfWriter writer, PdfKit kit) throws Exception; }
+
+    /** One printed slip page: its body and the captions of its signature block. */
+    private record SlipPage(SlipBody body, String leftCaption, String sellerName) {}
+
+    private static final float TALL = 14400f;        // largest page PDF allows; the body is measured on it
+    private static final float SIGN_ROOM = 24f;      // clear space above the signature lines to sign in
+
+    /**
+     * Renders slips onto pre-printed stationery: every page is exactly {@link PdfKit#slip()} and nothing
+     * ever prints outside its margins. The signature block is pinned to the bottom margin; the body goes
+     * above it at full size when it fits, otherwise it is laid out wider and scaled down as a whole (fonts,
+     * padding, lines together) until it fits the space between the top margin and the signature block,
+     * still filling the full width. A body never runs onto a second page.
+     */
+    private static byte[] renderSlips(boolean bn, List<SlipPage> pages) throws Exception {
+        Document doc = PdfKit.slip();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PdfWriter writer = PdfWriter.getInstance(doc, out);
+        doc.open();
+        PdfKit.printActualSize(writer);
+        PdfKit kit = new PdfKit(bn, doc, writer);
+        PdfContentByte cb = writer.getDirectContent();
+
+        float left = doc.leftMargin(), top = doc.topMargin();
+        float contentW = doc.right() - doc.left();
+        boolean first = true;
+        for (SlipPage p : pages) {
+            if (!first) doc.newPage();
+            first = false;
+            float avail = doc.top() - signFoot(doc, writer, kit, p.leftCaption(), p.sellerName()) - SIGN_ROOM;
+
+            // lay the body out at a width that, once scaled, is exactly the printable width
+            // (a wider layout wraps less, so the scale is found by a few rounds; the largest scale that fits wins)
+            float s = 1f, best = 0f, h = 0f;
+            byte[] body = null, bestBody = null;
+            for (int i = 0; i < 8; i++) {
+                float[] used = new float[1];
+                body = measureBody(bn, p.body(), contentW / s, left, top, used);
+                h = used[0];
+                if (s * h <= avail + 0.01f && s > best) { best = s; bestBody = body; }
+                float next = Math.min(1f, avail / h);
+                if (Math.abs(next - s) < 0.003f) break;
+                s = next;
+            }
+            if (bestBody != null) { s = best; body = bestBody; }
+            else s = avail / h;   // no round fitted outright: shrink the last layout the rest of the way
+
+            PdfImportedPage ip = writer.getImportedPage(new PdfReader(body), 1);
+            // template point (left, TALL - top) lands on the slip's top-left margin corner
+            cb.addTemplate(ip, s, 0, 0, s, left * (1 - s), doc.top() - s * (TALL - top));
+            writer.setPageEmpty(false);
+        }
+        doc.close();
+        return out.toByteArray();
+    }
+
+    /** Lays one slip body out on a very tall page of the given content width; reports the height it took. */
+    private static byte[] measureBody(boolean bn, SlipBody body, float contentW, float left, float top,
+                                      float[] usedHeight) throws Exception {
+        Document doc = new Document(new Rectangle(contentW + 2 * left, TALL), left, left, top, 0);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PdfWriter writer = PdfWriter.getInstance(doc, out);
+        doc.open();
+        body.write(doc, writer, new PdfKit(bn, doc, writer));
+        usedHeight[0] = Math.max(1f, doc.top() - writer.getVerticalPosition(false));        doc.close();
+        return out.toByteArray();
+    }
+
+    /**
+     * Signature block pinned to the foot of the current page: a line to sign on at each side, the seller's
+     * printed name under the right-hand line, then the captions. Returns the y of its top edge.
+     */
+    private static float signFoot(Document doc, PdfWriter writer, PdfKit kit, String leftCaption,
+                                  String sellerName) throws Exception {
+        float blockW = 130f;
+        PdfPTable t = new PdfPTable(3);
+        t.setTotalWidth(new float[]{blockW, kit.pageWidth() - 2 * blockW, blockW});
+        t.setLockedWidth(true);
+        String[][] rows = {
+            {"", sellerName == null ? "" : sellerName},
+            {kit.l(leftCaption), kit.l("Seller's Signature")}};
+        for (int r = 0; r < rows.length; r++) {
+            for (int col = 0; col < 3; col++) {
+                String text = col == 1 ? "" : rows[r][col == 0 ? 0 : 1];
+                // " " keeps the name row's height when there is no name to print
+                PdfPCell c = kit.cell(text.isEmpty() ? " " : text, r == 1, 9, Color.BLACK, Element.ALIGN_CENTER, blockW, 2);
+                c.setHorizontalAlignment(Element.ALIGN_CENTER);
+                c.setBorder(r == 0 && col != 1 ? Rectangle.TOP : Rectangle.NO_BORDER);   // top border = the line
+                if (r == rows.length - 1) c.setPaddingBottom(0);   // captions rest on the padded bottom edge
+                t.addCell(c);
+            }
+        }
+        float y = doc.bottom() + t.getTotalHeight();
+        t.writeSelectedRows(0, -1, doc.left(), y, writer.getDirectContent());
+        return y;
     }
 
     private static String[][] rowsArray(List<String[]> rows) { return rows.toArray(new String[0][]); }

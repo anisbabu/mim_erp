@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
   endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView, type CommittedRow,
 } from "@/lib/api";
@@ -39,6 +39,7 @@ export default function NewSalePage() {
   const [demo, setDemo] = useState<{ id: string; code: string; skipped: string[] } | null>(null);
   const [newCust, setNewCust] = useState(false);
   const [demoLoaded, setDemoLoaded] = useState(false);
+  const [focusLine, setFocusLine] = useState<number | null>(null);
 
   const [stockPanel, setStockPanel]         = useState<WarehouseStock[]>([]);
   const [panelProductId, setPanelProductId] = useState("");
@@ -170,6 +171,28 @@ export default function NewSalePage() {
   const addLine    = () => setLines((ls) => [...ls, { productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
   const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
+  // Enter in a line's qty / price / total / warehouse goes to the next line's product, adding the line
+  // when this is the last one. The product search handles its own Enter (it is rendered outside the row).
+  function lineEnter(e: KeyboardEvent<HTMLElement>, i: number) {
+    const el = e.target as HTMLElement;
+    if (e.key !== "Enter" || !e.currentTarget.contains(el) || (el.tagName !== "INPUT" && el.tagName !== "SELECT")) return;
+    e.preventDefault();
+    if (i === lines.length - 1) {
+      if (!lines[i].productId) return;   // nothing entered yet: no point stacking empty lines
+      addLine();
+    }
+    setFocusLine(i + 1);
+  }
+
+  // focus the product field of a line once it is on screen (desktop row or mobile card, whichever shows)
+  useEffect(() => {
+    if (focusLine == null || focusLine >= lines.length) return;
+    const btn = Array.from(document.querySelectorAll<HTMLElement>(`[data-line="${focusLine}"] button.inp`))
+      .find((b) => b.offsetParent !== null);
+    btn?.focus();
+    setFocusLine(null);
+  }, [focusLine, lines.length]);
+
   function bandState(l: Line): "ok" | "out" | "none" {
     const p = productById[l.productId];
     const price = Number(l.unitPrice);
@@ -263,7 +286,7 @@ export default function NewSalePage() {
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: "#0f766e" }}>
+                <tr style={{ background: "var(--brand)" }}>
                   <th className="text-left text-xs font-semibold px-3 py-2 text-white">{t("Warehouse")}</th>
                   <th className="text-right text-xs font-semibold px-3 py-2 text-white">{t("Qty")}</th>
                 </tr>
@@ -283,7 +306,7 @@ export default function NewSalePage() {
                       }}>
                       <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
-                          style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
+                          style={{ color: s.qty === 0 ? "#b4690e" : "var(--brand)" }}>{s.qty}</td>
                     </tr>
                   );
                 })}
@@ -316,7 +339,7 @@ export default function NewSalePage() {
         )}
         <div className="field">
           <label className="flex items-center justify-between">{t("Customer")}
-            <button type="button" className="text-[12px] font-medium" style={{ color: "#0f766e" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
+            <button type="button" className="text-[12px] font-medium" style={{ color: "var(--brand)" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
           <SearchSelect options={customerOpts} value={customerId}
             onChange={pickCustomer} placeholder={t("Search name or mobile…")} />
         </div>
@@ -355,10 +378,10 @@ export default function NewSalePage() {
             <thead>
               <tr>
                 <th>{t("Product")}</th>
-                <th style={{ width: 150 }}>{t("Warehouse")}</th>
                 <th className="text-right" style={{ width: 90 }}>{t("Qty")}</th>
                 <th className="text-right" style={{ width: 110 }}>{t("Unit price")}</th>
                 <th className="text-right" style={{ width: 120 }}>{t("Gross total")}</th>
+                <th style={{ width: 150 }}>{t("Warehouse")}</th>
                 <th style={{ width: 40 }}></th>
               </tr>
             </thead>
@@ -371,28 +394,13 @@ export default function NewSalePage() {
                 const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
                 const stockedWarehouses = lineStock ? warehouses.filter((w) => qtyByWarehouse[w.id] > 0) : warehouses;
                 return (
-                  <tr key={i}>
+                  <tr key={i} data-line={i} onKeyDown={(e) => lineEnter(e, i)}>
                     <td className="align-top">
                       <SearchSelect options={productOpts} value={l.productId}
                         onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
                       <div className="text-[11px] mt-1 h-4 leading-4"
                         style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                         {p ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}` : ""}
-                      </div>
-                    </td>
-                    <td className="align-top">
-                      <select className="inp" value={l.warehouseId} onChange={(e) => pickWarehouse(i, e.target.value)}>
-                        <option value="">{t("Select…")}</option>
-                        {stockedWarehouses.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
-                        {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
-                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
-                        {!l.warehouseId && l.productId && Number(l.qty) > 0 ? t("all pending (no warehouse)") : ""}
                       </div>
                     </td>
                     <td className="text-right align-top">
@@ -416,6 +424,21 @@ export default function NewSalePage() {
                         onChange={(e) => { const t = Number(e.target.value), q = Number(l.qty); if (q > 0) update(i, { unitPrice: String(t / q) }); }}
                         placeholder="0.00" />
                       <div className="h-4 mt-1" />
+                    </td>
+                    <td className="align-top">
+                      <select className="inp" value={l.warehouseId} onChange={(e) => pickWarehouse(i, e.target.value)}>
+                        <option value="">{t("Select…")}</option>
+                        {stockedWarehouses.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
+                        {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
+                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                        {!l.warehouseId && l.productId && Number(l.qty) > 0 ? t("all pending (no warehouse)") : ""}
+                      </div>
                     </td>
                     <td className="text-right align-top pt-2">
                       {lines.length > 1 && (
@@ -442,7 +465,7 @@ export default function NewSalePage() {
             const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
             const stockedWarehouses = lineStock ? warehouses.filter((w) => qtyByWarehouse[w.id] > 0) : warehouses;
             return (
-              <div key={i} className="p-4 flex flex-col gap-3">
+              <div key={i} data-line={i} onKeyDown={(e) => lineEnter(e, i)} className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs muted font-medium">{t("Product")}</span>
                   {lines.length > 1 && (
@@ -456,22 +479,6 @@ export default function NewSalePage() {
                   onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
                 <div className="text-[11px] -mt-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                   {p ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}` : ""}
-                </div>
-                <div className="field">
-                  <label className="text-xs muted block mb-1">{t("Warehouse")}</label>
-                  <select className="inp" value={l.warehouseId} onChange={(e) => pickWarehouse(i, e.target.value)}>
-                    <option value="">{t("Select…")}</option>
-                    {stockedWarehouses.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
-                    {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
-                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
-                    {!l.warehouseId && l.productId && Number(l.qty) > 0 ? t("all pending (no warehouse)") : ""}
-                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -493,6 +500,22 @@ export default function NewSalePage() {
                       value={grossTotal ? grossTotal.toFixed(2) : ""}
                       onChange={(e) => { const t = Number(e.target.value), q = Number(l.qty); if (q > 0) update(i, { unitPrice: String(t / q) }); }}
                       placeholder="0.00" />
+                  </div>
+                </div>
+                <div className="field">
+                  <label className="text-xs muted block mb-1">{t("Warehouse")}</label>
+                  <select className="inp" value={l.warehouseId} onChange={(e) => pickWarehouse(i, e.target.value)}>
+                    <option value="">{t("Select…")}</option>
+                    {stockedWarehouses.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+                    {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
+                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
+                    {!l.warehouseId && l.productId && Number(l.qty) > 0 ? t("all pending (no warehouse)") : ""}
                   </div>
                 </div>
               </div>
@@ -519,7 +542,7 @@ export default function NewSalePage() {
               type="number" min={0} placeholder="0"
               value={transport} onChange={(e) => setTransport(e.target.value)} />
             <span className="text-xs muted font-semibold text-right">{t("Net total")}</span>
-            <span className="tabular-nums font-bold text-right text-base" style={{ color: "#0f766e" }}>
+            <span className="tabular-nums font-bold text-right text-base" style={{ color: "var(--brand)" }}>
               {netTotal.toFixed(2)}
             </span>
           </div>

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
+import { appsFor } from "@/components/Shell";
 import { endpoints, fmtDate, type Cheque, type Customer } from "@/lib/api";
 import ChequeMaturityBoard, {
   type MaturityPick, isOpenCheque, isoDay, daysUntil, urgency, STATUS_CHIP, STATUS_LABEL,
@@ -12,25 +13,19 @@ export default function Dashboard() {
   const { t } = useI18n();
   const { user } = useAuth();
   const showCheques = !!user && user.role !== "SALESPERSON";
-  const cards = [
-    { title: t("Purchase"), body: "POs, partial receipts, FIFO stock layers." },
-    { title: t("Inventory"), body: "Per-warehouse availability, FIFO costing, variance." },
-    { title: t("Sales"), body: "Order-first / delivery-first, price band, credit checks." },
-    { title: t("Accounting"), body: "Perpetual double-entry: inventory, COGS, revenue, AR/AP." },
-  ];
+  // home screen: one tile per app the role can open (the dashboard itself is not a tile)
+  const apps = user ? appsFor(user.role).filter((a) => a.href !== "/") : [];
   return (
     <div>
-      <h1 className="page-title mb-1">{t("MIM Enterprise")}</h1>
-      <p className="text-sm muted mb-7">{t("Single application for purchase, inventory, sales and accounting.")}</p>
-      {showCheques && <ChequeWatch />}
-      <div className="grid grid-cols-2 gap-4">
-        {cards.map((c) => (
-          <div key={c.title} className="card p-5">
-            <div className="font-medium mb-1">{c.title}</div>
-            <div className="text-sm muted leading-relaxed">{c.body}</div>
-          </div>
+      <div className="o-home mt-4 mb-8">
+        {apps.map((a) => (
+          <Link key={a.label} href={a.href} className="o-app">
+            <span className="o-app-icon" style={{ background: a.color }}><a.icon size={30} strokeWidth={1.7} /></span>
+            <span>{t(a.label)}</span>
+          </Link>
         ))}
       </div>
+      {showCheques && <ChequeWatch />}
     </div>
   );
 }

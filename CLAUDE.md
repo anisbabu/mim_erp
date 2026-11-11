@@ -23,6 +23,8 @@ Default admin: `admin` / `admin123`. Old Neon DB = env `DB_URL`/`DB_USER`/`DB_PA
 - `sales/` SO_FIRST (order → per-warehouse challans) and DC_FIRST (challans → day-end consolidation). Price-band + credit-limit checks with logged overrides.
 - `accounting/` balanced double-entry; auto-post on receipt and sale. Trial balance, P&L, balance sheet.
 - `hr/` employees (customer.salesperson_id → employee).
+- `audit/` append-only `audit_log` (V70). A DB trigger (`zz_audit_row`) on every table records create/update/delete, so JPA, raw `JdbcTemplate` SQL and psql are all covered — never add per-controller log calls. `AuditDataSource` stamps each connection with the acting user (`mim.audit_*` settings); no request = `system`. New tables get the trigger on backend start (`audit_attach_all()`). Not audited: `audit_log`, `flyway_schema_history`, `doc_counter`. Columns named like password/token/secret/hash are masked. If the audit insert fails the change rolls back. No update/delete path for audit rows — keep it that way. Read API `/api/audit-log` is ADMIN + GET only.
+- Tests: `cd backend && mvn test` (Testcontainers Postgres — Docker must be running).
 
 ## Frontend (`frontend/`)
 - Pages directly under `app/` (sales, purchase, inventory, accounting, master, hr, admin, login).
@@ -34,13 +36,14 @@ Default admin: `admin` / `admin123`. Old Neon DB = env `DB_URL`/`DB_USER`/`DB_PA
 - Classes in `globals.css`: `.inp .btn .btn-ghost .field .form-grid .tbl .card .chip .note`.
 - `.tbl td` is `align-middle`; override with inline `style={{ verticalAlign: 'top' }}`, not `.align-top`.
 - Hint rows under inputs: fixed `h-4 leading-4` so row height never jumps.
-- Theme tokens `--bg --surface --text --muted --border --input-bg`; dark mode via `html.dark`. Brand teal `#0f766e` / `bg-brand`.
+- Theme tokens `--bg --surface --text --muted --border --input-bg`; dark mode via `html.dark`.
+- Odoo-style look: brand blue `#1d4f91` = `var(--brand)` / `bg-brand` (navbar, primary `.btn`); links/focus lighter blue `var(--action)` / `.text-brand`. Never hard-code either hex. `.inp` is underline-only; `.btn-ghost` is the grey secondary button; `.chip` is a pill.
 
 ## UI standard (lists and forms)
 - Every page starts with `components/PageHeader.tsx`: breadcrumb (`["Accounting","Setup"]`), title, one-line subtitle, primary actions on the right.
 - List pages: toolbar row (search, filter chips, secondary toggles) above one `.card .table-wrap` table; numbers right-aligned `.num`; totals/status as `.chip`.
 - Create/edit forms: right-hand `components/Drawer.tsx` (Save/Cancel in footer, Enter saves, Esc closes), required marked `*`, inline errors in the fixed `h-4` hint row. Long transaction forms (journal, payment) stay as a page `.card`.
-- Sidebar: `Shell.tsx` groups with captions (Setup / Transactions / Reports), lucide icon per item, collapsible groups; add `also:` paths so a hub page stays highlighted.
+- Navigation: no sidebar. `Shell.tsx` top navbar — each `groups` entry is an app (icon + colour tile in the app switcher and on the home screen); its items are the top menu, captions (Setup / Transactions / Reports) become dropdowns. Lucide icon per item; add `also:` paths so a hub page stays highlighted.
 - Terms: Group (totals only) / Ledger (posted to); Receipts & payments; Financial reports. All text through `t()` with EN + BN.
 
 ## Don't read

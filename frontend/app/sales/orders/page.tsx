@@ -3,6 +3,7 @@ import { Fragment, useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type SalesOrder, type Customer, type SoLineView, type Warehouse, type WarehouseStock, type PickupView } from "@/lib/api";
 import { beep } from "@/lib/beep";
 import { useI18n } from "@/lib/i18n";
+import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { Download, Loader2, Printer, Share2 } from "lucide-react";
 
@@ -179,6 +180,10 @@ export default function SalesOrdersPage() {
             crumbs={["Sales"]}
             title={t("Sales orders")}
             subtitle={t("Track deliveries and print the dispatch token, challan and invoice for each order.")}
+            actions={<>
+              <Link href="/sales/challans" className="btn-ghost">{t("Challan list")}</Link>
+              <Link href="/sales/challan" className="btn">+ {t("New challan")}</Link>
+            </>}
         />
 
         <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -279,6 +284,11 @@ export default function SalesOrdersPage() {
                                     <span className="text-[12px] text-[#6b6960]">{fmtDate(p.date)}</span>
                                     <span className="text-[12px] text-[#6b6960]">{p.warehouseName}</span>
                                     <span className="text-[13px]">{itemsText}</span>
+                                    <DocGroup label={t("Token")} busy={busy === p.dcId + "tk"}
+                                              titles={[t("Print dispatch token"), t("Download dispatch token"), t("Share dispatch token")]}
+                                              onOpen={() => openDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk")}
+                                              onDownload={() => downloadDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk", `token-${p.dcNo}.pdf`)}
+                                              onShare={() => shareDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk", `token-${p.dcNo}.pdf`, `Dispatch Token ${p.dcNo}`)} />
                                     <button className="btn-ghost btn-sm" disabled={pBusy} title={t("Print this pickup's challan")}
                                             onClick={() => openDoc(() => endpoints.challanBlob(p.dcId, lang), pKey)}>
                                       {pBusy ? "…" : "🖨"}
@@ -398,7 +408,7 @@ function DocGroup({ label, busy, offTitle, titles, onOpen, onDownload, onShare }
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
         </button>
         <button className={cell} style={sep} disabled={off} title={offTitle ?? titles[1]} onClick={onDownload}><Download size={14} /></button>
-        <button className={cell} style={{ ...sep, color: "#0f766e" }} disabled={off} title={offTitle ?? titles[2]} onClick={onShare}><Share2 size={14} /></button>
+        <button className={cell} style={{ ...sep, color: "var(--brand)" }} disabled={off} title={offTitle ?? titles[2]} onClick={onShare}><Share2 size={14} /></button>
       </div>
     </div>
   );

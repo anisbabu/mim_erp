@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { TrashIcon } from "@/components/Icons";
+import Link from "next/link";
+import PageHeader from "@/components/PageHeader";
 
 type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 
@@ -135,14 +137,19 @@ export default function ChallanPage() {
 
   return (
     <div>
-      {/* Header row: title + stock panel */}
-      <div className="flex items-start justify-between gap-4 mb-5">
-        <h1 className="page-title">{t("Challan")}</h1>
+      <PageHeader
+        crumbs={["Sales", { label: "Sales orders", href: "/sales/orders" }]}
+        title={t("New challan")}
+        subtitle={t("Deliver goods without a sales order. The invoice is made later at day-end consolidation.")}
+        actions={<Link href="/sales/challans" className="btn-ghost">{t("Challan list")}</Link>}
+      />
+      {/* stock panel for the product being entered */}
+      <div className="flex items-start justify-end gap-4 mb-5">
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: "#0f766e" }}>
+                <tr style={{ background: "var(--brand)" }}>
                   <th className="text-left text-xs font-semibold px-3 py-2 text-white">{t("Warehouse")}</th>
                   <th className="text-right text-xs font-semibold px-3 py-2 text-white">{t("Qty")}</th>
                 </tr>
@@ -162,7 +169,7 @@ export default function ChallanPage() {
                       }}>
                       <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId}</td>
                       <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
-                          style={{ color: s.qty === 0 ? "#b4690e" : "#0f766e" }}>{s.qty}</td>
+                          style={{ color: s.qty === 0 ? "#b4690e" : "var(--brand)" }}>{s.qty}</td>
                     </tr>
                   );
                 })}

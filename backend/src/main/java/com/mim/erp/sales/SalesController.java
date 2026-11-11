@@ -94,6 +94,15 @@ public class SalesController {
             .body(pdf);
     }
 
+    /** Dispatch token for one pickup (one challan) of an order collected in parts. */
+    @GetMapping(value = "/challans/{dcId}/token", produces = "application/pdf")
+    public ResponseEntity<byte[]> challanToken(@PathVariable UUID dcId, @RequestParam(defaultValue = "en") String lang) {
+        byte[] pdf = service.generateChallanTokenPdf(dcId, PdfKit.isBn(lang));
+        return ResponseEntity.ok()
+            .header("Content-Disposition", "attachment; filename=\"dispatch-token-" + dcId + sfx(lang) + ".pdf\"")
+            .body(pdf);
+    }
+
     /** Download a delivery challan as PDF. */
     @GetMapping(value = "/challans/{dcId}/pdf", produces = "application/pdf")
     public ResponseEntity<byte[]> challanPdf(@PathVariable UUID dcId, @RequestParam(defaultValue = "en") String lang) {

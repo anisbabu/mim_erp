@@ -346,7 +346,7 @@ export default function ChequesPage() {
         {STATUS_FILTERS.map((s) => (
           <button key={s} onClick={() => setStatusFilter(s)}
             className={`chip !px-2.5 !py-1 cursor-pointer ${s === "ALL" ? "" : STATUS_CHIP[s]}`}
-            style={{ boxShadow: statusFilter === s ? "0 0 0 2px #0f766e" : undefined,
+            style={{ boxShadow: statusFilter === s ? "0 0 0 2px var(--brand)" : undefined,
                      ...(s === "ALL" ? { background: "var(--chip-other-bg)", color: "var(--chip-other-fg)" } : {}) }}>
             {s === "ALL" ? t("All") : t(STATUS_LABEL[s])}
             <span className="ml-1 opacity-70">{s === "ALL" ? cheques.length : cheques.filter((c) => c.status === s).length}</span>

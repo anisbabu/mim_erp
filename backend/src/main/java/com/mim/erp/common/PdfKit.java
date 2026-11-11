@@ -7,11 +7,22 @@ import com.lowagie.text.FontFactory;
 import com.lowagie.text.Image;
 import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
+import com.lowagie.text.Rectangle;
+import com.lowagie.text.pdf.PdfBoolean;
+import com.lowagie.text.pdf.PdfName;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfWriter;
 
 import java.awt.Color;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Per-document helper for PDFs that can print in English or Bangla. Text with Bengali characters
@@ -35,6 +46,47 @@ public final class PdfKit {
         this.pageW = doc.right() - doc.left();
     }
 
+    private static final float CM = 72f / 2.54f;   // points per centimetre
+
+    /** Inner padding inside the slip margins: 0.5 mm at top, left and right. */
+    public static final float SLIP_PAD = 0.05f * CM;
+    /** Inner padding above the bottom margin: 1 mm. */
+    public static final float SLIP_PAD_BOTTOM = 0.1f * CM;
+
+    /**
+     * Blank sales slip (invoice, challan, token) for pre-printed stationery: page 5.5 x 8.5 in,
+     * margins top 3.5 cm (letterhead), bottom 1.5 cm, left and right 0.5 cm, plus padding inside them
+     * (0.5 mm top/left/right, 1 mm bottom). Content starts on the padded top edge and the signature
+     * block sits on the padded bottom edge.
+     */
+    public static Document slip() {
+        return new Document(new Rectangle(5.5f * 72f, 8.5f * 72f),
+            0.5f * CM + SLIP_PAD, 0.5f * CM + SLIP_PAD, 3.5f * CM + SLIP_PAD, 1.5f * CM + SLIP_PAD_BOTTOM);
+    }
+
+    /**
+     * Ask the viewer to print at 100 % ("actual size") and pick paper by the PDF page size. Without it a
+     * browser or Acrobat shrinks the page to fit the printer's paper, and every margin comes out wrong.
+     */
+    public static void printActualSize(PdfWriter writer) {
+        writer.addViewerPreference(PdfName.PRINTSCALING, PdfName.NONE);
+        writer.addViewerPreference(PdfName.PICKTRAYBYPDFSIZE, PdfBoolean.PDFTRUE);
+    }
+
+    /**
+     * Slip title as the first line of the page: the tops of its capitals sit on the top margin itself,
+     * not one line-spacing lower, so the measured 3.5 cm is where the print starts.
+     */
+    public Element title(String text, float size, Color color, int align, float before, float after) {
+        if (BanglaPdf.hasBengali(text)) return para(text, true, false, size, color, align, before, after);
+        Paragraph p = new Paragraph(text, font(true, false, size, color));
+        p.setLeading(size * 0.72f);   // Helvetica cap height: baseline sits one cap height below the margin
+        p.setAlignment(align);
+        p.setSpacingBefore(before);
+        p.setSpacingAfter(after + size * 0.3f);
+        return p;
+    }
+
     public static boolean isBn(String lang) { return "bn".equalsIgnoreCase(lang); }
 
     public boolean bn() { return bn; }
@@ -49,6 +101,42 @@ public final class PdfKit {
     public String name(String nameBn, String name) {
         return bn && nameBn != null && !nameBn.isBlank() ? nameBn : name;
     }
+
+    private static final DateTimeFormatter DMY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /** Printed date, dd/MM/yyyy; empty when there is none. */
+    public static String date(LocalDate d) {
+        return d == null ? "" : d.format(DMY);
+    }
+
+    /** Quantity with its unit: "30 PCS", or "30 পিস" in Bangla. 1 not 1.00; 2.5 stays. No unit = number only. */
+    public String qty(BigDecimal qty, String unit) {
+        String n = qty.stripTrailingZeros().toPlainString();
+        if (unit == null || unit.isBlank()) return n;
+        String u = unit.trim().toUpperCase(Locale.ROOT);
+        return n + " " + (bn ? UNIT_BN.getOrDefault(u, u) : u);
+    }
+
+    /** The unit every listed product shares, or null when they differ (a total across units has no unit). */
+    public static String sharedUnit(Collection<UUID> productIds, Map<UUID, String> units) {
+        Set<String> seen = new HashSet<>();
+        for (UUID id : productIds) {
+            String u = units.get(id);
+            seen.add(u == null ? "" : u.trim().toUpperCase(Locale.ROOT));
+        }
+        return seen.size() == 1 ? seen.iterator().next() : null;
+    }
+
+    private static final Map<String, String> UNIT_BN = Map.ofEntries(
+        Map.entry("PCS", "পিস"), Map.entry("PC", "পিস"),
+        Map.entry("FT", "ফুট"), Map.entry("SFT", "বর্গফুট"),
+        Map.entry("INCH", "ইঞ্চি"), Map.entry("IN", "ইঞ্চি"),
+        Map.entry("MTR", "মিটার"), Map.entry("M", "মিটার"),
+        Map.entry("KG", "কেজি"), Map.entry("GM", "গ্রাম"), Map.entry("LTR", "লিটার"),
+        Map.entry("BOX", "বক্স"), Map.entry("PAC", "প্যাকেট"), Map.entry("PKT", "প্যাকেট"),
+        Map.entry("ROLL", "রোল"), Map.entry("SET", "সেট"), Map.entry("PAIR", "জোড়া"),
+        Map.entry("DOZ", "ডজন"), Map.entry("BAG", "ব্যাগ"), Map.entry("SHEET", "শিট")
+    );
 
     /** Column widths in points for a table spanning the page, from relative widths. */
     public float[] cols(float... ratios) {
@@ -112,13 +200,11 @@ public final class PdfKit {
         Map.entry("BALANCE DUE", "মোট বাকি"),
         Map.entry("Transport & lifting", "পরিবহন ও উঠানামা"),
         Map.entry("DELIVERY CHALLAN", "ডেলিভারি চালান"),
-        Map.entry("WAREHOUSE DISPATCH TOKEN", "গুদাম ডিসপ্যাচ টোকেন"),
+        Map.entry("TOKEN", "টোকেন"),
         Map.entry("CHEQUE RECEIPT", "চেক প্রাপ্তি রসিদ"),
         Map.entry("Invoice No", "ইনভয়েস নং"),
         Map.entry("Order No", "অর্ডার নং"),
         Map.entry("Challan No", "চালান নং"),
-        Map.entry("Challan(s)", "চালান"),
-        Map.entry("DC No", "চালান নং"),
         Map.entry("Date", "তারিখ"),
         Map.entry("Payment", "পেমেন্ট"),
         Map.entry("CASH", "নগদ"),
@@ -143,14 +229,16 @@ public final class PdfKit {
         Map.entry("TOTAL ITEMS", "মোট পণ্য"),
         Map.entry("Thank you for your business.", "আপনার ব্যবসার জন্য ধন্যবাদ।"),
         Map.entry("Received by", "গ্রহণকারী"),
-        Map.entry("Seller's by", "বিক্রেতা"),
+        Map.entry("Seller's Signature", "বিক্রেতার স্বাক্ষর"),
+        Map.entry("Customer Signature", "গ্রাহকের স্বাক্ষর"),
         Map.entry("Dispatched by", "প্রেরক"),
-        Map.entry("Checked by", "যাচাইকারী"),
         Map.entry("Received on", "গ্রহণের তারিখ"),
         Map.entry("Mobile", "মোবাইল"),
         Map.entry("Cheque no.", "চেক নং"),
         Map.entry("Bank", "ব্যাংক"),
         Map.entry("Branch", "শাখা"),
+        Map.entry("Branch Name", "শাখার নাম"),
+        Map.entry("Address", "ঠিকানা"),
         Map.entry("Maturity date", "পাকার তারিখ"),
         Map.entry("Amount", "টাকার পরিমাণ"),
         Map.entry("In words", "কথায়"),

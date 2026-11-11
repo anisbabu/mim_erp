@@ -32,6 +32,8 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/auth/login").permitAll()
+                // activity log — admin only, and read only (the controller has no write endpoint)
+                .requestMatchers("/api/audit-log/**").hasRole("ADMIN")
                 // user administration — reads open to any authenticated role (e.g. authoriser
                 // pickers on sales screens), writes remain admin-only
                 .requestMatchers(HttpMethod.GET, "/api/users/**").authenticated()
@@ -54,8 +56,9 @@ public class SecurityConfig {
                         "/api/accounting/accounts").authenticated()
                 // sales staff can add a customer from the sales screens
                 .requestMatchers(HttpMethod.POST, "/api/master/customers").hasAnyRole("SALESPERSON", "MANAGER", "ADMIN")
-                // master data writes
-                .requestMatchers(HttpMethod.POST, "/api/master/**").hasRole("ADMIN")
+                // master data writes — every method, not only POST: PUT and DELETE used to fall through
+                // to "any authenticated user", so any role could edit or delete master records
+                .requestMatchers("/api/master/**").hasRole("ADMIN")
                 // purchasing
                 .requestMatchers("/api/purchase/**").hasAnyRole("MANAGER", "ADMIN")
                 // stock adjustments + variance report

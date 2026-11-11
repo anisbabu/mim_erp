@@ -136,7 +136,7 @@ export default function ReceivePage() {
                         value={on ? (recv[l.poLineId] ?? "") : "0"}
                         onChange={(e) => setQty(l.poLineId, e.target.value.replace(/[^0-9]/g, ""))} /></td>
                     <td className="num text-center">
-                      <div style={{ width: 90, marginLeft: "auto", marginRight: "auto", color: newBal === 0 ? "#0f766e" : undefined }}>{newBal}</div>
+                      <div style={{ width: 90, marginLeft: "auto", marginRight: "auto", color: newBal === 0 ? "var(--brand)" : undefined }}>{newBal}</div>
                     </td>
                   </tr>
                 );
