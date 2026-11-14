@@ -214,7 +214,7 @@ public class ControlService {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("from", from.toString()); out.put("to", to.toString());
         Map<String, Map<String, Object>> accts = new LinkedHashMap<>();
-        for (String code : List.of("2100", "1450", "2120", "1460")) {
+        for (String code : List.of("2100", "1450", "2120", "1460", "2110", "1470")) {
             UUID id = jdbc.queryForList("select id from account where code = ?", UUID.class, code)
                 .stream().findFirst().orElse(null);
             if (id != null) accts.put(code, reports.ledger(id, from, to));
@@ -222,7 +222,10 @@ public class ControlService {
         BigDecimal outVat = side(accts.get("2100"), false), inVat = side(accts.get("1450"), true);
         out.put("outputVat", outVat);                       // VAT charged to customers in the period
         out.put("inputVat", inVat);                         // VAT paid to suppliers in the period
-        out.put("netVatPayable", outVat.subtract(inVat));
+        BigDecimal vdsCredit = side(accts.get("1470"), true);         // VAT customers deducted from what they paid us
+        out.put("vdsCredit", vdsCredit);
+        out.put("vdsWithheld", side(accts.get("2110"), false));     // VAT we deducted from suppliers, owed to NBR
+        out.put("netVatPayable", outVat.subtract(inVat).subtract(vdsCredit));
         out.put("aitWithheld", side(accts.get("2120"), false));   // tax deducted at source from payees
         out.put("aitPaid", side(accts.get("1460"), true));        // advance tax suffered on our sales
         out.put("accounts", accts);

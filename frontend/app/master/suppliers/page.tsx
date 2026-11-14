@@ -123,7 +123,10 @@ export default function SuppliersPage() {
             <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
           <div className="field"><label>{t("Mobile")}</label>
             <input className="inp" value={f.mobile ?? ""} onChange={(e) => setF({ ...f, mobile: e.target.value })} /></div>
-          <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Address")}</label>
+          <div className="field"><label>{t("Credit days")}</label>
+            <input className="inp num" type="number" min={0} value={f.creditDays ?? 0}
+              onChange={(e) => setF({ ...f, creditDays: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></div>
+          <div className="field"><label>{t("Address")}</label>
             <input className="inp" value={f.address ?? ""} onChange={(e) => setF({ ...f, address: e.target.value })} /></div>
         </div>
         {msg && <div className="mt-3 text-sm" style={{ color: msg.kind === "ok" ? "#2f6f5e" : "#b3261e" }}>{msg.text}</div>}

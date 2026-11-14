@@ -188,7 +188,7 @@ public class ReportService {
             BigDecimal.class, accountId, base.toString(), from.toString())));
 
         List<Map<String, Object>> raw = jdbc.queryForList(
-            "select je.entry_date, je.entry_no, je.narration, je.source_type, jl.debit, jl.credit "
+            "select je.entry_date, je.entry_no, je.narration, je.source_type, jl.ref_no, jl.debit, jl.credit "
           + "from journal_line jl join journal_entry je on je.id = jl.journal_id "
           + "where jl.account_id = ? and je.entry_date between ?::date and ?::date "
           + "order by je.entry_date, je.created_at, je.entry_no",
@@ -201,7 +201,7 @@ public class ReportService {
             Map<String, Object> o = new LinkedHashMap<>();
             o.put("date", String.valueOf(r.get("entry_date")));
             o.put("entryNo", r.get("entry_no")); o.put("narration", r.get("narration"));
-            o.put("sourceType", r.get("source_type"));
+            o.put("sourceType", r.get("source_type")); o.put("refNo", r.get("ref_no"));
             o.put("debit", d); o.put("credit", c); o.put("balance", run);
             rows.add(o);
         }
@@ -216,88 +216,58 @@ public class ReportService {
     }
 
     // ------------------------------------------------------------------ party aging
-    private record Item(LocalDate date, BigDecimal amount) {}
-
     /**
-     * Receivable (CUSTOMER) / payable (SUPPLIER) aging as of a date. The outstanding balance of each
-     * party ledger is matched against its newest invoices first (payments clear the oldest), then
-     * bucketed by invoice age: 0-30, 31-60, 61-90, 90+ days. A party in credit (advance /
-     * over-payment) is listed under "unapplied".
+     * Receivable (CUSTOMER) / payable (SUPPLIER) aging as of a date, bill-wise: each bill's amount still
+     * open on that date (settlements dated after it don't count), bucketed by days past its due date:
+     * 0-30, 31-60, 61-90, 90+. Unallocated receipts / payments / credit notes are "unapplied" (advance);
+     * total = open bills - unapplied = the party ledger balance.
      */
     public Map<String, Object> aging(String partyType, LocalDate asOf) {
         boolean cust = !"SUPPLIER".equalsIgnoreCase(partyType);
         String pt = cust ? "CUSTOMER" : "SUPPLIER";
-        FinancialYear fy = years.findAll().stream()
-            .filter(y -> !asOf.isBefore(y.getStartDate()) && !asOf.isAfter(y.getEndDate())).findFirst().orElse(null);
-        LocalDate base = fy == null ? LocalDate.of(1900, 1, 1) : fy.getStartDate();
-
-        List<Map<String, Object>> parties = jdbc.queryForList(
-            "select id, code, name, name_bn from account where party_type = ? order by code", pt);
-        Map<UUID, BigDecimal> openings = new LinkedHashMap<>();
-        if (fy != null) {
-            for (Map<String, Object> r : jdbc.queryForList(
-                "select ob.account_id, ob.debit - ob.credit as net from opening_balance ob "
-              + "join account a on a.id = ob.account_id where a.party_type = ? and ob.financial_year_id = ?", pt, fy.getId()))
-                openings.put((UUID) r.get("account_id"), bd(r.get("net")));
+        List<Map<String, Object>> items = jdbc.queryForList("""
+            select i.account_id, i.kind, i.due_date,
+                   i.amount - coalesce((select sum(x.amount) from bill_allocation x
+                                        join party_item o on o.id = case when x.bill_id = i.id then x.credit_id else x.bill_id end
+                                        where (x.bill_id = i.id or x.credit_id = i.id) and o.doc_date <= ?::date), 0) as open_amount
+            from party_item i
+            where i.party_type = ? and i.doc_date <= ?::date
+        """, asOf.toString(), pt, asOf.toString());
+        Map<UUID, BigDecimal[]> byAccount = new LinkedHashMap<>();   // current, 31-60, 61-90, 90+, unapplied
+        for (Map<String, Object> it : items) {
+            BigDecimal open = bd(it.get("open_amount"));
+            if (open.signum() <= 0) continue;
+            BigDecimal[] b = byAccount.computeIfAbsent((UUID) it.get("account_id"),
+                k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
+            if ("CREDIT".equals(it.get("kind"))) { b[4] = b[4].add(open); continue; }
+            long late = Math.max(0, ChronoUnit.DAYS.between(((java.sql.Date) it.get("due_date")).toLocalDate(), asOf));
+            int k = late <= 30 ? 0 : late <= 60 ? 1 : late <= 90 ? 2 : 3;
+            b[k] = b[k].add(open);
         }
-        Map<UUID, List<Map<String, Object>>> lines = new LinkedHashMap<>();
-        for (Map<String, Object> r : jdbc.queryForList(
-            "select jl.account_id, je.entry_date, jl.debit, jl.credit "
-          + "from journal_line jl join journal_entry je on je.id = jl.journal_id "
-          + "join account a on a.id = jl.account_id "
-          + "where a.party_type = ? and je.entry_date between ?::date and ?::date "
-          + "order by je.entry_date desc, je.created_at desc", pt, base.toString(), asOf.toString()))
-            lines.computeIfAbsent((UUID) r.get("account_id"), k -> new ArrayList<>()).add(r);
 
         List<Map<String, Object>> rows = new ArrayList<>();
-        BigDecimal[] tot = {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
-        BigDecimal totUnapplied = BigDecimal.ZERO, totBalance = BigDecimal.ZERO;
-        for (Map<String, Object> party : parties) {
+        BigDecimal[] tot = {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
+        BigDecimal totBalance = BigDecimal.ZERO;
+        for (Map<String, Object> party : jdbc.queryForList(
+                "select id, code, name, name_bn from account where party_type = ? order by code", pt)) {
             UUID id = (UUID) party.get("id");
-            List<Map<String, Object>> ls = lines.getOrDefault(id, List.of());
-            BigDecimal ob = openings.getOrDefault(id, BigDecimal.ZERO);
-            BigDecimal net = ob;
-            for (Map<String, Object> l : ls) net = net.add(bd(l.get("debit"))).subtract(bd(l.get("credit")));
-            BigDecimal bal = cust ? net : net.negate();          // amount owed, positive
-            if (bal.signum() == 0) continue;
-
-            BigDecimal[] b = {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO};
-            BigDecimal unapplied = BigDecimal.ZERO;
-            if (bal.signum() < 0) {
-                unapplied = bal.negate();
-            } else {
-                List<Item> items = new ArrayList<>();
-                for (Map<String, Object> l : ls) {
-                    BigDecimal amt = cust ? bd(l.get("debit")) : bd(l.get("credit"));
-                    if (amt.signum() > 0) items.add(new Item(((java.sql.Date) l.get("entry_date")).toLocalDate(), amt));
-                }
-                BigDecimal obOwed = cust ? ob : ob.negate();
-                if (obOwed.signum() > 0) items.add(new Item(base, obOwed));   // oldest
-                BigDecimal left = bal;
-                for (Item it : items) {
-                    if (left.signum() <= 0) break;
-                    BigDecimal take = it.amount().min(left);
-                    long age = Math.max(0, ChronoUnit.DAYS.between(it.date(), asOf));
-                    int k = age <= 30 ? 0 : age <= 60 ? 1 : age <= 90 ? 2 : 3;
-                    b[k] = b[k].add(take);
-                    left = left.subtract(take);
-                }
-                if (left.signum() > 0) b[3] = b[3].add(left);       // unmatched remainder = oldest
-            }
+            BigDecimal[] b = byAccount.get(id);
+            if (b == null) continue;
+            BigDecimal bal = b[0].add(b[1]).add(b[2]).add(b[3]).subtract(b[4]);
             Map<String, Object> o = new LinkedHashMap<>();
             o.put("accountId", id); o.put("code", party.get("code"));
             o.put("name", party.get("name")); o.put("nameBn", party.get("name_bn"));
             o.put("current", b[0]); o.put("d31_60", b[1]); o.put("d61_90", b[2]); o.put("over90", b[3]);
-            o.put("unapplied", unapplied); o.put("total", bal);
+            o.put("unapplied", b[4]); o.put("total", bal);
             rows.add(o);
-            for (int i = 0; i < 4; i++) tot[i] = tot[i].add(b[i]);
-            totUnapplied = totUnapplied.add(unapplied); totBalance = totBalance.add(bal);
+            for (int i = 0; i < 5; i++) tot[i] = tot[i].add(b[i]);
+            totBalance = totBalance.add(bal);
         }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("partyType", pt); out.put("asOf", asOf.toString());
         out.put("rows", rows);
         out.put("totals", Map.of("current", tot[0], "d31_60", tot[1], "d61_90", tot[2], "over90", tot[3],
-            "unapplied", totUnapplied, "total", totBalance));
+            "unapplied", tot[4], "total", totBalance));
         return out;
     }
 

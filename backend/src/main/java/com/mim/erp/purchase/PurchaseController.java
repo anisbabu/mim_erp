@@ -9,8 +9,37 @@ import java.util.UUID;
 public class PurchaseController {
 
     private final PurchaseService service;
+    private final PurchaseReturnService returns;
 
-    public PurchaseController(PurchaseService service) { this.service = service; }
+    public PurchaseController(PurchaseService service, PurchaseReturnService returns) {
+        this.service = service; this.returns = returns;
+    }
+
+    /** Goods receipts with their supplier bill details (optionally one supplier). */
+    @GetMapping("/receipts")
+    public List<java.util.Map<String, Object>> grnList(@RequestParam(required = false) UUID supplierId) {
+        return returns.receipts(supplierId);
+    }
+
+    /** Key or correct the supplier's bill no., bill date and due date on a receipt. */
+    @PutMapping("/receipts/{grnId}/bill")
+    public java.util.Map<String, Object> updateBill(@PathVariable UUID grnId, @RequestBody PurchaseDtos.BillDetails b) {
+        GoodsReceipt g = service.updateBill(grnId, b);
+        java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+        m.put("id", g.getId()); m.put("billNo", g.getBillNo()); m.put("billDate", g.getBillDate()); m.put("dueDate", g.getDueDate());
+        return m;
+    }
+
+    @GetMapping("/returns")
+    public List<java.util.Map<String, Object>> purchaseReturns() { return returns.list(); }
+
+    @GetMapping("/returns/returnable/{grnId}")
+    public java.util.Map<String, Object> returnable(@PathVariable UUID grnId) { return returns.returnable(grnId); }
+
+    @PostMapping("/returns")
+    public java.util.Map<String, Object> createReturn(@RequestBody PurchaseReturnService.CreateRequest req) {
+        return returns.create(req);
+    }
 
     @PostMapping("/orders")
     public PurchaseOrder createPo(@RequestBody PurchaseDtos.CreatePoRequest req) {

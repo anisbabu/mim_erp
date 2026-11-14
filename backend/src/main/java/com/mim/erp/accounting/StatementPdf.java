@@ -372,8 +372,10 @@ final class StatementPdf {
             String[][] lines = {
                 {"outputVat", "Output VAT collected (ledger 2100)", "আদায়কৃত আউটপুট ভ্যাট (খতিয়ান ২১০০)", "0"},
                 {"inputVat", "Less: input VAT paid on purchases (ledger 1450)", "বাদ: ক্রয়ে প্রদত্ত ইনপুট ভ্যাট (খতিয়ান ১৪৫০)", "0"},
+                {"vdsCredit", "Less: VAT deducted at source by customers (ledger 1470)", "বাদ: গ্রাহক কর্তৃক উৎসে কর্তিত ভ্যাট (খতিয়ান ১৪৭০)", "0"},
                 {"netVatPayable", "Net VAT payable / (refundable)", "নিট প্রদেয় / (ফেরতযোগ্য) ভ্যাট", "1"},
                 {"aitWithheld", "AIT / TDS withheld from payees, payable to NBR (ledger 2120)", "প্রাপকের কাছ থেকে কর্তিত এআইটি/টিডিএস, এনবিআরকে প্রদেয় (খতিয়ান ২১২০)", "0"},
+                {"vdsWithheld", "VAT deducted at source from suppliers, payable to NBR (ledger 2110)", "সরবরাহকারীর কাছ থেকে উৎসে কর্তিত ভ্যাট, এনবিআরকে প্রদেয় (খতিয়ান ২১১০)", "0"},
                 {"aitPaid", "Advance income tax suffered on our sales (ledger 1460)", "বিক্রয়ে অগ্রিম আয়কর (খতিয়ান ১৪৬০)", "0"}};
             for (String[] l : lines) {
                 boolean strong = "1".equals(l[3]);

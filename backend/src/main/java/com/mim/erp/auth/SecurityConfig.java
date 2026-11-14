@@ -68,6 +68,14 @@ public class SecurityConfig {
                 // sales floor
                 .requestMatchers(HttpMethod.POST, "/api/sales/returns").hasAnyRole("MANAGER", "ADMIN")
                 .requestMatchers("/api/sales/**").hasAnyRole("SALESPERSON", "MANAGER", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/accounting/tax-settings").hasAnyRole("ACCOUNTANT", "ADMIN")
+                .requestMatchers("/api/accounting/bills/rebuild").hasRole("ADMIN")
+                // maker-checker: only a manager / admin releases a queued voucher; only an admin sets the limit
+                .requestMatchers(HttpMethod.POST, "/api/accounting/approvals/*/approve", "/api/accounting/approvals/*/reject")
+                    .hasAnyRole("MANAGER", "ADMIN")
+                .requestMatchers(HttpMethod.PUT, "/api/accounting/approval-settings").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/accounting/contra", "/api/accounting/bills/match",
+                    "/api/accounting/bills/*/unmatch").hasAnyRole("ACCOUNTANT", "ADMIN")
                 // cash movements
                 .requestMatchers("/api/accounting/payments", "/api/accounting/petty-cash")
                     .hasAnyRole("ACCOUNTANT", "ADMIN")

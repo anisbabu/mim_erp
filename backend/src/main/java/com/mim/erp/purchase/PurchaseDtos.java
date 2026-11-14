@@ -14,8 +14,20 @@ public class PurchaseDtos {
     /** One line on the receive screen: receive qty editable, defaults to balance.
      *  receivedProductId is optional — defaults to the ordered product, but can be a
      *  different SKU (same product different colour, or a different product) at the PO price. */
-    public record ReceiveLine(UUID poLineId, BigDecimal qtyReceived, UUID receivedProductId) {}
-    public record ReceiveRequest(UUID warehouseId, List<ReceiveLine> lines) {}
+    public record ReceiveLine(UUID poLineId, BigDecimal qtyReceived, UUID receivedProductId,
+                              BigDecimal billPrice) {}   // supplier's billed unit price; blank = PO price
+    /**
+     * billNo/billDate/dueDate: the supplier's invoice (may be keyed later). dueDate blank = bill date (else
+     * receipt date) + supplier credit days. freight: carriage on this delivery, added to the stock cost;
+     * freightOnBill = the supplier charged it on the bill, else it was paid to a carrier in cash.
+     * priceApprovedBy: required when a billed price differs from the PO price.
+     */
+    public record ReceiveRequest(UUID warehouseId, List<ReceiveLine> lines,
+                                 String billNo, java.time.LocalDate billDate, java.time.LocalDate dueDate,
+                                 BigDecimal freight, Boolean freightOnBill, String priceApprovedBy,
+                                 BigDecimal vat) {}   // input VAT on the supplier VAT invoice (Mushak 6.3), inside the billed prices
+    /** Supplier invoice details keyed after the goods were received. */
+    public record BillDetails(String billNo, java.time.LocalDate billDate, java.time.LocalDate dueDate) {}
 
     /** View model for the side-by-side receive screen. */
     public record PoLineView(UUID poLineId, UUID productId, String productName,

@@ -4,18 +4,19 @@ import { useEffect, useState } from "react";
 import { endpoints, fmtDate, type ChecksReport, type TaxSummary } from "@/lib/api";
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
-import { ReportTitle, StatusChip, Toolbar, savePdf } from "./ReportKit";
+import { ReportTitle, StatusChip, Toolbar, readSaved, savePdf, useSaved } from "./ReportKit";
 
 export function TaxReport() {
   const { t, lang } = useI18n();
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState(today());
+  const [from, setFrom, setFromDefault] = useSaved("from", "");
+  const [to, setTo] = useSaved("to", today());
   const [tax, setTax] = useState<TaxSummary | null>(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    endpoints.currentYear().then((y) => setFrom(y.startDate)).catch(() => setFrom(today().slice(0, 4) + "-01-01"));
-  }, []);
+    if (readSaved("from") !== null) return;
+    endpoints.currentYear().then((y) => setFromDefault(y.startDate)).catch(() => setFromDefault(today().slice(0, 4) + "-01-01"));
+  }, [setFromDefault]);
   useEffect(() => {
     if (!from || !to) return;
     setTax(null); setErr("");
@@ -25,7 +26,9 @@ export function TaxReport() {
   const rows: [string, number, boolean][] = tax ? [
     ["Output VAT collected (ledger 2100)", tax.outputVat, false],
     ["Less: input VAT paid on purchases (ledger 1450)", tax.inputVat, false],
+    ["Less: VAT deducted at source by customers (ledger 1470)", tax.vdsCredit ?? 0, false],
     ["Net VAT payable / (refundable)", tax.netVatPayable, true],
+    ["VAT deducted at source from suppliers, payable to NBR (ledger 2110)", tax.vdsWithheld ?? 0, false],
     ["AIT / TDS withheld from payees, payable to NBR (ledger 2120)", tax.aitWithheld, false],
     ["Advance income tax suffered on our sales (ledger 1460)", tax.aitPaid, false],
   ] : [];
