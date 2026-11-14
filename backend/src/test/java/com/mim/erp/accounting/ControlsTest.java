@@ -161,6 +161,19 @@ class ControlsTest {
         UUID a2 = itemByNarration("bill A"), b2 = itemByNarration("bill B");
         assertThat(openOf(a2)).isEqualByComparingTo("100");
         assertThat(openOf(b2)).isEqualByComparingTo("0");
+
+        // unmatched and left alone: stays open, and a rebuild does not match it again
+        UUID r2 = item("RECEIPT", rv.getId());
+        bills.unmatch(r2);
+        bills.rebuild();
+        assertThat(openOf(item("RECEIPT", rv.getId()))).isEqualByComparingTo("100");
+        assertThat(openOf(itemByNarration("bill A"))).isEqualByComparingTo("100");
+        assertThat(openOf(itemByNarration("bill B"))).isEqualByComparingTo("100");
+        // a new receipt skips the held one and settles the oldest bill
+        Payment rv2 = cash.voucher(new CashService.VoucherRequest("IN", "CUSTOMER", c, TODAY, bd("100"), null, "CASH",
+            null, null, null, null, null, null, null, null));
+        assertThat(openOf(itemByNarration("bill A"))).isEqualByComparingTo("0");
+        assertThat(openOf(item("RECEIPT", rv.getId()))).isEqualByComparingTo("100");
     }
 
     private UUID item(String sourceType, UUID sourceId) {

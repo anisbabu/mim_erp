@@ -73,6 +73,8 @@ public class BillService implements ApplicationRunner {
             from bill_allocation x join party_item b on b.id = x.bill_id join party_item c on c.id = x.credit_id
             where x.manual order by x.created_at
         """);
+        List<Map<String, Object>> held = jdbc.queryForList(
+            "select journal_id, opening_id, account_id, kind from party_item where hold_auto");
         jdbc.update("delete from bill_allocation");
         jdbc.update("delete from party_item");
         syncOpenings();
@@ -83,7 +85,7 @@ public class BillService implements ApplicationRunner {
             order by je.entry_date, je.created_at, je.entry_no
         """, UUID.class);
         for (UUID j : journals) onPosted(j);
-        restoreManual(manual);
+        restoreManual(manual, held);
         Integer n = jdbc.queryForObject("select count(*) from party_item", Integer.class);
         return n == null ? 0 : n;
     }
@@ -91,9 +93,9 @@ public class BillService implements ApplicationRunner {
     /**
      * Re-apply hand-picked matches after a rebuild: the automatic matches of the items involved are undone,
      * the manual ones linked again (capped at what is open), and any credit freed on the way is settled
-     * oldest-first once more.
+     * oldest-first once more. Items the user unmatched stay out of automatic matching.
      */
-    private void restoreManual(List<Map<String, Object>> manual) {
+    private void restoreManual(List<Map<String, Object>> manual, List<Map<String, Object>> held) {
         record Pair(UUID bill, UUID credit, BigDecimal amount) {}
         List<Pair> pairs = new ArrayList<>();
         for (Map<String, Object> m : manual) {
@@ -101,14 +103,21 @@ public class BillService implements ApplicationRunner {
             UUID c = findItem((UUID) m.get("cj"), (UUID) m.get("co"), (UUID) m.get("acc"), "CREDIT");
             if (b != null && c != null) pairs.add(new Pair(b, c, bd(m.get("amount"))));
         }
-        if (pairs.isEmpty()) return;
+        Set<UUID> holds = new LinkedHashSet<>();
+        for (Map<String, Object> h : held) {
+            UUID id = findItem((UUID) h.get("journal_id"), (UUID) h.get("opening_id"), (UUID) h.get("account_id"), (String) h.get("kind"));
+            if (id != null) holds.add(id);
+        }
+        if (pairs.isEmpty() && holds.isEmpty()) return;
         Set<UUID> involved = new LinkedHashSet<>(), freed = new LinkedHashSet<>();
         for (Pair p : pairs) { involved.add(p.bill()); involved.add(p.credit()); }
+        involved.addAll(holds);
         for (UUID id : involved) {
             jdbc.queryForList("select case when bill_id = ? then credit_id else bill_id end from bill_allocation where bill_id = ? or credit_id = ?",
                 UUID.class, id, id, id).forEach(freed::add);
             release(id);
         }
+        for (UUID id : holds) jdbc.update("update party_item set hold_auto = true where id = ?", id);
         for (Pair p : pairs) {
             BigDecimal take = p.amount().min(open(p.bill())).min(open(p.credit()));
             if (take.signum() > 0) link(p.bill(), p.credit(), take, true);
@@ -248,6 +257,7 @@ public class BillService implements ApplicationRunner {
     // ------------------------------------------------------------------ allocation
     /** Settle an item oldest-first (by due date) against the open items on the other side. */
     public void fifo(UUID itemId) {
+        if (Boolean.TRUE.equals(jdbc.queryForObject("select hold_auto from party_item where id = ?", Boolean.class, itemId))) return;
         Map<String, Object> it = item(itemId);
         String other = "BILL".equals(it.get("kind")) ? "CREDIT" : "BILL";
         BigDecimal left = open(itemId);
@@ -323,14 +333,15 @@ public class BillService implements ApplicationRunner {
     }
 
     /**
-     * Undo every match of one item (bill or credit). Both sides become open again and stay open until
-     * matched by hand or by the next voucher, so a wrong automatic match can be corrected.
+     * Undo every match of one item (bill or credit). Both sides become open again; the item itself is held out
+     * of automatic matching (also across a rebuild) until matched by hand, so a wrong match stays corrected.
      */
     @Transactional
     public Map<String, Object> unmatch(UUID itemId) {
         if (jdbc.queryForList("select id from party_item where id = ? for update", UUID.class, itemId).isEmpty())
             throw new ApiException("Item not found");
         int n = jdbc.update("delete from bill_allocation where bill_id = ? or credit_id = ?", itemId, itemId);
+        jdbc.update("update party_item set hold_auto = true where id = ?", itemId);
         return Map.of("released", n);
     }
 
@@ -386,7 +397,7 @@ public class BillService implements ApplicationRunner {
     /** Open bills (oldest due first) and unallocated credits / advances of one party. */
     public Map<String, Object> openItems(String partyType, UUID partyId) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
-            select i.id, i.kind, i.source_type, i.doc_no, i.doc_date, i.due_date, i.amount,
+            select i.id, i.kind, i.source_type, i.doc_no, i.doc_date, i.due_date, i.amount, i.hold_auto,
                    i.amount - coalesce((select sum(x.amount) from bill_allocation x where x.bill_id = i.id or x.credit_id = i.id), 0) as open_amount
             from party_item i
             where i.party_type = ? and i.party_id = ?
@@ -406,6 +417,7 @@ public class BillService implements ApplicationRunner {
             o.put("docDate", String.valueOf(r.get("doc_date"))); o.put("dueDate", String.valueOf(r.get("due_date")));
             o.put("amount", r.get("amount")); o.put("open", open);
             o.put("status", open.compareTo(bd(r.get("amount"))) == 0 ? "OPEN" : "PART");
+            o.put("held", Boolean.TRUE.equals(r.get("hold_auto")));
             if ("BILL".equals(r.get("kind"))) { bills.add(o); billTotal = billTotal.add(open); }
             else { credits.add(o); creditTotal = creditTotal.add(open); }
         }
@@ -463,7 +475,7 @@ public class BillService implements ApplicationRunner {
             select * from (
               select i.id, i.source_id, i.due_date, i.doc_date, i.created_at,
                      i.amount - coalesce((select sum(x.amount) from bill_allocation x where x.bill_id = i.id or x.credit_id = i.id), 0) as open_amount
-              from party_item i where i.account_id = ? and i.kind = ?
+              from party_item i where i.account_id = ? and i.kind = ? and not i.hold_auto
             ) t where open_amount > 0
             order by due_date, doc_date, created_at
         """, accountId, kind);

@@ -27,6 +27,10 @@ export default function PurchaseReturnsPage() {
   const [returnDate, setReturnDate] = useState(today());
   const [refundTo, setRefundTo] = useState("1000");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  async function printNote(id: string, l: "en" | "bn") {
+    try { window.open(URL.createObjectURL(await endpoints.debitNotePdf(id, l)), "_blank"); }
+    catch (e: any) { setMsg({ kind: "err", text: e.message }); }
+  }
   const [busy, setBusy] = useState(false);
 
   const loadList = () => endpoints.purchaseReturns().then(setRows).catch(() => setRows([]));
@@ -200,6 +204,7 @@ export default function PurchaseReturnsPage() {
             <th style={{ textAlign: "left" }}>GRN</th>
             <th style={{ textAlign: "left" }}>{t("Reason")}</th>
             <th style={{ textAlign: "right" }}>{t("Amount")}</th>
+            <th />
           </tr></thead>
           <tbody>
             {shown.map((r) => (
@@ -214,9 +219,12 @@ export default function PurchaseReturnsPage() {
                 <td className="font-mono text-[13px]">{r.grn_no}{r.bill_no && <div className="muted text-[11px]">{r.bill_no}</div>}</td>
                 <td className="muted">{r.reason}</td>
                 <td className="num font-medium">{money(r.goods_value)}</td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <button className="btn-ghost text-xs" onClick={() => printNote(r.id, "en")}>PDF</button>
+                  <button className="btn-ghost text-xs ml-1" onClick={() => printNote(r.id, "bn")}>বাংলা</button></td>
               </tr>
             ))}
-            {shown.length === 0 && <tr><td colSpan={7} className="muted text-sm" style={{ padding: 20 }}>{t("No returns yet.")}</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={8} className="muted text-sm" style={{ padding: 20 }}>{t("No returns yet.")}</td></tr>}
           </tbody>
         </table>
       </div>

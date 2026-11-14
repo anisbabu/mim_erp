@@ -8,6 +8,7 @@ import TrialBalance from "@/components/reports/TrialBalance";
 import GeneralLedgerReport from "@/components/reports/GeneralLedger";
 import Aging from "@/components/reports/Aging";
 import { ChecksReport, TaxReport } from "@/components/reports/TaxAndChecks";
+import { DiscountBySalespersonReport } from "@/components/reports/DiscountBySalesperson";
 
 const GROUPS = [
   { label: "Financial statements", tabs: [
@@ -21,6 +22,7 @@ const GROUPS = [
     { key: "ledger", label: "General ledger", View: () => <GeneralLedgerReport /> },
     { key: "aging-customer", label: "Receivables aging", View: () => <Aging type="CUSTOMER" /> },
     { key: "aging-supplier", label: "Payables aging", View: () => <Aging type="SUPPLIER" /> },
+    { key: "discount-salesperson", label: "Discount by salesperson", View: () => <DiscountBySalespersonReport /> },
   ]},
   { label: "Compliance and controls", tabs: [
     { key: "tax", label: "VAT and AIT", View: () => <TaxReport /> },

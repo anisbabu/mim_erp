@@ -136,7 +136,7 @@ class VatAitTest {
             List.of(new PurchaseDtos.CreatePoLine(productDefault, bd("10"), bd("115"), false))));
         GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse,
             List.of(new PurchaseDtos.ReceiveLine(po.getLines().get(0).getId(), bd("10"), null, null)),
-            "VAT-INV-1", TODAY, null, null, null, null, bd("150")));   // 1150 incl. 150 VAT
+            "VAT-INV-1", TODAY, null, null, null, null, bd("150"), null));   // 1150 incl. 150 VAT
 
         assertThat(net("1450", "GRN", g.getId())).isEqualByComparingTo("-150");      // debit Input VAT
         assertThat(net("1200", "GRN", g.getId())).isEqualByComparingTo("-1000");     // stock ex VAT

@@ -284,4 +284,38 @@ public class ReportService {
           + "where jl.account_id = ? and je.entry_date between ?::date and ?::date",
             BigDecimal.class, accountId, base.toString(), asOf.toString())));
     }
+
+    /**
+     * Trade discount (Sales Discount 4010) given in a period, by the salesperson on the order or challan.
+     * Read from the postings, so returns (and reclassified old sales) are netted in.
+     */
+    public Map<String, Object> discountBySalesperson(java.time.LocalDate from, java.time.LocalDate to) {
+        List<Map<String, Object>> rows = jdbc.queryForList("""
+            with d as (
+              select jl.debit - jl.credit as amount,
+                     coalesce(so.salesperson_id, dc.salesperson_id, rso.salesperson_id) as user_id,
+                     coalesce(so.id, dc.so_id, sr.so_id) as so_id, dc.id as dc_id
+              from journal_line jl
+              join journal_entry je on je.id = jl.journal_id
+              join account a on a.id = jl.account_id and a.code = '4010'
+              left join sales_order so on so.id = je.source_id
+              left join delivery_challan dc on dc.id = je.source_id
+              left join sales_return sr on sr.id = je.source_id
+              left join sales_order rso on rso.id = sr.so_id
+              where je.entry_date between ? and ?
+            )
+            select d.user_id, u.username, u.full_name, u.full_name_bn,
+                   sum(d.amount) as discount,
+                   count(distinct coalesce(d.so_id, d.dc_id)) as documents
+            from d left join app_user u on u.id = d.user_id
+            group by d.user_id, u.username, u.full_name, u.full_name_bn
+            having sum(d.amount) <> 0
+            order by sum(d.amount) desc
+        """, from, to);
+        java.math.BigDecimal total = rows.stream().map(r -> (java.math.BigDecimal) r.get("discount"))
+            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        Map<String, Object> out = new java.util.LinkedHashMap<>();
+        out.put("from", from.toString()); out.put("to", to.toString()); out.put("rows", rows); out.put("total", total);
+        return out;
+    }
 }

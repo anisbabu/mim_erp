@@ -111,6 +111,7 @@ export type PaymentRow = {
 };
 export type PartyItem = {
   id: string; sourceType: string; docNo?: string; docDate: string; dueDate: string;
+  held?: boolean;
   amount: number; open: number; status: "OPEN" | "PART";
 };
 export type PartyOpenItems = { bills: PartyItem[]; advances: PartyItem[]; billTotal: number; advanceTotal: number; balance: number;
@@ -128,6 +129,10 @@ export type ContraRow = {
   from_name?: string; from_name_bn?: string; to_name?: string; to_name_bn?: string;
 };
 export type MoneyLedger = { code: string; name: string; name_bn?: string };
+export type DiscountBySalesperson = {
+  from: string; to: string; total: number;
+  rows: { user_id?: string; username?: string; full_name?: string; full_name_bn?: string; discount: number; documents: number }[];
+};
 export type FinancialYear = {
   id: string; name: string; startDate: string; endDate: string;
   status: "OPEN" | "CLOSED"; current?: boolean; closedAt?: string | null;
@@ -307,6 +312,14 @@ function auditQuery(f: AuditFilter): string {
   return p.toString();
 }
 export type UserView = { id: string; username: string; fullName?: string; fullNameBn?: string; mobile?: string; role: Role; active: boolean; shopIds: string[] };
+
+/** Fetch a PDF from the API with the login token. */
+async function pdfBlob(path: string): Promise<Blob> {
+  const token = loadToken();
+  const res = await fetch(`${BASE}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new Error("Failed to generate the PDF");
+  return res.blob();
+}
 
 export const endpoints = {
   // master
@@ -511,6 +524,11 @@ export const endpoints = {
                   api.get<PartyOpenItems>(`/api/accounting/parties/${type}/${id}/open-items`),
   partyLedger:  (type: "CUSTOMER" | "SUPPLIER", id: string) =>
                   api.get<{ accountId?: string; code?: string }>(`/api/accounting/parties/${type}/${id}/ledger`),
+  contraPdf:    (id: string, lang: "en" | "bn" = "en") => pdfBlob(`/api/accounting/contra/${id}/pdf?lang=${lang}`),
+  debitNotePdf: (id: string, lang: "en" | "bn" = "en") => pdfBlob(`/api/purchase/returns/${id}/pdf?lang=${lang}`),
+  discountBySalesperson: (from: string, to: string) =>
+                  api.get<DiscountBySalesperson>(`/api/accounting/reports/discount-by-salesperson?from=${from}&to=${to}`),
+  reclassifySales: () => api.post<{ transport: number; discount: number; documents: unknown[] }>("/api/accounting/reclassify-sales", {}),
   voucherPdf:   async (id: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
     const res = await fetch(`${BASE}/api/accounting/payments/${id}/pdf?lang=${lang}`, {

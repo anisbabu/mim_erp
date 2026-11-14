@@ -7,6 +7,16 @@ export type Lang = "en" | "bn";
 // Translation dictionary. Keys are English; bn holds the Bangla string.
 // Add keys here and use t("key") anywhere. Missing bn falls back to the key.
 const DICT: Record<string, { en: string; bn: string }> = {
+  // back-dated receipt, discount by salesperson, held items
+  "Blank = today; set an earlier date for late entry": { en: "Blank = today; set an earlier date for late entry", bn: "খালি = আজ; দেরিতে লিখলে আগের তারিখ দিন" },
+  "Discount by salesperson": { en: "Discount by salesperson", bn: "বিক্রয়কর্মী অনুযায়ী বাট্টা" },
+  "From postings to Sales Discount (4010); returns reduce the salesperson who made the sale.": { en: "From postings to Sales Discount (4010); returns reduce the salesperson who made the sale.", bn: "বিক্রয় বাট্টা (৪০১০) পোস্টিং থেকে; ফেরত হলে যিনি বিক্রি করেছেন তার অংক কমে।" },
+  "Held": { en: "Held", bn: "আটকানো" },
+  "Kept out of automatic matching; match it by hand": { en: "Kept out of automatic matching; match it by hand", bn: "স্বয়ংক্রিয় মিলানো থেকে বাদ; হাতে মিলান" },
+  "No discount given in this period.": { en: "No discount given in this period.", bn: "এই সময়ে কোনো বাট্টা দেওয়া হয়নি।" },
+  "Not recorded": { en: "Not recorded", bn: "লেখা নেই" },
+  "Orders / challans": { en: "Orders / challans", bn: "অর্ডার / চালান" },
+  "Received on": { en: "Received on", bn: "গ্রহণের তারিখ" },
   // voucher approval, contra voucher, manual bill matching
   "Above the approval limit — sent for approval as": { en: "Above the approval limit — sent for approval as", bn: "অনুমোদন সীমার বেশি — অনুমোদনের জন্য পাঠানো হয়েছে:" },
   "Admins' own vouchers post directly. The maker can't approve their own voucher.": { en: "Admins' own vouchers post directly. The maker can't approve their own voucher.", bn: "অ্যাডমিনের নিজের ভাউচার সরাসরি পোস্ট হয়। যিনি ভাউচার লেখেন তিনি নিজে অনুমোদন করতে পারেন না।" },

@@ -21,7 +21,7 @@ export default function ReceivePage() {
   const [recvProduct, setRecvProduct] = useState<Record<string, string>>({});
   const [received, setReceived] = useState<Record<string, boolean>>({});  // per-line received flag
   const [price, setPrice] = useState<Record<string, string>>({});        // supplier's billed unit price per line
-  const [bill, setBill] = useState({ billNo: "", billDate: "", dueDate: "", freight: "", freightOnBill: true, priceApprovedBy: "", vat: "" });
+  const [bill, setBill] = useState({ billNo: "", billDate: "", dueDate: "", freight: "", freightOnBill: true, priceApprovedBy: "", vat: "", receiptDate: "" });
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -42,7 +42,7 @@ export default function ReceivePage() {
       pr[l.poLineId] = String(l.unitPrice);
     });
     setRecv(sq); setRecvProduct(sp); setReceived(sr); setPrice(pr);
-    setBill({ billNo: "", billDate: "", dueDate: "", freight: "", freightOnBill: true, priceApprovedBy: "", vat: "" });
+    setBill({ billNo: "", billDate: "", dueDate: "", freight: "", freightOnBill: true, priceApprovedBy: "", vat: "", receiptDate: "" });
   }
   function loadPo(id: string) {
     if (!id) { setPo(null); setHistory([]); return; }
@@ -85,6 +85,7 @@ export default function ReceivePage() {
         freight: Number(bill.freight) || 0, freightOnBill: bill.freightOnBill,
         priceApprovedBy: bill.priceApprovedBy.trim() || null,
         vat: Number(bill.vat) || 0,
+        receiptDate: bill.receiptDate || undefined,
       });
       setMsg({ kind: "ok", text: t("Goods received. Stock created, PO balance updated and the supplier bill posted.") });
       const v = await endpoints.receiveView(poId); setPo(v); seed(v);
@@ -179,6 +180,10 @@ export default function ReceivePage() {
             <div className="px-4 py-4 border-t border-slate-200">
               <div className="section-label mb-3">{t("Supplier bill")}</div>
               <div className="form-grid cols-4">
+                <div className="field"><label>{t("Received on")}</label>
+                  <input className="inp" type="date" value={bill.receiptDate} max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setBill({ ...bill, receiptDate: e.target.value })} />
+                  <div className="h-4 leading-4 text-[11px] muted">{t("Blank = today; set an earlier date for late entry")}</div></div>
                 <div className="field"><label>{t("Supplier bill no.")}</label>
                   <input className="inp" value={bill.billNo} onChange={(e) => setBill({ ...bill, billNo: e.target.value })}
                     placeholder={t("Can be keyed later")} /></div>

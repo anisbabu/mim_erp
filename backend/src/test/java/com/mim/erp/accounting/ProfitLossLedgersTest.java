@@ -21,6 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,6 +41,10 @@ class ProfitLossLedgersTest {
     @Autowired SalesService sales;
     @Autowired SalesReturnService salesReturns;
     @Autowired ChequeService cheques;
+    @Autowired AccountingService accounting;
+    @Autowired ReclassService reclass;
+    @Autowired ReportService reports;
+    @Autowired ContraService contra;
     @Autowired LedgerService ledgers;
     @Autowired InventoryService inventory;
     @Autowired JdbcTemplate jdbc;
@@ -131,5 +136,86 @@ class ProfitLossLedgersTest {
         assertThat(ledgers.customerBalance(c)).isEqualByComparingTo("50");          // customer bears the fee
         assertThat(jdbc.queryForObject("select bounce_charge from cheque where id = ?", BigDecimal.class, b.getId()))
             .isEqualByComparingTo("50");
+    }
+
+    @Test
+    void bouncingAPostedChequeReopensTheBillItPaid() {
+        UUID c = customer();
+        String ar = ledgers.customerLedger(c).getCode();
+        accounting.post(TODAY.minusDays(3), "bill for bounce", "TEST", UUID.randomUUID(),
+            List.of(AccountingService.Leg.debit(ar, bd("500")), AccountingService.Leg.credit("4000", bd("500"))));
+        UUID bill = jdbc.queryForObject("""
+            select i.id from party_item i join journal_entry je on je.id = i.journal_id where je.narration = 'bill for bounce'
+        """, UUID.class);
+
+        Cheque q = cheques.record(c, bd("500"), "CHQ-X-" + c.toString().substring(0, 6), "Bank", "Main", TODAY, null);
+        cheques.markCashed(q.getId(), null);
+        q = cheques.post(q.getId(), null, null);
+        assertThat(ledgers.customerBalance(c)).isEqualByComparingTo("0");
+        assertThat(openOf(bill)).isEqualByComparingTo("0");                       // cheque settled the bill
+
+        cheques.markBounced(q.getId(), "INSUFFICIENT_FUNDS", null);
+        assertThat(net(ar, "CHEQUE_BOUNCE", q.getId())).isEqualByComparingTo("-500");          // customer debited again
+        assertThat(net(q.getDepositAccount(), "CHEQUE_BOUNCE", q.getId())).isEqualByComparingTo("500");
+        assertThat(ledgers.customerBalance(c)).isEqualByComparingTo("500");
+        assertThat(openOf(bill)).isEqualByComparingTo("500");                     // the bill is unpaid again
+        assertThat(jdbc.queryForObject("""
+            select count(*) from party_item i join journal_entry je on je.id = i.journal_id
+            where je.source_type = 'CHEQUE_BOUNCE' and je.source_id = ?
+              and i.amount - coalesce((select sum(x.amount) from bill_allocation x where x.bill_id = i.id or x.credit_id = i.id), 0) > 0
+        """, Integer.class, q.getId())).isZero();                                // bounce item paired off with the receipt
+
+        // a bounce before posting moves no money, and a resubmitted cheque goes back to pending
+        Cheque p = cheques.record(c, bd("200"), "CHQ-Y-" + c.toString().substring(0, 6), "Bank", "Main", TODAY, null);
+        cheques.markBounced(p.getId(), "SIGNATURE_MISMATCH", null);
+        assertThat(jdbc.queryForObject("select count(*) from journal_entry where source_id = ?", Integer.class, p.getId())).isZero();
+        assertThat(cheques.resubmit(p.getId(), TODAY.plusDays(7), null).getStatus()).isEqualTo("PENDING");
+        assertThat(ledgers.customerBalance(c)).isEqualByComparingTo("500");
+    }
+
+    private BigDecimal openOf(UUID item) {
+        return jdbc.queryForObject("""
+            select i.amount - coalesce((select sum(x.amount) from bill_allocation x where x.bill_id = i.id or x.credit_id = i.id), 0)
+            from party_item i where i.id = ?
+        """, BigDecimal.class, item);
+    }
+
+    @Test
+    void oldSalesAreSplitOnceAndDiscountIsReportedBySalesperson() {
+        inventory.addLayer(product, warehouse, null, bd("100"), bd("50"), TODAY, TODAY, "OPENING", null);
+        UUID c = customer();
+        var r = sales.createOrder(new SalesDtos.CreateOrderRequest(shop, c, user, "CREDIT", List.of(
+                new SalesDtos.Allocation(product, warehouse, bd("10"), bd("100"), bd("80"))),
+            null, "t", "t", bd("120"), null, null));
+        // make it look like a sale booked before 4010 / 4400 existed: everything on Sales 4000
+        // posted lines can't be edited, so fold the split back into Sales with a journal of the same source
+        accounting.post(TODAY, "legacy", "SALES_DELIVERY", r.soId(), List.of(
+            AccountingService.Leg.debit("4400", bd("120")), AccountingService.Leg.credit("4000", bd("120")),
+            AccountingService.Leg.debit("4000", bd("80")), AccountingService.Leg.credit("4010", bd("80"))));
+        assertThat(net("4000", "SALES_DELIVERY", r.soId())).isEqualByComparingTo("1040");
+
+        Map<String, Object> first = reclass.reclassifySales();
+        assertThat(net("4000", "RECLASS", r.soId())).isEqualByComparingTo("-40");    // -120 transport out, +80 discount in
+        assertThat(net("4400", "RECLASS", r.soId())).isEqualByComparingTo("120");
+        assertThat(net("4010", "RECLASS", r.soId())).isEqualByComparingTo("-80");
+        assertThat(ledgers.customerBalance(c)).isEqualByComparingTo("1040");          // party untouched
+        assertThat((List<?>) first.get("documents")).isNotEmpty();
+
+        reclass.reclassifySales();                                                    // second run changes nothing
+        assertThat(jdbc.queryForObject("select count(*) from journal_entry where source_type = 'RECLASS' and source_id = ?",
+            Integer.class, r.soId())).isEqualTo(1);
+
+        Map<String, Object> rep = reports.discountBySalesperson(TODAY.minusDays(1), TODAY);
+        BigDecimal mine = ((List<Map<String, Object>>) rep.get("rows")).stream()
+            .filter(x -> user.equals(x.get("user_id"))).map(x -> (BigDecimal) x.get("discount")).findFirst().orElseThrow();
+        assertThat(mine).isEqualByComparingTo("80");
+    }
+
+    @Test
+    void contraVoucherPrints() {
+        Map<String, Object> cv = contra.post(new ContraService.ContraRequest(TODAY, "1000", "1010", bd("750"), "slip 1", null), null, null);
+        byte[] en = contra.pdf((UUID) cv.get("id"), false), bn = contra.pdf((UUID) cv.get("id"), true);
+        assertThat(new String(en, 0, 4)).isEqualTo("%PDF");
+        assertThat(new String(bn, 0, 4)).isEqualTo("%PDF");
     }
 }

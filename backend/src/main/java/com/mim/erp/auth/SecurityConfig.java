@@ -74,6 +74,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/accounting/approvals/*/approve", "/api/accounting/approvals/*/reject")
                     .hasAnyRole("MANAGER", "ADMIN")
                 .requestMatchers(HttpMethod.PUT, "/api/accounting/approval-settings").hasRole("ADMIN")
+                .requestMatchers("/api/accounting/reclassify-sales").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/api/accounting/contra", "/api/accounting/bills/match",
                     "/api/accounting/bills/*/unmatch").hasAnyRole("ACCOUNTANT", "ADMIN")
                 // cash movements

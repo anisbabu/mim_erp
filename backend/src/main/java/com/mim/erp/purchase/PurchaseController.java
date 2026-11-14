@@ -36,6 +36,15 @@ public class PurchaseController {
     @GetMapping("/returns/returnable/{grnId}")
     public java.util.Map<String, Object> returnable(@PathVariable UUID grnId) { return returns.returnable(grnId); }
 
+    /** Printable debit note / purchase return slip; {@code lang=bn} prints Bangla. */
+    @GetMapping(value = "/returns/{id}/pdf", produces = "application/pdf")
+    public org.springframework.http.ResponseEntity<byte[]> returnPdf(@PathVariable UUID id, @RequestParam(defaultValue = "en") String lang) {
+        boolean bn = "bn".equalsIgnoreCase(lang);
+        return org.springframework.http.ResponseEntity.ok()
+            .header("Content-Disposition", "inline; filename=\"debit-note-" + id + (bn ? "-bn" : "") + ".pdf\"")
+            .body(returns.pdf(id, bn));
+    }
+
     @PostMapping("/returns")
     public java.util.Map<String, Object> createReturn(@RequestBody PurchaseReturnService.CreateRequest req) {
         return returns.create(req);

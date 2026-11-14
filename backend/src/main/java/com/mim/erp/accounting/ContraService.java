@@ -87,6 +87,16 @@ public class ContraService {
         """, Math.max(1, Math.min(limit, 1000)));
     }
 
+    /** Printable contra voucher slip. */
+    public byte[] pdf(UUID id, boolean bn) {
+        Map<String, Object> v = jdbc.queryForList("""
+            select c.*, fa.name as from_name, fa.name_bn as from_name_bn, ta.name as to_name, ta.name_bn as to_name_bn
+            from contra_voucher c left join account fa on fa.code = c.from_account left join account ta on ta.code = c.to_account
+            where c.id = ?
+        """, id).stream().findFirst().orElseThrow(() -> new ApiException("Contra voucher not found"));
+        return ContraPdf.render(v, bn);
+    }
+
     private static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }
 
     static String currentUser() {

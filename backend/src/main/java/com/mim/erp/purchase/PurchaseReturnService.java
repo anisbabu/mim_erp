@@ -97,6 +97,22 @@ public class PurchaseReturnService {
         """);
     }
 
+    /** Debit note / purchase return slip (lang bn = Bangla). */
+    public byte[] pdf(UUID id, boolean bn) {
+        Map<String, Object> r = jdbc.queryForList("""
+            select r.*, s.code as supplier_code, s.name as supplier_name, s.name_bn as supplier_name_bn,
+                   coalesce(g.bill_no || ' / ' || g.grn_no, g.grn_no) as bill_ref,
+                   (select a.name from account a where a.code = r.refund_account) as refund_ledger
+            from purchase_return r join goods_receipt g on g.id = r.grn_id join supplier s on s.id = r.supplier_id
+            where r.id = ?
+        """, id).stream().findFirst().orElseThrow(() -> new ApiException("Purchase return not found"));
+        List<Map<String, Object>> lines = jdbc.queryForList("""
+            select p.name, p.name_bn, l.qty, l.unit_price from purchase_return_line l join product p on p.id = l.product_id
+            where l.return_id = ? order by p.name
+        """, id);
+        return DebitNotePdf.render(r, lines, bn);
+    }
+
     // ------------------------------------------------------------------ create
     @Transactional
     public Map<String, Object> create(CreateRequest req) {

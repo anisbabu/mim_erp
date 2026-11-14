@@ -104,7 +104,12 @@ public class PurchaseService {
         grn.setGrnNo(docNo.next("GRN"));
         grn.setPoId(poId);
         grn.setWarehouseId(req.warehouseId());
-        grn.setReceiptDate(LocalDate.now());
+        LocalDate received = req.receiptDate() == null ? LocalDate.now() : req.receiptDate();
+        if (received.isAfter(LocalDate.now())) throw new ApiException("The receipt date can't be in the future");
+        if (po.getOrderDate() != null && received.isBefore(po.getOrderDate()))
+            throw new ApiException("Goods can't be received before the order date " + po.getOrderDate());
+        accounting.assertPeriodOpen(received);
+        grn.setReceiptDate(received);
         applyBill(grn, po.getSupplierId(), req.billNo(), req.billDate(), req.dueDate());
 
         BigDecimal freight = req.freight() == null ? BigDecimal.ZERO : req.freight().setScale(2, RoundingMode.HALF_UP);

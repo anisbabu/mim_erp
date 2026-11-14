@@ -14,9 +14,10 @@ public class ControlsController {
 
     private final ContraService contra;
     private final ApprovalService approvals;
+    private final ReclassService reclass;
 
-    public ControlsController(ContraService contra, ApprovalService approvals) {
-        this.contra = contra; this.approvals = approvals;
+    public ControlsController(ContraService contra, ApprovalService approvals, ReclassService reclass) {
+        this.contra = contra; this.approvals = approvals; this.reclass = reclass;
     }
 
     public record DecisionRequest(String note) {}
@@ -29,12 +30,24 @@ public class ControlsController {
     @GetMapping("/contra")
     public List<Map<String, Object>> contraList(@RequestParam(defaultValue = "200") int limit) { return contra.list(limit); }
 
+    @GetMapping(value = "/contra/{id}/pdf", produces = "application/pdf")
+    public org.springframework.http.ResponseEntity<byte[]> contraPdf(@PathVariable UUID id, @RequestParam(defaultValue = "en") String lang) {
+        boolean bn = "bn".equalsIgnoreCase(lang);
+        return org.springframework.http.ResponseEntity.ok()
+            .header("Content-Disposition", "inline; filename=\"contra-" + id + (bn ? "-bn" : "") + ".pdf\"")
+            .body(contra.pdf(id, bn));
+    }
+
     /** Posts the contra, or (above the approval limit) queues it and returns {pending, requestNo}. */
     @PostMapping("/contra")
     public Map<String, Object> contra(@RequestBody ContraService.ContraRequest r) {
         if (approvals.needsApproval(r.amount())) return approvals.submitContra(r);
         return contra.post(r, null, null);
     }
+
+    /** Admin, one-off: split transport and discount out of Sales for orders booked before 4010 / 4400 existed. */
+    @PostMapping("/reclassify-sales")
+    public Map<String, Object> reclassifySales() { return reclass.reclassifySales(); }
 
     // ---- approvals
     @GetMapping("/approvals")

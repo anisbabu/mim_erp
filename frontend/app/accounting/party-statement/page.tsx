@@ -174,7 +174,8 @@ export default function PartyStatementPage() {
                   <td style={b.dueDate < today() ? { color: "#b91c1c" } : undefined}>{fmtDate(b.dueDate)}</td>
                   <td className="num">{fmtMoney(b.amount)}</td>
                   <td className="num font-medium">{fmtMoney(b.open)}</td>
-                  <td><span className="chip bg-slate-100 text-slate-600">{b.status === "PART" ? t("Part paid") : t("Unpaid")}</span></td>
+                  <td><span className="chip bg-slate-100 text-slate-600">{b.status === "PART" ? t("Part paid") : t("Unpaid")}</span>
+                    {b.held && <span className="chip ml-1 bg-slate-100 text-slate-600" title={t("Kept out of automatic matching; match it by hand")}>{t("Held")}</span>}</td>
                   {canMatch && <td className="text-right">{b.status === "PART" &&
                     <button className="btn-ghost text-xs" disabled={busy} onClick={() => unmatch(b.id)}>{t("Unmatch")}</button>}</td>}
                 </tr>
@@ -186,7 +187,8 @@ export default function PartyStatementPage() {
                   <td />
                   <td className="num">{fmtMoney(a.amount)}</td>
                   <td className="num font-medium">-{fmtMoney(a.open)}</td>
-                  <td><span className="chip bg-slate-100 text-slate-600">{t("Advance")}</span></td>
+                  <td><span className="chip bg-slate-100 text-slate-600">{t("Advance")}</span>
+                    {a.held && <span className="chip ml-1 bg-slate-100 text-slate-600" title={t("Kept out of automatic matching; match it by hand")}>{t("Held")}</span>}</td>
                   {canMatch && <td className="text-right whitespace-nowrap">
                     {items.bills.length > 0 && <button className="btn text-xs" disabled={busy} onClick={() => startMatch(a)}>{t("Match")}</button>}
                     {Number(a.open) < Number(a.amount) &&

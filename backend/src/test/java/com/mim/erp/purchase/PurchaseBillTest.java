@@ -111,11 +111,11 @@ class PurchaseBillTest {
             new PurchaseDtos.ReceiveLine(line(po, productB), bd("10"), null, null));
 
         assertThatThrownBy(() -> purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse, lines,
-                "INV-77", billDate, null, bd("160"), true, null, null)))
+                "INV-77", billDate, null, bd("160"), true, null, null, null)))
             .isInstanceOf(ApiException.class).hasMessageContaining("approved");
 
         GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse, lines,
-            "INV-77", billDate, null, bd("160"), true, "Manager", null));
+            "INV-77", billDate, null, bd("160"), true, "Manager", null, null));
 
         // goods 1100 + 500 = 1600, freight 160 on the bill: supplier owed 1760, stock carries 1760
         assertThat(supplierBalance()).isEqualByComparingTo("1760");
@@ -132,7 +132,7 @@ class PurchaseBillTest {
         PurchaseOrder po = po();
         purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse,
             List.of(new PurchaseDtos.ReceiveLine(line(po, productA), bd("10"), null, null)),
-            null, null, null, bd("100"), false, null, null));
+            null, null, null, bd("100"), false, null, null, null));
         assertThat(supplierBalance()).isEqualByComparingTo("1000");
     }
 
@@ -140,7 +140,7 @@ class PurchaseBillTest {
     void billKeyedLaterRetagsTheOpenBill() {
         PurchaseOrder po = po();
         GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse,
-            List.of(new PurchaseDtos.ReceiveLine(line(po, productA), bd("5"), null, null)), null, null, null, null, null, null, null));
+            List.of(new PurchaseDtos.ReceiveLine(line(po, productA), bd("5"), null, null)), null, null, null, null, null, null, null, null));
         purchase.updateBill(g.getId(), new PurchaseDtos.BillDetails("SUP-INV-9", TODAY.minusDays(1), TODAY.plusDays(45)));
         Map<String, Object> bill = jdbc.queryForMap(
             "select doc_no, due_date from party_item where source_type = 'GRN' and source_id = ?", g.getId());
@@ -153,7 +153,7 @@ class PurchaseBillTest {
         PurchaseOrder po = po();
         GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse, List.of(
                 new PurchaseDtos.ReceiveLine(line(po, productA), bd("10"), null, null)),
-            "INV-1", TODAY, null, bd("100"), true, null, null));       // owed 1100, landed 110/unit
+            "INV-1", TODAY, null, bd("100"), true, null, null, null));       // owed 1100, landed 110/unit
         UUID grnLine = jdbc.queryForObject("select id from grn_line where grn_id = ?", UUID.class, g.getId());
 
         assertThatThrownBy(() -> returns.create(new PurchaseReturnService.CreateRequest(g.getId(), "damaged", "DEBIT_NOTE",
@@ -178,7 +178,7 @@ class PurchaseBillTest {
     void refundFromSupplierGoesToTheChosenBank() {
         PurchaseOrder po = po();
         GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse, List.of(
-                new PurchaseDtos.ReceiveLine(line(po, productB), bd("10"), null, null)), null, null, null, null, null, null, null));
+                new PurchaseDtos.ReceiveLine(line(po, productB), bd("10"), null, null)), null, null, null, null, null, null, null, null));
         UUID grnLine = jdbc.queryForObject("select id from grn_line where grn_id = ?", UUID.class, g.getId());
         Map<String, Object> r = returns.create(new PurchaseReturnService.CreateRequest(g.getId(), "wrong colour", "CASH_REFUND",
             TODAY, "1010", List.of(new PurchaseReturnService.Line(grnLine, bd("4")))));
@@ -188,5 +188,33 @@ class PurchaseBillTest {
         """, BigDecimal.class, r.get("id"));
         assertThat(bank).isEqualByComparingTo("200");
         assertThat(supplierBalance()).isEqualByComparingTo("500");   // the bill itself is untouched
+        assertThat(new String(returns.pdf((UUID) r.get("id"), false), 0, 4)).isEqualTo("%PDF");
+        assertThat(new String(returns.pdf((UUID) r.get("id"), true), 0, 4)).isEqualTo("%PDF");
+    }
+
+    @Test
+    void goodsCanBeReceivedOnAnEarlierDate() {
+        PurchaseOrder po = po();
+        jdbc.update("update purchase_order set order_date = ? where id = ?", TODAY.minusDays(10), po.getId());
+        var lines = List.of(new PurchaseDtos.ReceiveLine(line(po, productA), bd("2"), null, null));
+
+        assertThatThrownBy(() -> purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse, lines,
+                null, null, null, null, null, null, null, TODAY.plusDays(1))))
+            .isInstanceOf(ApiException.class).hasMessageContaining("future");
+        assertThatThrownBy(() -> purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse, lines,
+                null, null, null, null, null, null, null, TODAY.minusDays(11))))
+            .isInstanceOf(ApiException.class).hasMessageContaining("before the order date");
+
+        LocalDate arrived = TODAY.minusDays(5);
+        GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse, lines,
+            "LATE-1", null, null, null, null, null, null, arrived));
+        assertThat(g.getReceiptDate()).isEqualTo(arrived);
+        Integer days = jdbc.queryForObject("select coalesce(credit_days, 0) from supplier where id = ?", Integer.class, supplier);
+        assertThat(g.getDueDate()).isEqualTo(arrived.plusDays(days));   // credit days run from the receipt date
+        assertThat(jdbc.queryForObject("select entry_date from journal_entry where source_type = 'GRN' and source_id = ?",
+            LocalDate.class, g.getId())).isEqualTo(arrived);
+        assertThat(jdbc.queryForObject("""
+            select sl.received_date from stock_layer sl join grn_line gl on gl.id = sl.grn_line_id where gl.grn_id = ?
+        """, LocalDate.class, g.getId())).isEqualTo(arrived);
     }
 }

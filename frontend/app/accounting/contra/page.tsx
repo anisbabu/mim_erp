@@ -21,6 +21,10 @@ export default function ContraPage() {
 
   const name = (l?: { name?: string; name_bn?: string }) => (lang === "bn" && l?.name_bn ? l.name_bn : l?.name) ?? "";
   const load = () => endpoints.contraList().then(setRows).catch((e) => setMsg({ kind: "err", text: e.message }));
+  async function printCv(id: string, l: "en" | "bn") {
+    try { window.open(URL.createObjectURL(await endpoints.contraPdf(id, l)), "_blank"); }
+    catch (e: any) { setMsg({ kind: "err", text: e.message }); }
+  }
 
   useEffect(() => {
     endpoints.contraLedgers().then(setLedgers).catch((e) => setMsg({ kind: "err", text: e.message }));
@@ -89,6 +93,7 @@ export default function ContraPage() {
             <th style={{ textAlign: "left" }}>{t("To")}</th>
             <th style={{ textAlign: "left" }}>{t("Reference")}</th>
             <th style={{ textAlign: "right" }}>{t("Amount")}</th>
+            <th />
           </tr></thead>
           <tbody>
             {rows.map((r) => (
@@ -100,9 +105,12 @@ export default function ContraPage() {
                 <td>{r.to_account} · {name({ name: r.to_name, name_bn: r.to_name_bn })}</td>
                 <td className="muted">{r.reference ?? ""}{r.note ? <div className="text-[12px]">{r.note}</div> : null}</td>
                 <td className="num font-medium">{fmtMoney(r.amount)}</td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  <button className="btn-ghost text-xs" onClick={() => printCv(r.id, "en")}>PDF</button>
+                  <button className="btn-ghost text-xs ml-1" onClick={() => printCv(r.id, "bn")}>বাংলা</button></td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={6} className="muted">{t("No contra vouchers yet.")}</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={7} className="muted">{t("No contra vouchers yet.")}</td></tr>}
           </tbody>
         </table>
       </div>

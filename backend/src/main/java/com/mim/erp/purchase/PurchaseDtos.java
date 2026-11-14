@@ -25,7 +25,8 @@ public class PurchaseDtos {
     public record ReceiveRequest(UUID warehouseId, List<ReceiveLine> lines,
                                  String billNo, java.time.LocalDate billDate, java.time.LocalDate dueDate,
                                  BigDecimal freight, Boolean freightOnBill, String priceApprovedBy,
-                                 BigDecimal vat) {}   // input VAT on the supplier VAT invoice (Mushak 6.3), inside the billed prices
+                                 BigDecimal vat,      // input VAT on the supplier VAT invoice (Mushak 6.3), inside the billed prices
+                                 java.time.LocalDate receiptDate) {}   // goods arrived on (back-dating); null = today
     /** Supplier invoice details keyed after the goods were received. */
     public record BillDetails(String billNo, java.time.LocalDate billDate, java.time.LocalDate dueDate) {}
 
