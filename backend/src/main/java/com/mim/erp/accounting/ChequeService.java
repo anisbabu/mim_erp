@@ -29,6 +29,7 @@ import java.util.UUID;
 public class ChequeService {
 
     private static final String BANK = "1010";
+    static final String BANK_CHARGES = "5600";
     private static final Set<String> BOUNCE_REASONS = Set.of("INSUFFICIENT_FUNDS", "SIGNATURE_MISMATCH", "OTHER");
 
     private final ChequeRepository cheques;
@@ -195,8 +196,17 @@ public class ChequeService {
     }
 
     @Transactional
-    public Cheque markBounced(UUID id, String reason, String note) {
+    public Cheque markBounced(UUID id, String reason, String note) { return markBounced(id, reason, note, null, null); }
+
+    /**
+     * Bounce a cheque. The bank's return fee (if any) is taken from the bank ledger the cheque went to and
+     * charged either to Bank Charges (5600) or back to the customer, as a separate CHEQUE_CHARGE entry.
+     */
+    @Transactional
+    public Cheque markBounced(UUID id, String reason, String note, BigDecimal bankCharge, Boolean chargeToCustomer) {
         Cheque c = get(id);
+        BigDecimal fee = bankCharge == null ? BigDecimal.ZERO : bankCharge.setScale(2, java.math.RoundingMode.HALF_UP);
+        if (fee.signum() < 0) throw new ApiException("Bank charge cannot be negative");
         if (reason == null || !BOUNCE_REASONS.contains(reason)) throw new ApiException("Pick a bounce reason");
         if ("OTHER".equals(reason) && (note == null || note.isBlank()))
             throw new ApiException("Describe the reason when it is Other");
@@ -210,6 +220,16 @@ public class ChequeService {
                 "CHEQUE_BOUNCE", c.getId(),
                 List.of(Leg.debit(arLedger, c.getAmount()),
                         Leg.credit(c.getDepositAccount() == null ? BANK : c.getDepositAccount(), c.getAmount())));
+        }
+        if (fee.signum() > 0) {
+            boolean toCustomer = Boolean.TRUE.equals(chargeToCustomer);
+            String bank = c.getDepositAccount() == null ? BANK : c.getDepositAccount();
+            String debit = toCustomer ? ledgers.customerLedger(c.getCustomerId()).getCode() : BANK_CHARGES;
+            accounting.post(LocalDate.now(), "Bank charge on bounced cheque " + c.getChequeNo()
+                    + (toCustomer ? " (to customer)" : ""), "CHEQUE_CHARGE", c.getId(),
+                List.of(Leg.debit(debit, fee), Leg.credit(bank, fee)));
+            c.setBounceCharge(fee);
+            c.setBounceChargeToCustomer(toCustomer);
         }
         c.setStatus("BOUNCED");
         cheques.save(c);

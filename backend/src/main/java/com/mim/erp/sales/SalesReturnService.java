@@ -26,7 +26,9 @@ import java.util.*;
 public class SalesReturnService {
 
     public record Line(UUID dcLineId, BigDecimal qty) {}
-    public record CreateRequest(UUID soId, String reason, String settlement, List<Line> lines) {}
+    /** returnDate: blank = today. refundAccount: cash/bank ledger code a cash refund is paid from (blank = Cash 1000). */
+    public record CreateRequest(UUID soId, String reason, String settlement, List<Line> lines,
+                                LocalDate returnDate, String refundAccount) {}
 
     private final JdbcTemplate jdbc;
     private final InventoryService inventory;
@@ -98,9 +100,27 @@ public class SalesReturnService {
         if ("CASH_REFUND".equals(settlement) && !"CASH".equals(payMode))
             throw new ApiException("This was a credit sale - settle the return with a credit note");
 
-        Map<UUID, BigDecimal> price = netPrices(req.soId());
+        // the return is booked on the day the goods came back, which may be before it is keyed in
+        LocalDate returnDate = req.returnDate() == null ? LocalDate.now() : req.returnDate();
+        if (returnDate.isAfter(LocalDate.now())) throw new ApiException("A return can't be dated in the future");
+        Object ordered = so.get("order_date");
+        if (ordered instanceof java.sql.Date d && returnDate.isBefore(d.toLocalDate()))
+            throw new ApiException("A return can't be dated before its order (" + d.toLocalDate() + ")");
+        accounting.assertPeriodOpen(returnDate);
+
+        String refundFrom = "1000";
+        if ("CASH_REFUND".equals(settlement) && req.refundAccount() != null && !req.refundAccount().isBlank()) {
+            List<String> ok = jdbc.queryForList("""
+                select a.code from account a left join account_group g on g.id = a.group_id
+                where a.code = ? and a.active and (a.code = '1000' or g.code = 'A-BK')
+            """, String.class, req.refundAccount().trim());
+            if (ok.isEmpty()) throw new ApiException("Pick a cash or bank ledger to refund from");
+            refundFrom = ok.get(0);
+        }
+
+        Map<UUID, BigDecimal> price = netPrices(req.soId()), unitDisc = unitDiscounts(req.soId());
         UUID returnId = UUID.randomUUID();
-        BigDecimal goods = BigDecimal.ZERO, cost = BigDecimal.ZERO;
+        BigDecimal goods = BigDecimal.ZERO, cost = BigDecimal.ZERO, vatBack = BigDecimal.ZERO, discBack = BigDecimal.ZERO;
         List<Object[]> lineRows = new ArrayList<>();
         Set<UUID> seen = new HashSet<>();
 
@@ -109,7 +129,7 @@ public class SalesReturnService {
             if (l.qty().signum() < 0) throw new ApiException("Return quantity cannot be negative");
             if (!seen.add(l.dcLineId())) throw new ApiException("A delivery line appears twice in the return");
             List<Map<String, Object>> found = jdbc.queryForList("""
-                select dl.id, dl.product_id, dl.stock_layer_id, dl.qty, dl.unit_cost, dc.warehouse_id,
+                select dl.id, dl.product_id, dl.stock_layer_id, dl.qty, dl.unit_cost, dc.warehouse_id, dl.vat_rate,
                        coalesce((select sum(rl.qty) from sales_return_line rl where rl.dc_line_id = dl.id), 0) as returned
                 from dc_line dl join delivery_challan dc on dc.id = dl.dc_id
                 where dl.id = ? and dc.so_id = ? and dc.status <> 'CANCELLED'
@@ -124,7 +144,10 @@ public class SalesReturnService {
             UUID productId = (UUID) dl.get("product_id");
             BigDecimal unitPrice = price.getOrDefault(productId, BigDecimal.ZERO);
             BigDecimal unitCost = bd(dl.get("unit_cost"));
-            goods = goods.add(l.qty().multiply(unitPrice).setScale(2, RoundingMode.HALF_UP));
+            BigDecimal lineGoods = l.qty().multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
+            goods = goods.add(lineGoods);
+            discBack = discBack.add(l.qty().multiply(unitDisc.getOrDefault(productId, BigDecimal.ZERO)).setScale(2, RoundingMode.HALF_UP));
+            vatBack = vatBack.add(com.mim.erp.accounting.VatService.inside(lineGoods, bd(dl.get("vat_rate"))));
             cost = cost.add(l.qty().multiply(unitCost).setScale(2, RoundingMode.HALF_UP));
             lineRows.add(new Object[]{UUID.randomUUID(), returnId, l.dcLineId(), productId, dl.get("warehouse_id"),
                 dl.get("stock_layer_id"), l.qty(), unitPrice, unitCost});
@@ -133,13 +156,12 @@ public class SalesReturnService {
 
         String returnNo = docNo.next("SR");
         String creditNo = "CREDIT_NOTE".equals(settlement) ? docNo.next("CN") : null;
-        LocalDate today = LocalDate.now();
         jdbc.update("""
             insert into sales_return (id, return_no, credit_note_no, so_id, customer_id, shop_id, return_date, reason,
-                                      settlement, goods_value, cost_value, created_by)
-            values (?,?,?,?,?,?,?,?,?,?,?,?)
-        """, returnId, returnNo, creditNo, req.soId(), customerId, shopId, today, req.reason().trim(),
-            settlement, goods, cost, u.getUsername());
+                                      settlement, goods_value, cost_value, vat, created_by)
+            values (?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, returnId, returnNo, creditNo, req.soId(), customerId, shopId, returnDate, req.reason().trim(),
+            settlement, goods, cost, vatBack, u.getUsername());
         for (Object[] r : lineRows) {
             jdbc.update("""
                 insert into sales_return_line (id, return_id, dc_line_id, product_id, warehouse_id, stock_layer_id, qty, unit_price, unit_cost)
@@ -148,11 +170,17 @@ public class SalesReturnService {
             inventory.returnToLayer((UUID) r[5], (BigDecimal) r[6], returnId);
         }
 
-        String customerSide = "CREDIT_NOTE".equals(settlement) ? ledgers.customerLedger(customerId).getCode() : "1000";
+        String customerSide = "CREDIT_NOTE".equals(settlement) ? ledgers.customerLedger(customerId).getCode() : refundFrom;
         List<Leg> legs = new ArrayList<>();
-        if (goods.signum() > 0) { legs.add(Leg.debit("4000", goods)); legs.add(Leg.credit(customerSide, goods)); }
+        if (goods.signum() > 0) {   // the sale and the output VAT charged on it both come back
+            BigDecimal list = goods.subtract(vatBack).add(discBack);   // list price ex VAT; the discount given comes back too
+            if (list.signum() > 0) legs.add(Leg.debit("4000", list));
+            if (discBack.signum() > 0) legs.add(Leg.credit("4010", discBack));
+            if (vatBack.signum() > 0) legs.add(Leg.debit(com.mim.erp.accounting.VatService.OUTPUT_VAT, vatBack));
+            legs.add(Leg.credit(customerSide, goods));
+        }
         if (cost.signum() > 0) { legs.add(Leg.debit("1200", cost)); legs.add(Leg.credit("5000", cost)); }
-        accounting.post(today, ("CREDIT_NOTE".equals(settlement) ? "Credit note " + creditNo : "Cash refund") + " - sales return " + returnNo
+        accounting.post(returnDate, ("CREDIT_NOTE".equals(settlement) ? "Credit note " + creditNo : "Cash refund") + " - sales return " + returnNo
             + " against " + so.get("so_no"), "SALES_RETURN", returnId, legs);
 
         Map<String, Object> res = new LinkedHashMap<>();
@@ -217,6 +245,18 @@ public class SalesReturnService {
             BigDecimal q = bd(r.get("q"));
             out.put((UUID) r.get("product_id"), q.signum() == 0 ? BigDecimal.ZERO
                 : bd(r.get("net")).divide(q, 4, RoundingMode.HALF_UP));
+        });
+        return out;
+    }
+
+    /** Trade discount per unit sold, by product, so a return gives back its share of Sales Discount (4010). */
+    private Map<UUID, BigDecimal> unitDiscounts(UUID soId) {
+        Map<UUID, BigDecimal> out = new HashMap<>();
+        jdbc.queryForList("""
+            select product_id, sum(coalesce(discount_amt, 0)) as d, sum(qty) as q from so_line where so_id = ? group by product_id
+        """, soId).forEach(r -> {
+            BigDecimal q = bd(r.get("q"));
+            out.put((UUID) r.get("product_id"), q.signum() == 0 ? BigDecimal.ZERO : bd(r.get("d")).divide(q, 4, RoundingMode.HALF_UP));
         });
         return out;
     }

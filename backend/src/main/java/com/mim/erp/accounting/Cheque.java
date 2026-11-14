@@ -29,4 +29,6 @@ public class Cheque {
     private String reminderStatus;       // SENT | FAILED | SKIPPED
     private String reminderError;
     @Column(insertable = false, updatable = false) private OffsetDateTime createdAt;
+    private BigDecimal bounceCharge = BigDecimal.ZERO;   // bank fee for the returned cheque
+    private boolean bounceChargeToCustomer;            // recovered from the customer, else Bank Charges 5600
 }

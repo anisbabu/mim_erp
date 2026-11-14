@@ -55,13 +55,13 @@ public final class PdfKit {
 
     /**
      * Blank sales slip (invoice, challan, token) for pre-printed stationery: page 5.5 x 8.5 in,
-     * margins top 3.5 cm (letterhead), bottom 1.5 cm, left and right 0.5 cm, plus padding inside them
-     * (0.5 mm top/left/right, 1 mm bottom). Content starts on the padded top edge and the signature
-     * block sits on the padded bottom edge.
+     * margins top 3.5 cm (letterhead), bottom 2 cm, left and right 0.5 cm, plus padding inside them
+     * (0.5 mm top/left/right, 1 mm bottom). Content starts on the padded top edge; the
+     * body may run down to the padded bottom edge (no signature block).
      */
     public static Document slip() {
         return new Document(new Rectangle(5.5f * 72f, 8.5f * 72f),
-            0.5f * CM + SLIP_PAD, 0.5f * CM + SLIP_PAD, 3.5f * CM + SLIP_PAD, 1.5f * CM + SLIP_PAD_BOTTOM);
+            0.5f * CM + SLIP_PAD, 0.5f * CM + SLIP_PAD, 3.5f * CM + SLIP_PAD, 2f * CM + SLIP_PAD_BOTTOM);
     }
 
     /**
@@ -238,11 +238,38 @@ public final class PdfKit {
         Map.entry("Maturity date", "পাকার তারিখ"),
         Map.entry("Amount", "টাকার পরিমাণ"),
         Map.entry("In words", "কথায়"),
+        Map.entry("Inword", "কথায়"),
         Map.entry("Note", "মন্তব্য"),
         Map.entry("Customer signature", "গ্রাহকের স্বাক্ষর"),
         Map.entry("Tk", "টাকা"),
         Map.entry("This receipt acknowledges the cheque only. Payment is credited to the customer's account once the cheque is honoured by the bank.",
             "এই রসিদ শুধু চেক গ্রহণের স্বীকৃতি। ব্যাংক চেক পরিশোধ করলে তবেই টাকা গ্রাহকের হিসাবে জমা হবে।"),
-        Map.entry("dispatch note", "এই টোকেন শুধু %s থেকে মাল ছাড়ের অনুমতি দেয়। টোকেন ছাড়া মাল ছাড়বেন না।")
+        Map.entry("dispatch note", "এই টোকেন শুধু %s থেকে মাল ছাড়ের অনুমতি দেয়। টোকেন ছাড়া মাল ছাড়বেন না।"),
+        // receipt / payment voucher
+        Map.entry("RECEIPT VOUCHER", "প্রাপ্তি ভাউচার"),
+        Map.entry("PAYMENT VOUCHER", "পরিশোধ ভাউচার"),
+        Map.entry("Voucher no.", "ভাউচার নং"),
+        Map.entry("Received from", "যার নিকট থেকে প্রাপ্ত"),
+        Map.entry("Paid to", "যাকে পরিশোধ"),
+        Map.entry("Mode", "মাধ্যম"),
+        Map.entry("Cash", "নগদ"),
+        Map.entry("Reference", "রেফারেন্স"),
+        Map.entry("Discount allowed", "প্রদত্ত বাট্টা"),
+        Map.entry("Discount received", "প্রাপ্ত বাট্টা"),
+        Map.entry("AIT deducted by customer", "গ্রাহক কর্তৃক কর্তিত অগ্রিম আয়কর"),
+        Map.entry("AIT deducted at source", "উৎসে কর্তিত অগ্রিম আয়কর"),
+        Map.entry("VAT deducted by customer", "গ্রাহক কর্তৃক কর্তিত ভ্যাট"),
+        Map.entry("VAT deducted at source", "উৎসে কর্তিত ভ্যাট"),
+        Map.entry("Against bills", "যে বিলের বিপরীতে"),
+        Map.entry("Bill no.", "বিল নং"),
+        Map.entry("Bill date", "বিলের তারিখ"),
+        Map.entry("Bill amount", "বিলের টাকা"),
+        Map.entry("Settled", "সমন্বয়"),
+        Map.entry("Advance / on account", "অগ্রিম / হিসাবে জমা"),
+        Map.entry("Balance due after this receipt", "এই প্রাপ্তির পর বাকি"),
+        Map.entry("Balance payable after this payment", "এই পরিশোধের পর দেনা"),
+        Map.entry("Advance held", "অগ্রিম জমা আছে"),
+        Map.entry("Receiver's signature", "গ্রহীতার স্বাক্ষর"),
+        Map.entry("Authorised by", "অনুমোদনকারী")
     );
 }

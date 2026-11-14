@@ -13,7 +13,7 @@ import java.math.RoundingMode;
 import java.time.format.DateTimeFormatter;
 
 /** Acknowledgement slip handed to the customer when their cheque is received. */
-final class ChequeReceiptPdf {
+public final class ChequeReceiptPdf {
 
     private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
@@ -92,7 +92,7 @@ final class ChequeReceiptPdf {
         "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"};
     private static final String[] TENS = {"", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"};
 
-    static String words(BigDecimal amount) {
+    public static String words(BigDecimal amount) {
         BigDecimal v = amount.setScale(2, RoundingMode.HALF_UP);
         long taka = v.longValue();
         int paisa = v.remainder(BigDecimal.ONE).movePointRight(2).intValue();
@@ -129,7 +129,7 @@ final class ChequeReceiptPdf {
         "নব্বই", "একানব্বই", "বিরানব্বই", "তিরানব্বই", "চুরানব্বই", "পঁচানব্বই", "ছিয়ানব্বই", "সাতানব্বই", "আটানব্বই", "নিরানব্বই"};
 
     /** Full phrase, e.g. "এক হাজার টাকা মাত্র". */
-    static String banglaWords(BigDecimal amount) {
+    public static String banglaWords(BigDecimal amount) {
         BigDecimal v = amount.setScale(2, RoundingMode.HALF_UP);
         long taka = v.longValue();
         int paisa = v.remainder(BigDecimal.ONE).movePointRight(2).intValue();

@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import { endpoints, type Role, type Shop } from "@/lib/api";
 import {
-  ArrowLeftRight, Banknote, BarChart3, BookOpen, Boxes, Building2, CalendarRange, ChevronDown,
+  ArrowLeftRight, Banknote, BarChart3, BookOpen, Boxes, Building2, CalendarRange, ChevronDown, Contact,
   ClipboardList, FileText, History, Landmark, LayoutDashboard, LayoutGrid, ListTree, LogOut, Menu, Moon, Package, PackageCheck,
   ReceiptText, Scale, Settings, Sun,
   FilePen, ShoppingCart, Store, Truck, Undo2, UserCog, Users, Wallet, Warehouse, type LucideIcon,
@@ -30,6 +30,8 @@ const groups: Group[] = [
     { href: "/purchase/orders/new", label: "Purchase Order", roles: ["MANAGER", "ADMIN"], icon: ShoppingCart },
     { href: "/purchase/orders", label: "Purchase Order List", roles: ["MANAGER", "ADMIN"], icon: ClipboardList },
     { href: "/purchase/receive", label: "Receive goods", roles: ["MANAGER", "ADMIN"], icon: PackageCheck },
+    { href: "/purchase/bills", label: "Supplier bills", roles: ["MANAGER", "ADMIN"], icon: FileText },
+    { href: "/purchase/returns", label: "Purchase returns", roles: ["MANAGER", "ADMIN"], icon: Undo2 },
   ]},
   { label: "Inventory", icon: Boxes, color: "#e99d00", items: [
     { href: "/inventory/stock", label: "Stock on hand", roles: ALL, icon: Boxes },
@@ -49,14 +51,18 @@ const groups: Group[] = [
     { heading: "Setup" },
     { href: "/accounting/coa", label: "Chart of accounts", roles: BOOKS, icon: ListTree },
     { href: "/accounting/financial-year", label: "Financial year", roles: BOOKS, icon: CalendarRange },
+    { href: "/accounting/tax-settings", label: "VAT settings", roles: BOOKS, icon: Settings },
     { href: "/accounting/fixed-assets", label: "Fixed assets", roles: BOOKS, icon: Package },
     { heading: "Transactions" },
     { href: "/accounting/journal", label: "Journal entry", roles: BOOKS, icon: BookOpen },
     { href: "/accounting/payments", label: "Receipts & payments", roles: BOOKS, icon: Banknote },
+    { href: "/accounting/contra", label: "Contra voucher", roles: ["ACCOUNTANT", "ADMIN"], icon: ArrowLeftRight },
+    { href: "/accounting/approvals", label: "Voucher approvals", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: ClipboardList },
     { href: "/accounting/cheques", label: "Cheques received", roles: BOOKS, icon: Landmark },
     { href: "/accounting/petty-cash", label: "Petty cash", roles: BOOKS, icon: Wallet },
     { href: "/accounting/bank-recon", label: "Bank reconciliation", roles: BOOKS, icon: Scale },
     { heading: "Reports" },
+    { href: "/accounting/party-statement", label: "Party statement", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: Contact },
     { href: "/reports", label: "Financial reports", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: BarChart3,
       also: ["/accounting/trial-balance", "/accounting/pnl", "/accounting/balance-sheet"] },
   ]},

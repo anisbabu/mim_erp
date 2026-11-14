@@ -79,6 +79,8 @@ export default function ChequesPage() {
   const [actBy, setActBy] = useState("");
   const [actNote, setActNote] = useState("");
   const [actReason, setActReason] = useState<BounceReason | "">("");
+  const [actCharge, setActCharge] = useState("");          // bank fee on a bounced cheque
+  const [actChargeTo, setActChargeTo] = useState<"US" | "CUSTOMER">("US");
   const [actBank, setActBank] = useState("");
   const [actBusy, setActBusy] = useState(false);
   // edit form, prefilled from the cheque
@@ -181,7 +183,7 @@ export default function ChequesPage() {
 
   function openAction(c: Cheque, action: Action) {
     setActing({ id: c.id, action });
-    setActDate(""); setActBy(""); setActNote(""); setActReason("");
+    setActDate(""); setActBy(""); setActNote(""); setActReason(""); setActCharge(""); setActChargeTo("US");
     if (bankAccounts.length) setActBank(bankAccounts[0].code);
     if (action === "edit") setEd({
       customerId: c.customerId, amount: String(c.amount), chequeNo: c.chequeNo, bankName: c.bankName ?? "",
@@ -218,7 +220,8 @@ export default function ChequesPage() {
       else if (action === "date") await endpoints.chequeDate(id, { newMaturityDate: actDate, requestedBy: actBy, note: actNote });
       else if (action === "resubmit") await endpoints.chequeResubmit(id, { newMaturityDate: actDate, note: actNote });
       else if (action === "post") await endpoints.chequeStep(id, "post", { depositAccount: actBank, note: actNote });
-      else if (action === "bounce") await endpoints.chequeStep(id, "bounce", { reason: actReason, note: actNote });
+      else if (action === "bounce") await endpoints.chequeStep(id, "bounce", {
+        reason: actReason, note: actNote, bankCharge: Number(actCharge) || 0, chargeToCustomer: actChargeTo === "CUSTOMER" });
       else await endpoints.chequeStep(id, action, { requestedBy: actBy, note: actNote });
       setActing(null);
       refreshHistory(id);
@@ -509,6 +512,15 @@ export default function ChequesPage() {
                                 ))}
                               </select></div>
                           )}
+                          {acting.action === "bounce" && (<>
+                            <div className="field" style={{ width: 120 }}><label>{t("Bank charge")}</label>
+                              <input className="inp num" type="number" min={0} value={actCharge} onChange={(e) => setActCharge(e.target.value)} /></div>
+                            <div className="field"><label>{t("Charge borne by")}</label>
+                              <select className="inp" value={actChargeTo} onChange={(e) => setActChargeTo(e.target.value as "US" | "CUSTOMER")}>
+                                <option value="US">{t("Us (Bank Charges 5600)")}</option>
+                                <option value="CUSTOMER">{t("Customer (added to their ledger)")}</option>
+                              </select></div>
+                          </>)}
                           {acting.action !== "edit" && (
                             <div className="field flex-1 min-w-[200px]">
                               <label>

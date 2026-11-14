@@ -2,6 +2,7 @@ package com.mim.erp.purchase;
 
 import com.mim.erp.accounting.AccountingService;
 import com.mim.erp.accounting.AccountingService.Leg;
+import com.mim.erp.accounting.BillService;
 import com.mim.erp.accounting.LedgerService;
 import com.mim.erp.common.ApiException;
 import com.mim.erp.common.DocNumberService;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -28,12 +30,14 @@ public class PurchaseService {
     private final AccountingService accounting;
     private final LedgerService ledgers;
     private final DocNumberService docNo;
+    private final BillService bills;
 
     public PurchaseService(PurchaseOrderRepository pos, PoLineRepository poLines,
                            GoodsReceiptRepository grns, ProductRepository products,
                            SupplierRepository suppliers,
                            InventoryService inventory, AccountingService accounting,
-                           LedgerService ledgers, DocNumberService docNo) {
+                           LedgerService ledgers, DocNumberService docNo, BillService bills) {
+        this.bills = bills;
         this.pos = pos; this.poLines = poLines; this.grns = grns;
         this.products = products; this.suppliers = suppliers;
         this.inventory = inventory;
@@ -77,13 +81,15 @@ public class PurchaseService {
     }
 
     /**
-     * Receive goods against a PO into ONE warehouse.
+     * Receive goods against a PO into ONE warehouse, together with the supplier's bill.
      * Rules enforced:
      *  - received qty per line must be > 0 and <= the line's open balance
-     *  - received price is locked to PO price (never passed in by caller)
-     *  - each received line reduces the PO-line balance and creates a FIFO layer
+     *  - billed price defaults to the PO price; a different price needs an approver (logged on the GRN)
+     *  - freight is added to the stock cost (landed cost), shared across lines by value
+     *  - each received line reduces the PO-line balance and creates a FIFO layer at landed cost
      *  - PO auto-closes when every line balance reaches zero
-     *  - posts the accounting entry: Dr Inventory / Cr Accounts Payable
+     *  - posts Dr Inventory / Cr Supplier (and Cr Cash for freight paid to a carrier)
+     *  - the supplier bill is due on dueDate, else bill date (or receipt date) + supplier credit days
      */
     @Transactional
     public GoodsReceipt receive(UUID poId, PurchaseDtos.ReceiveRequest req) {
@@ -99,8 +105,15 @@ public class PurchaseService {
         grn.setPoId(poId);
         grn.setWarehouseId(req.warehouseId());
         grn.setReceiptDate(LocalDate.now());
+        applyBill(grn, po.getSupplierId(), req.billNo(), req.billDate(), req.dueDate());
+
+        BigDecimal freight = req.freight() == null ? BigDecimal.ZERO : req.freight().setScale(2, RoundingMode.HALF_UP);
+        if (freight.signum() < 0) throw new ApiException("Freight can't be negative");
+        grn.setFreight(freight);
+        grn.setFreightOnBill(req.freightOnBill() == null || req.freightOnBill());
 
         BigDecimal totalValue = BigDecimal.ZERO;
+        boolean priceChanged = false;
 
         for (var rl : req.lines()) {
             if (rl.qtyReceived() == null || rl.qtyReceived().signum() <= 0) continue; // skip blanks
@@ -111,6 +124,11 @@ public class PurchaseService {
             if (rl.qtyReceived().compareTo(poLine.getQtyBalance()) > 0)
                 throw new ApiException("Receive qty (" + rl.qtyReceived() +
                     ") exceeds open balance (" + poLine.getQtyBalance() + ")");
+
+            // the supplier's billed price; a free line stays free
+            BigDecimal price = poLine.isFreeProduct() || rl.billPrice() == null ? poLine.getUnitPrice() : rl.billPrice();
+            if (price.signum() < 0) throw new ApiException("Billed price can't be negative");
+            if (price.compareTo(poLine.getUnitPrice()) != 0) priceChanged = true;
 
             // reduce balance
             poLine.setQtyBalance(poLine.getQtyBalance().subtract(rl.qtyReceived()));
@@ -126,21 +144,48 @@ public class PurchaseService {
             gl.setPoLineId(poLine.getId());
             gl.setReceivedProductId(receivedProductId);
             gl.setQtyReceived(rl.qtyReceived());
+            gl.setUnitPrice(price);
             grn.getLines().add(gl);
 
-            totalValue = totalValue.add(rl.qtyReceived().multiply(poLine.getUnitPrice()));
+            totalValue = totalValue.add(rl.qtyReceived().multiply(price).setScale(2, RoundingMode.HALF_UP));
         }
 
         if (grn.getLines().isEmpty())
             throw new ApiException("Nothing to receive — enter a quantity on at least one line");
+        if (priceChanged) {
+            if (req.priceApprovedBy() == null || req.priceApprovedBy().isBlank())
+                throw new ApiException("The billed price differs from the PO price - name who approved it");
+            grn.setPriceApprovedBy(req.priceApprovedBy().trim());
+        }
+        grn.setGoodsValue(totalValue);
+        BigDecimal inputVat = req.vat() == null ? BigDecimal.ZERO : req.vat().setScale(2, RoundingMode.HALF_UP);
+        if (inputVat.signum() < 0 || inputVat.compareTo(totalValue) > 0)
+            throw new ApiException("Input VAT must be between 0 and the goods value");
+        grn.setVat(inputVat);
+        // the VAT inside the billed prices is claimed back, so it is not part of the stock cost
+        BigDecimal exVat = totalValue.signum() == 0 ? BigDecimal.ONE
+            : totalValue.subtract(inputVat).divide(totalValue, 10, RoundingMode.HALF_UP);
+
+        // landed cost: freight shared by line value (by quantity when everything is free)
+        BigDecimal weightTotal = totalValue.signum() > 0 ? totalValue
+            : grn.getLines().stream().map(GrnLine::getQtyReceived).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal freightLeft = freight;
+        for (int i = 0; i < grn.getLines().size(); i++) {
+            GrnLine gl = grn.getLines().get(i);
+            BigDecimal value = gl.getQtyReceived().multiply(gl.getUnitPrice()).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal weight = totalValue.signum() > 0 ? value : gl.getQtyReceived();
+            BigDecimal share = i == grn.getLines().size() - 1 ? freightLeft
+                : freight.multiply(weight).divide(weightTotal, 2, RoundingMode.HALF_UP).min(freightLeft);
+            freightLeft = freightLeft.subtract(share);
+            gl.setUnitCost(value.multiply(exVat).add(share).divide(gl.getQtyReceived(), 4, RoundingMode.HALF_UP));
+        }
 
         GoodsReceipt saved = grns.save(grn);
 
-        // create FIFO cost layers for what actually arrived (price locked to PO price)
+        // create FIFO cost layers for what actually arrived, at landed cost
         for (GrnLine gl : saved.getLines()) {
-            PoLine poLine = poLines.findById(gl.getPoLineId()).orElseThrow();
             inventory.addLayer(gl.getReceivedProductId(), req.warehouseId(), gl.getId(),
-                gl.getQtyReceived(), poLine.getUnitPrice(), saved.getReceiptDate(),
+                gl.getQtyReceived(), gl.getUnitCost(), saved.getReceiptDate(),
                 saved.getReceiptDate(), "GRN", saved.getId());
         }
 
@@ -149,19 +194,50 @@ public class PurchaseService {
             .allMatch(l -> l.getQtyBalance().signum() == 0);
         if (allZero) po.setStatus("CLOSED");
 
-        // accounting: Dr Inventory / Cr Accounts Payable (supplier's subsidiary ledger).
-        // Free-only receipts carry zero value, so no journal entry is posted.
-        if (totalValue.signum() > 0) {
-            String apLedger = ledgers.supplierLedger(po.getSupplierId()).getCode();
-            accounting.post(saved.getReceiptDate(),
-                "Goods receipt " + saved.getGrnNo(),
-                "GRN", saved.getId(),
-                List.of(
-                    Leg.debit("1200", totalValue),        // Inventory
-                    Leg.credit(apLedger, totalValue)      // Accounts Payable — this supplier
-                ));
+        // accounting: Dr Inventory (goods ex VAT + freight), Dr Input VAT / Cr the supplier for the bill,
+        // Cr Cash for carrier freight.
+        // Free-only receipts with no freight carry zero value, so no journal entry is posted.
+        BigDecimal payable = totalValue.add(saved.isFreightOnBill() ? freight : BigDecimal.ZERO);
+        BigDecimal stock = totalValue.subtract(inputVat).add(freight);
+        if (stock.add(inputVat).signum() > 0) {
+            List<Leg> legs = new java.util.ArrayList<>();
+            if (stock.signum() > 0) legs.add(Leg.debit("1200", stock));          // Inventory
+            if (inputVat.signum() > 0) legs.add(Leg.debit(com.mim.erp.accounting.VatService.INPUT_VAT, inputVat));
+            if (payable.signum() > 0)
+                legs.add(Leg.credit(ledgers.supplierLedger(po.getSupplierId()).getCode(), payable));
+            if (!saved.isFreightOnBill() && freight.signum() > 0)
+                legs.add(Leg.credit("1000", freight));                             // carrier paid in cash
+            accounting.post(saved.getReceiptDate(), "Goods receipt " + saved.getGrnNo()
+                + (saved.getBillNo() == null ? "" : " - bill " + saved.getBillNo()), "GRN", saved.getId(), legs);
         }
 
+        return saved;
+    }
+
+    /** Set the supplier invoice details on a GRN; due date defaults to bill date (or receipt date) + credit days. */
+    private void applyBill(GoodsReceipt grn, UUID supplierId, String billNo, LocalDate billDate, LocalDate dueDate) {
+        if (billDate != null && billDate.isAfter(LocalDate.now())) throw new ApiException("The bill date can't be in the future");
+        int days = suppliers.findById(supplierId).map(s -> s.getCreditDays()).orElse(0);
+        LocalDate base = billDate != null ? billDate : grn.getReceiptDate();
+        LocalDate due = dueDate != null ? dueDate : base.plusDays(days);
+        if (due.isBefore(base)) throw new ApiException("The due date can't be before the bill date");
+        grn.setBillNo(billNo == null || billNo.isBlank() ? null : billNo.trim());
+        grn.setBillDate(billDate);
+        grn.setDueDate(due);
+    }
+
+    /**
+     * Key or correct the supplier's invoice no., date and due date after receipt. Amounts are posted and
+     * can't change here; the open bill in the supplier's account takes the new reference and due date.
+     */
+    @Transactional
+    public GoodsReceipt updateBill(UUID grnId, PurchaseDtos.BillDetails b) {
+        GoodsReceipt grn = grns.findById(grnId).orElseThrow(() -> new ApiException("Goods receipt not found"));
+        PurchaseOrder po = pos.findById(grn.getPoId()).orElseThrow();
+        if (b.billNo() == null || b.billNo().isBlank()) throw new ApiException("Enter the supplier's bill number");
+        applyBill(grn, po.getSupplierId(), b.billNo(), b.billDate(), b.dueDate());
+        GoodsReceipt saved = grns.saveAndFlush(grn);
+        bills.retagGrn(saved.getId());
         return saved;
     }
 

@@ -101,6 +101,19 @@ public class InventoryService {
         record(LocalDate.now(), layer.getProductId(), layer.getWarehouseId(), qty, layer.getUnitCost(), "SALE_RETURN", refId, layerId);
     }
 
+    /** Send goods back to the supplier out of the layer they arrived in, and log the outward movement. */
+    @Transactional
+    public StockLayer removeFromLayer(UUID layerId, BigDecimal qty, UUID refId, LocalDate date) {
+        if (qty == null || qty.signum() <= 0) throw new ApiException("Return quantity must be positive");
+        StockLayer layer = layers.findById(layerId).orElseThrow(() -> new ApiException("Stock layer not found"));
+        if (qty.compareTo(layer.getQtyRemaining()) > 0)
+            throw new ApiException("Only " + layer.getQtyRemaining() + " of this receipt is still in stock");
+        layer.setQtyRemaining(layer.getQtyRemaining().subtract(qty));
+        layers.save(layer);
+        record(date, layer.getProductId(), layer.getWarehouseId(), qty.negate(), layer.getUnitCost(), "PURCHASE_RETURN", refId, layerId);
+        return layer;
+    }
+
     private void record(LocalDate date, UUID productId, UUID warehouseId, BigDecimal signedQty,
                         BigDecimal unitCost, String type, UUID refId, UUID layerId) {
         StockMovement m = new StockMovement();

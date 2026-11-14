@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type TrialBalanceReport } from "@/lib/api";
 import { fmtMoney } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
-import { ClosedBanner, ReportTitle, Toolbar, YearSelect, savePdf, useYears } from "./ReportKit";
+import { ClosedBanner, ReportTitle, Toolbar, YearSelect, savePdf, useSaved, useYears } from "./ReportKit";
 
 export default function TrialBalance() {
   const { t, lang } = useI18n();
   const { years, yearId, setYearId } = useYears();
   const [tb, setTb] = useState<TrialBalanceReport | null>(null);
-  const [hideZero, setHideZero] = useState(true);
+  const [hideZeroS, setHideZeroS] = useSaved("tbHideZero", "1");
+  const hideZero = hideZeroS === "1";
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -30,7 +31,7 @@ export default function TrialBalance() {
       <Toolbar onPdf={() => savePdf(() => endpoints.reportPdf("trial-balance", yearId, lang), `trial-balance-${tb?.yearName ?? ""}${lang === "bn" ? "-bn" : ""}.pdf`, setErr)}>
         <YearSelect years={years} value={yearId} onChange={setYearId} />
         <label className="h-10 flex items-center gap-2 text-sm cursor-pointer">
-          <input type="checkbox" checked={hideZero} onChange={(e) => setHideZero(e.target.checked)} />
+          <input type="checkbox" checked={hideZero} onChange={(e) => setHideZeroS(e.target.checked ? "1" : "0")} />
           {t("Hide ledgers with no balance")}
         </label>
       </Toolbar>

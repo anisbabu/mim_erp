@@ -71,11 +71,11 @@ export const api = {
 // ---- shared types (mirror backend DTOs) ----
 export type Product = {
   id: string; sku: string; name: string; nameBn?: string; type: "BOARD" | "HARDWARE";
-  thicknessMm?: number; thicknessLabel?: string; unit?: string; priceLower?: number; priceUpper?: number;
+  thicknessMm?: number; thicknessLabel?: string; unit?: string; priceLower?: number; priceUpper?: number; taxRate?: number | null;
   supplierId?: string; category?: string; productGroup?: string; productGroupId?: string; supplierTag?: string; edgingSize?: string; color?: string; side?: string; fullName?: string; comments?: string; active?: boolean;
 };
 export type Warehouse = { id: string; code: string; name: string; nameBn?: string; branch?: string; address?: string };
-export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string; groupId?: string };
+export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string; groupId?: string; creditDays?: number };
 export type ProductGroup = { id: string; name: string };
 export type SupplierGroup = { id: string; code: string; name: string; nameBn?: string };
 export type Shop      = {
@@ -105,9 +105,29 @@ export type LedgerRow = {
 export type PaymentRow = {
   id: string; payment_no: string; direction: "IN" | "OUT"; party_type: string; party_id: string;
   amount: number; method: string; note?: string; payment_date: string;
+  voucher_no?: string; discount?: number; ait?: number; vds?: number; reference?: string;
   bank_account_no?: string; bank_branch?: string;
   party_code?: string; party_name?: string; party_name_bn?: string;
 };
+export type PartyItem = {
+  id: string; sourceType: string; docNo?: string; docDate: string; dueDate: string;
+  amount: number; open: number; status: "OPEN" | "PART";
+};
+export type PartyOpenItems = { bills: PartyItem[]; advances: PartyItem[]; billTotal: number; advanceTotal: number; balance: number;
+  matched?: { id: string; sourceType: string; docNo?: string; docDate: string; amount: number }[] };
+export type PendingVoucher = { pending: true; id: string; requestNo: string; amount: number };
+export type VoucherRequestRow = {
+  id: string; request_no: string; kind: "PAYMENT" | "CONTRA"; party_type?: string; party_id?: string; amount: number;
+  voucher_date: string; summary?: string; payload: string; status: "PENDING" | "APPROVED" | "REJECTED";
+  requested_by: string; requested_at: string; decided_by?: string; decided_at?: string; decision_note?: string;
+  posted_id?: string; posted_no?: string; party_code?: string; party_name?: string; party_name_bn?: string;
+};
+export type ContraRow = {
+  id: string; voucher_no: string; voucher_date: string; from_account: string; to_account: string; amount: number;
+  reference?: string; note?: string; requested_by?: string; approved_by?: string; created_by?: string;
+  from_name?: string; from_name_bn?: string; to_name?: string; to_name_bn?: string;
+};
+export type MoneyLedger = { code: string; name: string; name_bn?: string };
 export type FinancialYear = {
   id: string; name: string; startDate: string; endDate: string;
   status: "OPEN" | "CLOSED"; current?: boolean; closedAt?: string | null;
@@ -156,6 +176,22 @@ export type Returnable = {
            customer_code: string; customer_name: string; customer_name_bn?: string };
   lines: ReturnableLine[];
 };
+export type GrnRow = {
+  id: string; grn_no: string; receipt_date: string; bill_no?: string; bill_date?: string; due_date?: string;
+  goods_value: number; freight: number; freight_on_bill: boolean; price_approved_by?: string; po_no: string;
+  supplier_id: string; supplier_code: string; supplier_name: string; supplier_name_bn?: string; returned_value: number;
+};
+export type PurchaseReturnRow = {
+  id: string; return_no: string; debit_note_no?: string; return_date: string; reason: string;
+  settlement: "DEBIT_NOTE" | "CASH_REFUND"; goods_value: number; cost_value: number; created_by?: string;
+  grn_no: string; bill_no?: string; supplier_code: string; supplier_name: string; supplier_name_bn?: string;
+};
+export type PurchaseReturnable = {
+  receipt: { id: string; grn_no: string; receipt_date: string; bill_no?: string; po_no: string; supplier_id: string;
+             supplier_code: string; supplier_name: string; supplier_name_bn?: string };
+  lines: { grn_line_id: string; product_id: string; product_name: string; product_name_bn?: string; qty_received: number;
+           qty_returned: number; qty_in_stock: number; qty_available: number; unit_price: number; unit_cost: number }[];
+};
 export type PickupLine = { productId: string; productName: string; qty: number };
 export type PickupView = { dcId: string; dcNo: string; date: string; warehouseName: string; lines: PickupLine[] };
 
@@ -203,7 +239,7 @@ export type TrialBalanceReport = {
   openingDebit: number; openingCredit: number; periodDebit: number; periodCredit: number;
   closingDebit: number; closingCredit: number; balanced: boolean;
 };
-export type GlRow = { date: string; entryNo: string; narration?: string; sourceType?: string; debit: number; credit: number; balance: number };
+export type GlRow = { date: string; entryNo: string; narration?: string; sourceType?: string; refNo?: string; debit: number; credit: number; balance: number };
 export type GeneralLedger = {
   account: { id: string; code: string; name: string; name_bn?: string; type: string };
   from: string; to: string; openingBalance: number; rows: GlRow[];
@@ -221,6 +257,7 @@ export type CheckItem = { code: string; title: string; status: "OK" | "FAIL" | "
 export type ChecksReport = { ok: boolean; asOf: string; checks: CheckItem[] };
 export type TaxSummary = {
   from: string; to: string; outputVat: number; inputVat: number; netVatPayable: number; aitWithheld: number; aitPaid: number;
+  vdsCredit: number; vdsWithheld: number;
 };
 export type BankAccountRow = { id: string; code: string; name: string; name_bn?: string; last_reconciled?: string | null; uncleared: number };
 export type BankOpenLine = { id: string; entry_date: string; entry_no: string; narration?: string; debit: number; credit: number };
@@ -307,6 +344,12 @@ export const endpoints = {
   poDetails:   (poId: string) => api.get<PoDetails>(`/api/purchase/orders/${poId}`),
   receiveView: (poId: string) => api.get<PoView>(`/api/purchase/orders/${poId}/receive-view`),
   receive:     (poId: string, b: unknown) => api.post(`/api/purchase/orders/${poId}/receive`, b),
+  grnList:     (supplierId?: string) => api.get<GrnRow[]>(`/api/purchase/receipts${supplierId ? `?supplierId=${supplierId}` : ""}`),
+  updateGrnBill: (grnId: string, b: { billNo: string; billDate?: string | null; dueDate?: string | null }) =>
+    api.put(`/api/purchase/receipts/${grnId}/bill`, b),
+  purchaseReturns: () => api.get<PurchaseReturnRow[]>("/api/purchase/returns"),
+  purchaseReturnable: (grnId: string) => api.get<PurchaseReturnable>(`/api/purchase/returns/returnable/${grnId}`),
+  createPurchaseReturn: (b: unknown) => api.post<{ id: string; returnNo: string; debitNoteNo?: string; settlement: string; goodsValue: number }>("/api/purchase/returns", b),
 
   // inventory
   availability: (productId: string) =>
@@ -429,6 +472,8 @@ export const endpoints = {
                   api.get<AgingReport>(`/api/accounting/reports/aging?type=${type}&asOf=${asOf}`),
   checks:       () => api.get<ChecksReport>("/api/accounting/reports/checks"),
   taxSummary:   (from: string, to: string) => api.get<TaxSummary>(`/api/accounting/reports/tax?from=${from}&to=${to}`),
+  taxSettings:  () => api.get<{ enabled: boolean; defaultRate: number }>("/api/accounting/tax-settings"),
+  saveTaxSettings: (b: { enabled: boolean; defaultRate: number }) => api.put<{ enabled: boolean; defaultRate: number }>("/api/accounting/tax-settings", b),
   bankAccounts: () => api.get<BankAccountRow[]>("/api/accounting/bank-recon/accounts"),
   bankOpen:     (id: string, upTo: string) => api.get<BankOpen>(`/api/accounting/bank-recon/${id}/open?upTo=${upTo}`),
   bankHistory:  (id: string) => api.get<BankHistoryRow[]>(`/api/accounting/bank-recon/${id}/history`),
@@ -448,6 +493,32 @@ export const endpoints = {
   paymentList:  (direction: "IN" | "OUT", limit = 200) =>
                   api.get<PaymentRow[]>(`/api/accounting/payments?direction=${direction}&limit=${limit}`),
   pettyCash:    (b: unknown) => api.post("/api/accounting/petty-cash", b),
+  contraLedgers: () => api.get<MoneyLedger[]>("/api/accounting/contra/ledgers"),
+  contraList:   (limit = 200) => api.get<ContraRow[]>(`/api/accounting/contra?limit=${limit}`),
+  contra:       (b: { date: string; fromAccount: string; toAccount: string; amount: number; reference?: string; note?: string }) =>
+                  api.post<{ id: string; voucherNo: string } | PendingVoucher>("/api/accounting/contra", b),
+  approvals:    (status: "PENDING" | "APPROVED" | "REJECTED" | "ALL" = "PENDING") =>
+                  api.get<VoucherRequestRow[]>(`/api/accounting/approvals?status=${status}`),
+  approvalCount: () => api.get<{ pending: number }>("/api/accounting/approvals/count"),
+  approve:      (id: string, note?: string) => api.post<{ postedNo: string }>(`/api/accounting/approvals/${id}/approve`, { note }),
+  reject:       (id: string, note: string) => api.post(`/api/accounting/approvals/${id}/reject`, { note }),
+  approvalSettings: () => api.get<{ enabled: boolean; limit: number | null }>("/api/accounting/approval-settings"),
+  saveApprovalSettings: (limit: number | null) => api.put<{ enabled: boolean; limit: number | null }>("/api/accounting/approval-settings", { limit }),
+  matchBills:   (creditId: string, allocations: { billId: string; amount: number }[]) =>
+                  api.post("/api/accounting/bills/match", { creditId, allocations }),
+  unmatchItem:  (itemId: string) => api.post(`/api/accounting/bills/${itemId}/unmatch`, {}),
+  partyOpenItems: (type: "CUSTOMER" | "SUPPLIER", id: string) =>
+                  api.get<PartyOpenItems>(`/api/accounting/parties/${type}/${id}/open-items`),
+  partyLedger:  (type: "CUSTOMER" | "SUPPLIER", id: string) =>
+                  api.get<{ accountId?: string; code?: string }>(`/api/accounting/parties/${type}/${id}/ledger`),
+  voucherPdf:   async (id: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/accounting/payments/${id}/pdf?lang=${lang}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Failed to generate the voucher");
+    return res.blob();
+  },
   cheques:      () => api.get<Cheque[]>("/api/accounting/cheques"),
   recordCheque: (b: unknown) => api.post<Cheque>("/api/accounting/cheques", b),
   editCheque:   (id: string, b: unknown) => api.put<Cheque>(`/api/accounting/cheques/${id}`, b),
