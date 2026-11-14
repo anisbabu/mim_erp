@@ -58,14 +58,14 @@ public class StatementService {
         if ("A-FA".equals(grp)) return PPE;
         if ("1200".equals(code)) return INV;
         if ("A-BK".equals(grp) || CASH_CODES.contains(code)) return CASH;
-        if ("1450".equals(code) || "1460".equals(code)) return TAXA;
+        if ("1450".equals(code) || "1460".equals(code) || "1470".equals(code)) return TAXA;
         if ("SD".equals(grp) || "1100".equals(code) || "1400".equals(code)) return REC;
         return OCA;
     }
     private static Def liabDef(String code, String grp) {
         if ("L-NC".equals(grp)) return LTB;
         if ("SC".equals(grp) || "2000".equals(code)) return TP;
-        if ("2100".equals(code) || "2120".equals(code)) return TAXP;
+        if ("2100".equals(code) || "2110".equals(code) || "2120".equals(code)) return TAXP;
         return OP;
     }
     private static Def equityDef(String code) {
@@ -323,7 +323,7 @@ public class StatementService {
                         f.cashOpen = f.cashOpen.add(bd(r.get("opening_debit")).subtract(bd(r.get("opening_credit"))));
                     } else if ("A-FA".equals(grp)) f.dNbv = f.dNbv.add(dr);
                     else if ("1200".equals(code)) f.dInv = f.dInv.add(dr);
-                    else if ("1450".equals(code) || "1460".equals(code)) f.dTaxa = f.dTaxa.add(dr);
+                    else if ("1450".equals(code) || "1460".equals(code) || "1470".equals(code)) f.dTaxa = f.dTaxa.add(dr);
                     else if ("SD".equals(grp) || "1100".equals(code) || "1400".equals(code)) f.dRec = f.dRec.add(dr);
                     else f.dOca = f.dOca.add(dr);
                 }
@@ -331,7 +331,7 @@ public class StatementService {
                     BigDecimal cr = dr.negate();
                     if ("L-NC".equals(grp)) f.borrowings = f.borrowings.add(cr);
                     else if ("SC".equals(grp) || "2000".equals(code)) f.dTp = f.dTp.add(cr);
-                    else if ("2100".equals(code) || "2120".equals(code)) f.dTaxp = f.dTaxp.add(cr);
+                    else if ("2100".equals(code) || "2110".equals(code) || "2120".equals(code)) f.dTaxp = f.dTaxp.add(cr);
                     else f.dOp = f.dOp.add(cr);
                 }
                 default -> f.capital = f.capital.add(dr.negate());   // EQUITY (closing entries already excluded)

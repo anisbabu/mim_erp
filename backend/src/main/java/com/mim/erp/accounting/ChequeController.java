@@ -25,7 +25,7 @@ public class ChequeController {
     public record DateRequest(LocalDate newMaturityDate, String requestedBy, String note) {}
     public record StepRequest(String requestedBy, String note) {}
     public record PostRequest(String depositAccount, String note) {}
-    public record BounceRequest(String reason, String note) {}
+    public record BounceRequest(String reason, String note, java.math.BigDecimal bankCharge, Boolean chargeToCustomer) {}
     public record ReminderSettingsRequest(boolean enabled, String lang) {}
 
     @GetMapping
@@ -77,7 +77,7 @@ public class ChequeController {
     public Cheque post(@PathVariable UUID id, @RequestBody PostRequest r) { return cheques.post(id, r.depositAccount(), r.note()); }
 
     @PostMapping("/{id}/bounce")
-    public Cheque bounce(@PathVariable UUID id, @RequestBody BounceRequest r) { return cheques.markBounced(id, r.reason(), r.note()); }
+    public Cheque bounce(@PathVariable UUID id, @RequestBody BounceRequest r) { return cheques.markBounced(id, r.reason(), r.note(), r.bankCharge(), r.chargeToCustomer()); }
 
     @PostMapping("/{id}/resubmit")
     public Cheque resubmit(@PathVariable UUID id, @RequestBody DateRequest r) {

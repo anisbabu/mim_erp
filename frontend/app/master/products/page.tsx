@@ -429,6 +429,9 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Price")} ({t("high")}) <R /></label>
               <input className="inp num" type="number" value={f.priceUpper ?? ""}
                 onChange={(e) => setF({ ...f, priceUpper: e.target.value ? Number(e.target.value) : undefined })} /></div>
+            <div className="field"><label>{t("VAT rate %")}</label>
+              <input className="inp num" type="number" min={0} max={100} placeholder={t("Default")} value={f.taxRate ?? ""}
+                onChange={(e) => setF({ ...f, taxRate: e.target.value === "" ? null : Number(e.target.value) })} /></div>
             <div className="field"><label>{t("Code")} (auto)</label>
               <input className="inp font-mono" value={f.sku ?? ""}
                 onChange={(e) => { setManualSku(true); setF((prev) => ({ ...prev, sku: e.target.value })); }} /></div>
@@ -475,6 +478,9 @@ export default function ProductsPage() {
             <div className="field"><label>{t("Price")} ({t("high")}) <R /></label>
               <input className="inp num" type="number" value={f.priceUpper ?? ""}
                 onChange={(e) => setF({ ...f, priceUpper: e.target.value ? Number(e.target.value) : undefined })} /></div>
+            <div className="field"><label>{t("VAT rate %")}</label>
+              <input className="inp num" type="number" min={0} max={100} placeholder={t("Default")} value={f.taxRate ?? ""}
+                onChange={(e) => setF({ ...f, taxRate: e.target.value === "" ? null : Number(e.target.value) })} /></div>
             <div className="field"><label>{t("Code")} (auto)</label>
               <input className="inp font-mono" value={f.sku ?? ""}
                 onChange={(e) => { setManualSku(true); setF((prev) => ({ ...prev, sku: e.target.value })); }} /></div>

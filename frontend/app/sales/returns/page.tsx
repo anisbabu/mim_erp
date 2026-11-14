@@ -4,8 +4,9 @@ import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { savePdf } from "@/components/reports/ReportKit";
+import { today } from "@/lib/fmt";
 import {
-  endpoints, fmtDate, type Customer, type Returnable, type SalesOrder, type SalesReturnRow,
+  endpoints, fmtDate, type Account, type Customer, type Returnable, type SalesOrder, type SalesReturnRow,
 } from "@/lib/api";
 
 const money = (n: number) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -24,6 +25,9 @@ export default function SalesReturnsPage() {
   const [qty, setQty] = useState<Record<string, string>>({});
   const [reason, setReason] = useState("");
   const [settlement, setSettlement] = useState<"CREDIT_NOTE" | "CASH_REFUND">("CREDIT_NOTE");
+  const [returnDate, setReturnDate] = useState(today());
+  const [refundFrom, setRefundFrom] = useState("1000");
+  const [banks, setBanks] = useState<Account[]>([]);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string; id?: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -32,6 +36,7 @@ export default function SalesReturnsPage() {
     loadList();
     endpoints.salesOrders().then(setOrders).catch(() => {});
     endpoints.customers().then((c) => setCustomers(Object.fromEntries(c.map((x) => [x.id, x])))).catch(() => {});
+    endpoints.chequeBankAccounts().then(setBanks).catch(() => {});
   }, []);
 
   const orderOpts: Option[] = useMemo(
@@ -61,7 +66,10 @@ export default function SalesReturnsPage() {
     if (!reason.trim()) { setMsg({ kind: "err", text: t("Give the reason for the return.") }); return; }
     setBusy(true);
     try {
-      const r = await endpoints.createSalesReturn({ soId, reason: reason.trim(), settlement, lines });
+      const r = await endpoints.createSalesReturn({
+        soId, reason: reason.trim(), settlement, lines, returnDate,
+        refundAccount: settlement === "CASH_REFUND" ? refundFrom : null,
+      });
       setMsg({ kind: "ok", id: r.id, text: `${r.creditNoteNo ?? r.returnNo} ${t("recorded.")}` });
       setReason(""); setQty({});
       endpoints.returnable(soId).then(setData).catch(() => {});
@@ -156,7 +164,13 @@ export default function SalesReturnsPage() {
                   <label>{t("Reason for return")} *</label>
                   <input className="inp" value={reason} onChange={(e) => setReason(e.target.value)} />
                 </div>
-                <div className="field" style={{ gridColumn: "span 2" }}>
+                <div className="field">
+                  <label>{t("Return date")} *</label>
+                  <input className="inp" type="date" value={returnDate} max={today()}
+                    min={data.order.order_date ? String(data.order.order_date).slice(0, 10) : undefined}
+                    onChange={(e) => setReturnDate(e.target.value)} />
+                </div>
+                <div className="field">
                   <label>{t("Settle by")}</label>
                   <select className="inp" value={settlement} disabled={!cash}
                     onChange={(e) => setSettlement(e.target.value as "CREDIT_NOTE" | "CASH_REFUND")}>
@@ -164,13 +178,22 @@ export default function SalesReturnsPage() {
                     {cash && <option value="CASH_REFUND">{t("Cash refund")}</option>}
                   </select>
                 </div>
+                {settlement === "CASH_REFUND" && (
+                  <div className="field" style={{ gridColumn: "span 2" }}>
+                    <label>{t("Refund from")}</label>
+                    <select className="inp" value={refundFrom} onChange={(e) => setRefundFrom(e.target.value)}>
+                      <option value="1000">{t("Cash")} (1000)</option>
+                      {banks.map((b) => <option key={b.code} value={b.code}>{(lang === "bn" && b.nameBn) || b.name} ({b.code})</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Recording…") : t("Record return")}</button>
                 <span className="text-[12px] muted">
                   {settlement === "CREDIT_NOTE"
                     ? t("Dr Sales · Cr Customer ledger; Dr Inventory · Cr Cost of sales")
-                    : t("Dr Sales · Cr Cash; Dr Inventory · Cr Cost of sales")}
+                    : t("Dr Sales · Cr Cash/Bank; Dr Inventory · Cr Cost of sales")}
                 </span>
               </div>
             </>

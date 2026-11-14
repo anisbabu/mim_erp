@@ -20,10 +20,11 @@ public class FinancialYearService {
 
     private final AccountingService accounting;
     private final JdbcTemplate jdbc;
+    private final BillService bills;
 
     public FinancialYearService(FinancialYearRepository years, OpeningBalanceRepository openings,
-                                AccountingService accounting, JdbcTemplate jdbc) {
-        this.years = years; this.openings = openings; this.accounting = accounting; this.jdbc = jdbc;
+                                AccountingService accounting, JdbcTemplate jdbc, BillService bills) {
+        this.years = years; this.openings = openings; this.accounting = accounting; this.jdbc = jdbc; this.bills = bills;
     }
 
     public List<FinancialYear> list() { return years.findAllByOrderByStartDateDesc(); }
@@ -64,7 +65,9 @@ public class FinancialYearService {
                 n.setFinancialYearId(financialYearId); n.setAccountId(accountId); return n; });
         ob.setDebit(debit == null ? BigDecimal.ZERO : debit);
         ob.setCredit(credit == null ? BigDecimal.ZERO : credit);
-        return openings.save(ob);
+        OpeningBalance saved = openings.saveAndFlush(ob);
+        bills.syncOpenings();   // bill-wise OPENING item for party ledgers
+        return saved;
     }
 
     public List<OpeningBalance> openings(UUID financialYearId) {
@@ -147,6 +150,7 @@ public class FinancialYearService {
         fy.setClosingEntryId(entryId);
         years.save(fy);
         if (fy.isCurrent()) setCurrent(next.getId());
+        bills.syncOpenings();
         return fy;
     }
 
@@ -176,6 +180,7 @@ public class FinancialYearService {
         fy.setClosedAt(null);
         fy.setClosingEntryId(null);
         years.save(fy);
+        bills.syncOpenings();
         return fy;
     }
 }

@@ -20,4 +20,6 @@ public class GrnLine {
     @Column(name = "po_line_id") private UUID poLineId;
     @Column(name = "received_product_id") private UUID receivedProductId;  // what actually arrived
     private BigDecimal qtyReceived;
+    private BigDecimal unitPrice;   // supplier's billed price (PO price unless approved otherwise)
+    private BigDecimal unitCost;    // landed: billed price + share of freight
 }

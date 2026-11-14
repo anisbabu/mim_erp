@@ -5,21 +5,22 @@ import { endpoints, fmtDate, type GeneralLedger, type LedgerRow } from "@/lib/ap
 import { fmtDrCr, fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
-import { ReportTitle, Toolbar, savePdf } from "./ReportKit";
+import { ReportTitle, Toolbar, readSaved, savePdf, useSaved } from "./ReportKit";
 
 export default function GeneralLedgerReport() {
   const { t, lang } = useI18n();
   const [ledgers, setLedgers] = useState<LedgerRow[]>([]);
-  const [accountId, setAccountId] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState(today());
+  const [accountId, setAccountId] = useSaved("ledger", "");
+  const [from, setFrom, setFromDefault] = useSaved("from", "");
+  const [to, setTo] = useSaved("to", today());
   const [gl, setGl] = useState<GeneralLedger | null>(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     endpoints.coaLedgers().then(setLedgers).catch(() => {});
-    endpoints.currentYear().then((y) => setFrom(y.startDate)).catch(() => setFrom(today().slice(0, 4) + "-01-01"));
-  }, []);
+    if (readSaved("from") !== null) return;
+    endpoints.currentYear().then((y) => setFromDefault(y.startDate)).catch(() => setFromDefault(today().slice(0, 4) + "-01-01"));
+  }, [setFromDefault]);
 
   const opts: Option[] = useMemo(
     () => ledgers.map((l) => ({ value: l.id, label: `${l.code} · ${lang === "bn" && l.name_bn ? l.name_bn : l.name}`, sublabel: l.type })),

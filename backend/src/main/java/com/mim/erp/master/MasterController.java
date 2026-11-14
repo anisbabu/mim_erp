@@ -154,6 +154,9 @@ public class MasterController {
         p.setSku(in.getSku()); p.setName(in.getName()); p.setNameBn(keepBn(in.getNameBn(), p.getNameBn())); p.setType(in.getType());
         p.setThicknessMm(in.getThicknessMm()); p.setThicknessLabel(in.getThicknessLabel()); p.setUnit(in.getUnit());
         p.setPriceLower(in.getPriceLower()); p.setPriceUpper(in.getPriceUpper());
+        if (in.getTaxRate() != null && (in.getTaxRate().signum() < 0 || in.getTaxRate().compareTo(new java.math.BigDecimal("100")) > 0))
+            throw new ApiException("VAT rate must be between 0 and 100");
+        p.setTaxRate(in.getTaxRate());
         p.setSupplierId(in.getSupplierId()); p.setCategory(in.getCategory()); p.setColor(in.getColor());
         p.setProductGroupId(in.getProductGroupId());
         p.setSupplierTag(in.getSupplierTag());
@@ -201,6 +204,8 @@ public class MasterController {
         Supplier s = suppliers.findById(id).orElseThrow(() -> new ApiException("Supplier not found"));
         s.setCode(in.getCode()); s.setName(in.getName()); s.setNameBn(keepBn(in.getNameBn(), s.getNameBn()));
         s.setMobile(in.getMobile()); s.setAddress(in.getAddress()); s.setGroupId(in.getGroupId());
+        if (in.getCreditDays() < 0) throw new ApiException("Credit days can't be negative");
+        s.setCreditDays(in.getCreditDays());
         return suppliers.save(s);
     }
 

@@ -1,20 +1,47 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { endpoints, fmtDate, type FinancialYear } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
-/** Financial years for a report's year selector (defaults to the current year). */
+const SAVED_PREFIX = "mim_rpt_";
+
+/** Last value the user picked for a report setting (shared by all reports using the same key). */
+export function readSaved(key: string): string | null {
+  try { return localStorage.getItem(SAVED_PREFIX + key); } catch { return null; }
+}
+
+function writeSaved(key: string, v: string) {
+  try { localStorage.setItem(SAVED_PREFIX + key, v); } catch { /* storage blocked */ }
+}
+
+/**
+ * Report setting recalled on the next visit. `set` stores the user's choice;
+ * `setDefault` fills in a computed default without storing it.
+ */
+export function useSaved(key: string, initial: string) {
+  const [value, setDefault] = useState(initial);
+  useEffect(() => {
+    const s = readSaved(key);
+    if (s !== null) setDefault(s);
+  }, [key]);
+  const set = useCallback((v: string) => { setDefault(v); writeSaved(key, v); }, [key]);
+  return [value, set, setDefault] as const;
+}
+
+/** Financial years for a report's year selector (last picked year, else the current year). */
 export function useYears() {
   const [years, setYears] = useState<FinancialYear[]>([]);
-  const [yearId, setYearId] = useState<string>("");
+  const [yearId, setYearIdRaw] = useState<string>("");
   useEffect(() => {
     endpoints.financialYears().then((ys) => {
       setYears(ys);
-      const cur = ys.find((y) => y.current) ?? ys[0];
-      if (cur) setYearId(cur.id);
+      const saved = readSaved("year");
+      const pick = ys.find((y) => y.id === saved) ?? ys.find((y) => y.current) ?? ys[0];
+      if (pick) setYearIdRaw(pick.id);
     }).catch(() => {});
   }, []);
+  const setYearId = useCallback((id: string) => { setYearIdRaw(id); writeSaved("year", id); }, []);
   return { years, yearId, setYearId, year: years.find((y) => y.id === yearId) };
 }
 

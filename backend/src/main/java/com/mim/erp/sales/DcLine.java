@@ -24,5 +24,6 @@ public class DcLine {
     private BigDecimal unitCost;       // from FIFO layer
     private BigDecimal unitPrice;      // net selling price (after discount)
     private BigDecimal discountAmt = java.math.BigDecimal.ZERO;  // flat line discount amount
+    private BigDecimal vatRate = java.math.BigDecimal.ZERO;      // VAT % inside the price, captured at sale
     private String priceOverrideBy;    // audit: who authorised out-of-band price (null when in band)
 }

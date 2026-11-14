@@ -32,9 +32,11 @@ public class AccountingService {
     private final AccountRepository accounts;
     private final JournalEntryRepository journals;
     private final JdbcTemplate jdbc;
+    private final BillService bills;
 
-    public AccountingService(AccountRepository accounts, JournalEntryRepository journals, JdbcTemplate jdbc) {
-        this.accounts = accounts; this.journals = journals; this.jdbc = jdbc;
+    public AccountingService(AccountRepository accounts, JournalEntryRepository journals, JdbcTemplate jdbc,
+                             BillService bills) {
+        this.accounts = accounts; this.journals = journals; this.jdbc = jdbc; this.bills = bills;
     }
 
     /** A single debit or credit leg, addressed by account code. */
@@ -92,6 +94,7 @@ public class AccountingService {
         je.setCreatedBy(currentUser());
         je.setReversalOf(reversalOf);
 
+        String ref = bills.docNoFor(sourceType, sourceId);
         for (Leg leg : legs) {
             Account acct = accounts.findByCode(leg.accountCode())
                 .orElseThrow(() -> new ApiException("Unknown account code: " + leg.accountCode()));
@@ -100,9 +103,14 @@ public class AccountingService {
             line.setAccountId(acct.getId());
             line.setDebit(leg.debit());
             line.setCredit(leg.credit());
+            line.setPartyType(acct.getPartyType());
+            line.setPartyId(acct.getPartyId());
+            line.setRefNo(ref);
             je.getLines().add(line);
         }
-        return journals.saveAndFlush(je);
+        JournalEntry saved = journals.saveAndFlush(je);
+        bills.onPosted(saved.getId());   // bill-wise party items, matched oldest-first
+        return saved;
     }
 
     /** A manual journal leg addressed by ledger id (from the COA picker). */

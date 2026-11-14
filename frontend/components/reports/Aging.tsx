@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { endpoints, fmtDate, type AgingReport } from "@/lib/api";
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
-import { ReportTitle, Toolbar, savePdf } from "./ReportKit";
+import { ReportTitle, Toolbar, savePdf, useSaved } from "./ReportKit";
 
 export default function Aging({ type }: { type: "CUSTOMER" | "SUPPLIER" }) {
   const { t, lang } = useI18n();
-  const [asOf, setAsOf] = useState(today());
+  const [asOf, setAsOf] = useSaved("asOf", today());
   const [rep, setRep] = useState<AgingReport | null>(null);
   const [err, setErr] = useState("");
 
@@ -30,7 +30,7 @@ export default function Aging({ type }: { type: "CUSTOMER" | "SUPPLIER" }) {
       </Toolbar>
       {err && <div className="note note-err mb-3">{err}</div>}
       <div className="report-sheet">
-        <ReportTitle name={title} period={`${t("As at")} ${fmtDate(asOf)}`} sub={t("Amounts in BDT. Aged from invoice date; payments clear the oldest invoices first.")} />
+        <ReportTitle name={title} period={`${t("As at")} ${fmtDate(asOf)}`} sub={t("Amounts in BDT. Aged bill-wise from each bill's due date; unapplied = advances not yet set against a bill.")} />
         {!rep && !err && <p className="muted text-sm">{t("Loading…")}</p>}
         {rep && (
           <div className="table-wrap">

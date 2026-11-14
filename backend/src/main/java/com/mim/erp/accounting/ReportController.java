@@ -106,6 +106,12 @@ public class ReportController {
     // ---- controls
     @GetMapping("/reports/checks") public Map<String, Object> checks() { return controls.checks(); }
 
+    @GetMapping("/reports/discount-by-salesperson")
+    public Map<String, Object> discountBySalesperson(@RequestParam(required = false) String from, @RequestParam(required = false) String to) {
+        ReportService.Period p = reports.period(null);
+        return reports.discountBySalesperson(date(from, p.start()), date(to, LocalDate.now()));
+    }
+
     @GetMapping("/reports/tax")
     public Map<String, Object> tax(@RequestParam(required = false) String from, @RequestParam(required = false) String to) {
         ReportService.Period p = reports.period(null);

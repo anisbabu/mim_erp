@@ -22,4 +22,11 @@ public class Payment {
     private String bankBranch;
     private String note;
     private LocalDate paymentDate;
+    private String voucherNo;      // RV-yyyy-nnnnnn (receipt) | PV-yyyy-nnnnnn (payment), gapless
+    private BigDecimal discount = BigDecimal.ZERO;   // discount allowed (IN) / received (OUT)
+    private String reference;      // party's ref: money receipt no, bill no, transaction id
+    private BigDecimal ait = BigDecimal.ZERO;   // income tax deducted at source (by us OUT, by the customer IN)
+    private BigDecimal vds = BigDecimal.ZERO;   // VAT deducted at source
+    private String requestedBy;    // maker, when the voucher went through approval
+    private String approvedBy;     // checker who released it
 }

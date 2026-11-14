@@ -4,6 +4,7 @@ import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
 import com.mim.erp.accounting.AccountingService;
 import com.mim.erp.accounting.AccountingService.Leg;
+import com.mim.erp.accounting.VatService;
 import com.mim.erp.auth.AppUser;
 import com.mim.erp.auth.CurrentUserService;
 import com.mim.erp.common.ApiException;
@@ -59,6 +60,7 @@ public class SalesService {
     private final WarehouseRepository warehouses;
     private final com.mim.erp.auth.AppUserRepository users;
     private final com.mim.erp.master.ShopRepository shops;
+    private final VatService vat;
 
     public SalesService(SalesOrderRepository orders, DeliveryChallanRepository challans,
                         ProductRepository products, CustomerRepository customers,
@@ -67,7 +69,8 @@ public class SalesService {
                         com.mim.erp.accounting.LedgerService ledgers,
                         WarehouseRepository warehouses,
                         com.mim.erp.auth.AppUserRepository users,
-                        com.mim.erp.master.ShopRepository shops) {
+                        com.mim.erp.master.ShopRepository shops, VatService vat) {
+        this.vat = vat;
         this.users = users;
         this.shops = shops;
         this.orders = orders; this.challans = challans; this.products = products;
@@ -76,10 +79,6 @@ public class SalesService {
         this.ledgers = ledgers; this.warehouses = warehouses;
     }
 
-    /** Cash account (1000) for cash sales, or the customer's subsidiary ledger for credit. */
-    private String receivableAccount(String paymentMode, UUID customerId) {
-        return "CREDIT".equals(paymentMode) ? ledgers.customerLedger(customerId).getCode() : "1000";
-    }
 
     /**
      * Resolve which shop this sale belongs to, based on the logged-in user:
@@ -190,6 +189,7 @@ public class SalesService {
             sl.setUnitPrice(a.unitPrice());
             sl.setDiscountAmt(a.discountAmt() != null ? a.discountAmt() : BigDecimal.ZERO);
             sl.setQtyPending(pending);
+            sl.setVatRate(vat.rateFor(a.productId()));
             sl.setPriceOverrideBy(overrideFor(a.productId(), a.warehouseId(), a.unitPrice(), req.priceOverrideBy()));
             sl.setLineNo(ln++);
             so.getLines().add(sl);
@@ -200,20 +200,26 @@ public class SalesService {
             .collect(Collectors.groupingBy(SalesDtos.Allocation::warehouseId));
 
         List<UUID> challanIds = new ArrayList<>();
-        BigDecimal totalCost = BigDecimal.ZERO;
+        BigDecimal totalCost = BigDecimal.ZERO, deliveredVat = BigDecimal.ZERO, deliveredDiscount = BigDecimal.ZERO;
 
         for (var entry : byWarehouse.entrySet()) {
             DeliveryChallan dc = buildAndDeliver(so.getId(), shopId, req.customerId(), salespersonId,
                 entry.getKey(), entry.getValue(), req.discountBy(), req.priceOverrideBy());
             challanIds.add(dc.getId());
+            deliveredVat = deliveredVat.add(challanVat(dc));
+            deliveredDiscount = deliveredDiscount.add(challanDiscount(dc));
             for (DcLine dl : dc.getLines()) {
                 totalCost = totalCost.add(dl.getQty().multiply(dl.getUnitCost()));
             }
         }
 
         BigDecimal totalValue = orderValue.add(soTransport);
+        BigDecimal deliveredValue = deliverNow.stream()
+            .map(a -> lineNet(a.qty(), a.unitPrice(), a.discountAmt()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
         so.setStatus(!anyPending ? "DELIVERED" : anyDelivered ? "PARTIALLY_DELIVERED" : "PENDING");
-        postSale(so, totalValue, totalCost);
+        postSale(so, totalValue, anyPending ? deliveredValue.add(soTransport) : totalValue, deliveredVat,
+            deliveredDiscount, soTransport, totalCost);
 
         return new SalesDtos.OrderResult(so.getId(), so.getSoNo(), challanIds, totalValue, totalCost);
     }
@@ -266,7 +272,7 @@ public class SalesService {
     /**
      * Fulfil part or all of an order's outstanding (backordered) lines now that stock
      * exists. Deducts FIFO stock per chosen warehouse, creates a delivery challan per
-     * warehouse, and posts COGS only (revenue was already posted at order creation).
+     * warehouse, and posts the revenue and cost of what is delivered now.
      */
     @Transactional
     public SalesOrder fulfillOrder(UUID soId, SalesDtos.FulfillRequest req) {
@@ -295,17 +301,41 @@ public class SalesService {
             fulfilledBySoLine.merge(fl.soLineId(), fl.qty(), BigDecimal::add);
         }
 
+        // Revenue is earned as goods leave: each challan books its own value. The delivery that completes
+        // the order books whatever is still unbooked (pro-rata discount rounding). Orders booked in full
+        // under the old revenue-at-order rule have nothing left, so they are never booked twice.
+        boolean completes = so.getLines().stream().allMatch(sl ->
+            sl.getQtyPending().subtract(fulfilledBySoLine.getOrDefault(sl.getId(), BigDecimal.ZERO)).signum() == 0);
+        BigDecimal unbooked = orderTotal(so).subtract(ledgers.revenueBooked("SALES_DELIVERY", List.of(so.getId())))
+            .max(BigDecimal.ZERO);
+        String customerLedger = ledgers.customerLedger(so.getCustomerId()).getCode();
+        int remaining = byWarehouse.size();
         for (var entry : byWarehouse.entrySet()) {
             DeliveryChallan dc = buildAndDeliver(so.getId(), so.getShopId(), so.getCustomerId(),
                 so.getSalespersonId(), entry.getKey(), entry.getValue(), so.getDiscountBy(), null);
             BigDecimal cost = dc.getLines().stream()
                 .map(l -> l.getQty().multiply(l.getUnitCost()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-            if (cost.signum() > 0) {
-                accounting.post(dc.getChallanDate(), "Fulfillment " + dc.getDcNo(),
-                    "SALES_DELIVERY", dc.getId(),
-                    List.of(Leg.debit("5000", cost), Leg.credit("1200", cost)));
+            BigDecimal dcValue = challanValue(dc);
+            BigDecimal revenue = --remaining == 0 && completes ? unbooked : dcValue.min(unbooked);
+            unbooked = unbooked.subtract(revenue);
+            // VAT in the part booked now, at the challan's own VAT share
+            BigDecimal vatNow = dcValue.signum() == 0 ? BigDecimal.ZERO
+                : challanVat(dc).multiply(revenue).divide(dcValue, 2, RoundingMode.HALF_UP);
+            BigDecimal discNow = dcValue.signum() == 0 ? BigDecimal.ZERO
+                : challanDiscount(dc).multiply(revenue).divide(dcValue, 2, RoundingMode.HALF_UP);
+            List<Leg> legs = new ArrayList<>();
+            if (revenue.signum() > 0) {
+                legs.add(Leg.debit(customerLedger, revenue));   // on a cash order this settles the advance
+                addSale(legs, revenue, vatNow, discNow, BigDecimal.ZERO);
             }
+            if (cost.signum() > 0) {
+                legs.add(Leg.debit("5000", cost));
+                legs.add(Leg.credit("1200", cost));
+            }
+            if (!legs.isEmpty())
+                accounting.post(dc.getChallanDate(), "Delivery " + dc.getDcNo() + " against " + so.getSoNo(),
+                    "SALES_DELIVERY", so.getId(), legs);
         }
 
         for (var e : fulfilledBySoLine.entrySet()) {
@@ -341,14 +371,23 @@ public class SalesService {
         DeliveryChallan dc = buildAndDeliver(null, shopId, req.customerId(), salespersonId,
             req.warehouseId(), req.allocations(), req.discountBy(), req.priceOverrideBy());
 
+        // the sale is earned on the challan date: revenue and cost post together, so a challan not yet
+        // consolidated at month-end never shows cost without its sale
         BigDecimal cost = dc.getLines().stream()
             .map(l -> l.getQty().multiply(l.getUnitCost()))
             .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (cost.signum() > 0) {
-            accounting.post(dc.getChallanDate(), "Delivery " + dc.getDcNo(),
-                "SALES_DELIVERY", dc.getId(),
-                List.of(Leg.debit("5000", cost), Leg.credit("1200", cost)));
+        BigDecimal value = challanValue(dc);
+        List<Leg> legs = new ArrayList<>();
+        if (value.signum() > 0) {
+            legs.add(Leg.debit(ledgers.customerLedger(dc.getCustomerId()).getCode(), value));
+            addSale(legs, value, challanVat(dc), challanDiscount(dc), BigDecimal.ZERO);
         }
+        if (cost.signum() > 0) {
+            legs.add(Leg.debit("5000", cost));
+            legs.add(Leg.credit("1200", cost));
+        }
+        if (!legs.isEmpty())
+            accounting.post(dc.getChallanDate(), "Delivery " + dc.getDcNo(), "SALES_DELIVERY", dc.getId(), legs);
 
         return dc;
     }
@@ -403,6 +442,7 @@ public class SalesService {
         so.setTransportAndLifting(transport);
 
         int ln = 1;
+        BigDecimal totalVat = BigDecimal.ZERO, totalDiscount = BigDecimal.ZERO;
         for (DeliveryChallan dc : open) {
             for (DcLine dl : dc.getLines()) {
                 SalesDtos.LineOverride ov = overrides.get(dl.getId());
@@ -415,19 +455,29 @@ public class SalesService {
                 sl.setQty(dl.getQty());
                 sl.setUnitPrice(unitPrice);
                 sl.setDiscountAmt(discountAmt);
+                sl.setVatRate(dl.getVatRate());
                 // stock is already consumed here, so only the band is judged (no warehouse -> no cost check)
                 sl.setPriceOverrideBy(overrideFor(dl.getProductId(), null, unitPrice, req.priceOverrideBy()));
                 sl.setLineNo(ln++);
                 so.getLines().add(sl);
-                totalValue = totalValue.add(lineNet(dl.getQty(), unitPrice, discountAmt));
+                BigDecimal net = lineNet(dl.getQty(), unitPrice, discountAmt);
+                totalValue = totalValue.add(net);
+                totalVat = totalVat.add(VatService.inside(net, dl.getVatRate()));
+                totalDiscount = totalDiscount.add(discountAmt == null ? BigDecimal.ZERO : discountAmt);
                 totalCost  = totalCost.add(dl.getQty().multiply(dl.getUnitCost()));
             }
         }
 
         totalValue = totalValue.add(transport);
+        // the challans already booked their sale; the invoice only adds transport and any price changes
+        // made at consolidation (challans issued before this rule booked nothing, so all of it)
+        List<UUID> dcIds = open.stream().map(DeliveryChallan::getId).toList();
+        BigDecimal adjust = totalValue.subtract(ledgers.revenueBooked("SALES_DELIVERY", dcIds));
+        BigDecimal vatAdjust = totalVat.subtract(ledgers.vatBooked("SALES_DELIVERY", dcIds));
+        BigDecimal discountAdjust = totalDiscount.subtract(ledgers.discountBooked("SALES_DELIVERY", dcIds));
 
         if ("CREDIT".equals(req.paymentMode()))
-            checkCredit(req.customerId(), totalValue, req.creditOverrideBy());
+            checkCredit(req.customerId(), adjust.max(BigDecimal.ZERO), req.creditOverrideBy());
 
         orders.save(so);
 
@@ -437,10 +487,17 @@ public class SalesService {
         }
         challans.saveAll(open);
 
-        String ar = receivableAccount(req.paymentMode(), so.getCustomerId());
-        accounting.post(today, "Invoice (consolidated) " + so.getSoNo(),
-            "SALES_INVOICE", so.getId(),
-            List.of(Leg.debit(ar, totalValue), Leg.credit("4000", totalValue)));
+        // cash invoice: the money taken settles the receivable the challans raised
+        String customerLedger = ledgers.customerLedger(so.getCustomerId()).getCode();
+        boolean cash = !"CREDIT".equals(req.paymentMode());
+        BigDecimal customerNet = cash ? adjust.subtract(totalValue) : adjust;
+        List<Leg> legs = new ArrayList<>();
+        if (cash && totalValue.signum() > 0) legs.add(Leg.debit("1000", totalValue));
+        addSale(legs, adjust, vatAdjust, discountAdjust, transport);
+        if (customerNet.signum() > 0) legs.add(Leg.debit(customerLedger, customerNet));
+        if (customerNet.signum() < 0) legs.add(Leg.credit(customerLedger, customerNet.negate()));
+        if (!legs.isEmpty())
+            accounting.post(today, "Invoice (consolidated) " + so.getSoNo(), "SALES_INVOICE", so.getId(), legs);
 
         return new SalesDtos.OrderResult(so.getId(), so.getSoNo(),
             open.stream().map(DeliveryChallan::getId).toList(), totalValue, totalCost);
@@ -553,7 +610,14 @@ public class SalesService {
                 grandTotal = grandTotal.add(transport);
             }
             summaryRow(tbl, kit, kit.l("TOTAL"), fmt(grandTotal), true, labelW, colW[4]);
+            tbl.setSpacingAfter(3);
             doc.add(tbl);
+
+            // total in words, just under the table
+            // e.g. "Inword: One Lac Two Thousand Eight Hundred Taka Only."
+            String inWords = bn ? com.mim.erp.accounting.ChequeReceiptPdf.banglaWords(grandTotal) + "।"
+                : invoiceWords(grandTotal);
+            doc.add(kit.para(kit.l("Inword") + ": " + inWords, true, false, 9, Color.BLACK, Element.ALIGN_LEFT, 0, 4));
 
             // separate account box: what the customer owed before, this sale, and what is due now
             BigDecimal[] bal = ledgers.customerBalanceAround(so.getCustomerId(), so.getId(), so.getOrderDate());
@@ -563,8 +627,8 @@ public class SalesService {
             acct.setTotalWidth(boxW);
             acct.setLockedWidth(true);
             acct.setWidths(new float[]{3f, 2f});
-            // sits on the left, where the old previous-balance status box was
-            acct.setHorizontalAlignment(Element.ALIGN_LEFT);
+            // sits on the right, under the TOTAL column
+            acct.setHorizontalAlignment(Element.ALIGN_RIGHT);
             acct.setSpacingBefore(6);
             acct.setSpacingAfter(8);
             acctRow(acct, kit, kit.l("Previous Balance"), fmt(bal[0]), true, boxW * 0.6f, boxW * 0.4f);
@@ -573,7 +637,7 @@ public class SalesService {
             doc.add(acct);
 
             doc.add(kit.para(kit.l("Thank you for your business with us."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));
-            }, "Customer Signature", salespersonName(bn, so.getSalespersonId()))));
+            })));
         } catch (Exception e) {
             log.error("generateInvoicePdf failed for SO {}", soId, e);
             throw new ApiException("Failed to generate invoice: " + e.getMessage());
@@ -670,7 +734,7 @@ public class SalesService {
             tbl.addCell(tval);
             doc.add(tbl);
 
-            }, "Received by", salespersonName(bn, so.getSalespersonId()))));
+            })));
         } catch (Exception e) {
             log.error("generateOrderChallanPdf failed for SO {}", soId, e);
             throw new ApiException("Failed to generate challan PDF: " + e.getMessage());
@@ -768,8 +832,7 @@ public class SalesService {
             tbl.addCell(tval);
             doc.add(tbl);
 
-            }, "Received by", salespersonName(bn,
-                dc.getSalespersonId() != null ? dc.getSalespersonId() : dcSo != null ? dcSo.getSalespersonId() : null))));
+            })));
         } catch (Exception e) {
             log.error("generateChallanPdf failed for DC {}", dcId, e);
             throw new ApiException("Failed to generate challan PDF: " + e.getMessage());
@@ -907,7 +970,7 @@ public class SalesService {
                 String noteText = bn ? String.format(kit.l("dispatch note"), whName)
                     : "* This token authorises dispatch from " + whName + " only. Do not release without this token.";
                 doc.add(kit.para(noteText, false, true, 8, Color.BLACK, Element.ALIGN_CENTER, 16, 0));
-                }, "Dispatched by", salespersonName(bn, so.getSalespersonId())));
+                }));
             }
             return renderSlips(bn, pages);
         } catch (Exception e) {
@@ -939,6 +1002,7 @@ public class SalesService {
             // judged before FIFO consumes the layer, same state validatePrice saw
             String lineOverride = overrideFor(a.productId(), warehouseId, a.unitPrice(), priceOverrideBy);
             var consumptions = inventory.consumeFifo(a.productId(), warehouseId, a.qty(), "SALE", dc.getId());
+            BigDecimal vatRate = vat.rateFor(a.productId());   // the tax point is the delivery
             BigDecimal discAssigned = BigDecimal.ZERO;
             for (int ci = 0; ci < consumptions.size(); ci++) {
                 var c = consumptions.get(ci);
@@ -959,24 +1023,87 @@ public class SalesService {
                     discAssigned = discAssigned.add(layerDisc);
                 }
                 dl.setDiscountAmt(layerDisc);
+                dl.setVatRate(vatRate);
                 dc.getLines().add(dl);
             }
         }
         return challans.save(dc);
     }
 
-    /** Revenue + COGS in one delivery (SO_FIRST). */
-    private void postSale(SalesOrder so, BigDecimal value, BigDecimal cost) {
-        String ar = receivableAccount(so.getPaymentMode(), so.getCustomerId());
-        List<Leg> legs = new java.util.ArrayList<>(List.of(
-            Leg.debit(ar, value),
-            Leg.credit("4000", value)
-        ));
+    /**
+     * SO_FIRST at order time. Revenue is booked only for what leaves today (plus transport); the rest
+     * is booked by each later delivery. Cash taken for goods still to come is held on the customer's
+     * ledger as an advance, which those deliveries then settle.
+     */
+    private void postSale(SalesOrder so, BigDecimal total, BigDecimal earned, BigDecimal earnedVat,
+                          BigDecimal earnedDiscount, BigDecimal transport, BigDecimal cost) {
+        List<Leg> legs = new ArrayList<>();
+        if ("CREDIT".equals(so.getPaymentMode())) {
+            if (earned.signum() > 0) legs.add(Leg.debit(ledgers.customerLedger(so.getCustomerId()).getCode(), earned));
+        } else {
+            if (total.signum() > 0) legs.add(Leg.debit("1000", total));
+            BigDecimal advance = total.subtract(earned);
+            if (advance.signum() > 0)
+                legs.add(Leg.credit(ledgers.customerLedger(so.getCustomerId()).getCode(), advance));
+        }
+        addSale(legs, earned, earnedVat, earnedDiscount, transport);
         if (cost.signum() > 0) {
             legs.add(Leg.debit("5000", cost));
             legs.add(Leg.credit("1200", cost));
         }
-        accounting.post(so.getOrderDate(), "Sale " + so.getSoNo(), "SALES_DELIVERY", so.getId(), legs);
+        if (!legs.isEmpty())
+            accounting.post(so.getOrderDate(), "Sale " + so.getSoNo(), "SALES_DELIVERY", so.getId(), legs);
+    }
+
+    static final String SALES = "4000", SALES_DISCOUNT = "4010", TRANSPORT_RECOVERED = "4400";
+
+    /**
+     * Book what the customer owes for a sale (VAT-inclusive, after discount, plus transport) on its own ledgers:
+     *   Cr Sales (4000)           goods at list price, ex VAT
+     *   Dr Sales Discount (4010)  the trade discount given
+     *   Cr Output VAT (2100)      the VAT inside the price
+     *   Cr Transport recovered (4400)
+     * A negative amount (a price cut at consolidation) posts the other way.
+     */
+    private static void addSale(List<Leg> legs, BigDecimal total, BigDecimal vat, BigDecimal discount, BigDecimal transport) {
+        BigDecimal t = transport == null ? BigDecimal.ZERO : transport, d = discount == null ? BigDecimal.ZERO : discount;
+        signedCredit(legs, SALES, total.subtract(t).subtract(vat).add(d));
+        signedCredit(legs, SALES_DISCOUNT, d.negate());
+        signedCredit(legs, VatService.OUTPUT_VAT, vat);
+        signedCredit(legs, TRANSPORT_RECOVERED, t);
+    }
+
+    private static void signedCredit(List<Leg> legs, String code, BigDecimal amount) {
+        if (amount.signum() > 0) legs.add(Leg.credit(code, amount));
+        if (amount.signum() < 0) legs.add(Leg.debit(code, amount.negate()));
+    }
+
+    /** Trade discount on a challan's lines. */
+    private static BigDecimal challanDiscount(DeliveryChallan dc) {
+        return dc.getLines().stream().map(l -> l.getDiscountAmt() == null ? BigDecimal.ZERO : l.getDiscountAmt())
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** VAT inside a challan's lines, at the rate captured on each line. */
+    private static BigDecimal challanVat(DeliveryChallan dc) {
+        return dc.getLines().stream()
+            .map(l -> VatService.inside(lineNet(l.getQty(), l.getUnitPrice(), l.getDiscountAmt()), l.getVatRate()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Net value of an order: lines after discount, plus transport. */
+    private static BigDecimal orderTotal(SalesOrder so) {
+        BigDecimal t = so.getLines().stream()
+            .map(sl -> lineNet(sl.getQty(), sl.getUnitPrice(), sl.getDiscountAmt()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return t.add(so.getTransportAndLifting() == null ? BigDecimal.ZERO : so.getTransportAndLifting());
+    }
+
+    /** Net value of a challan's lines after discount. */
+    private static BigDecimal challanValue(DeliveryChallan dc) {
+        return dc.getLines().stream()
+            .map(l -> lineNet(l.getQty(), l.getUnitPrice(), l.getDiscountAmt()))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     /** Price band + below-cost guard. Requires override authoriser if breached. */
@@ -1028,7 +1155,8 @@ public class SalesService {
         if (!"PARTY".equals(c.getType()))
             throw new ApiException("Credit sales are only allowed for party/company customers");
 
-        BigDecimal outstanding = orders.outstandingCredit(customerId);
+        // ledger balance (delivered sales - receipts - returns) + credit orders not yet delivered
+        BigDecimal outstanding = ledgers.customerBalance(customerId).add(ledgers.undeliveredCreditOrders(customerId));
         BigDecimal projected = outstanding.add(newValue);
         if (c.getCreditLimit() != null && projected.compareTo(c.getCreditLimit()) > 0
                 && (overrideBy == null || overrideBy.isBlank())) {
@@ -1279,31 +1407,20 @@ public class SalesService {
         }).orElse(List.of());
     }
 
-    /** Salesperson's printed name for a slip: Bangla when printing Bangla and one exists; "" when none. */
-    private String salespersonName(boolean bn, UUID userId) {
-        if (userId == null) return "";
-        return users.findById(userId)
-            .map(u -> nm(bn, u.getFullNameBn(),
-                u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : u.getUsername()))
-            .orElse("");
-    }
-
-    /** Writes the body of one slip page (everything above the signature block). */
+    /** Writes the body of one slip page. */
     @FunctionalInterface
     private interface SlipBody { void write(Document doc, PdfWriter writer, PdfKit kit) throws Exception; }
 
-    /** One printed slip page: its body and the captions of its signature block. */
-    private record SlipPage(SlipBody body, String leftCaption, String sellerName) {}
+    /** One printed slip page (no signature block: slips carry none). */
+    private record SlipPage(SlipBody body) {}
 
     private static final float TALL = 14400f;        // largest page PDF allows; the body is measured on it
-    private static final float SIGN_ROOM = 24f;      // clear space above the signature lines to sign in
 
     /**
      * Renders slips onto pre-printed stationery: every page is exactly {@link PdfKit#slip()} and nothing
-     * ever prints outside its margins. The signature block is pinned to the bottom margin; the body goes
-     * above it at full size when it fits, otherwise it is laid out wider and scaled down as a whole (fonts,
-     * padding, lines together) until it fits the space between the top margin and the signature block,
-     * still filling the full width. A body never runs onto a second page.
+     * ever prints outside its margins. The body goes in at full size when it fits, otherwise it is laid out
+     * wider and scaled down as a whole (fonts, padding, lines together) until it fits between the top and
+     * bottom margins, still filling the full width. A body never runs onto a second page.
      */
     private static byte[] renderSlips(boolean bn, List<SlipPage> pages) throws Exception {
         Document doc = PdfKit.slip();
@@ -1320,7 +1437,7 @@ public class SalesService {
         for (SlipPage p : pages) {
             if (!first) doc.newPage();
             first = false;
-            float avail = doc.top() - signFoot(doc, writer, kit, p.leftCaption(), p.sellerName()) - SIGN_ROOM;
+            float avail = doc.top() - doc.bottom();
 
             // lay the body out at a width that, once scaled, is exactly the printable width
             // (a wider layout wraps less, so the scale is found by a few rounds; the largest scale that fits wins)
@@ -1359,35 +1476,6 @@ public class SalesService {
         return out.toByteArray();
     }
 
-    /**
-     * Signature block pinned to the foot of the current page: a line to sign on at each side, the seller's
-     * printed name under the right-hand line, then the captions. Returns the y of its top edge.
-     */
-    private static float signFoot(Document doc, PdfWriter writer, PdfKit kit, String leftCaption,
-                                  String sellerName) throws Exception {
-        float blockW = 130f;
-        PdfPTable t = new PdfPTable(3);
-        t.setTotalWidth(new float[]{blockW, kit.pageWidth() - 2 * blockW, blockW});
-        t.setLockedWidth(true);
-        String[][] rows = {
-            {"", sellerName == null ? "" : sellerName},
-            {kit.l(leftCaption), kit.l("Seller's Signature")}};
-        for (int r = 0; r < rows.length; r++) {
-            for (int col = 0; col < 3; col++) {
-                String text = col == 1 ? "" : rows[r][col == 0 ? 0 : 1];
-                // " " keeps the name row's height when there is no name to print
-                PdfPCell c = kit.cell(text.isEmpty() ? " " : text, r == 1, 9, Color.BLACK, Element.ALIGN_CENTER, blockW, 2);
-                c.setHorizontalAlignment(Element.ALIGN_CENTER);
-                c.setBorder(r == 0 && col != 1 ? Rectangle.TOP : Rectangle.NO_BORDER);   // top border = the line
-                if (r == rows.length - 1) c.setPaddingBottom(0);   // captions rest on the padded bottom edge
-                t.addCell(c);
-            }
-        }
-        float y = doc.bottom() + t.getTotalHeight();
-        t.writeSelectedRows(0, -1, doc.left(), y, writer.getDirectContent());
-        return y;
-    }
-
     private static String[][] rowsArray(List<String[]> rows) { return rows.toArray(new String[0][]); }
 
     private static String nm(boolean bn, String nameBn, String name) {
@@ -1396,6 +1484,16 @@ public class SalesService {
 
     private static String pname(boolean bn, Product p) {
         return nm(bn, p.getNameBn(), p.getFullName() != null ? p.getFullName() : p.getName());
+    }
+
+    /** Invoice amount in words, e.g. "One Lac Two Thousand Eight Hundred Taka Only." (paisa, if any, before "Only"). */
+    private static String invoiceWords(BigDecimal amount) {
+        BigDecimal v = amount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal taka = new BigDecimal(v.toBigInteger());
+        int paisa = v.subtract(taka).movePointRight(2).intValue();
+        String w = com.mim.erp.accounting.ChequeReceiptPdf.words(taka).replace("Lakh", "Lac") + " Taka";
+        if (paisa > 0) w += " and " + com.mim.erp.accounting.ChequeReceiptPdf.words(BigDecimal.valueOf(paisa)) + " Paisa";
+        return w + " Only.";
     }
 
     private static String fmt(BigDecimal v) {

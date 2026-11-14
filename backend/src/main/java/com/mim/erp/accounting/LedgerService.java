@@ -125,6 +125,60 @@ public class LedgerService {
         return new java.math.BigDecimal[]{before, after};
     }
 
+    /**
+     * Sales value already booked (Sales 4000, Sales Discount 4010, Transport 4400 and Output VAT 2100, net) by journals of one
+     * source type for the given documents. Lets later postings top up only what is missing, so orders
+     * booked under the old "revenue at order" rule are never booked twice.
+     */
+    public java.math.BigDecimal revenueBooked(String sourceType, java.util.Collection<UUID> sourceIds) {
+        return booked("'4000','4010','4400','2100'", sourceType, sourceIds);
+    }
+
+    /** Output VAT (2100, net) already booked for the given documents. */
+    public java.math.BigDecimal vatBooked(String sourceType, java.util.Collection<UUID> sourceIds) {
+        return booked("'2100'", sourceType, sourceIds);
+    }
+
+    /** Trade discount (Sales Discount 4010, a debit) already booked for the given documents. */
+    public java.math.BigDecimal discountBooked(String sourceType, java.util.Collection<UUID> sourceIds) {
+        return booked("'4010'", sourceType, sourceIds).negate();
+    }
+
+    private java.math.BigDecimal booked(String codes, String sourceType, java.util.Collection<UUID> sourceIds) {
+        if (sourceIds == null || sourceIds.isEmpty()) return java.math.BigDecimal.ZERO;
+        String marks = String.join(",", java.util.Collections.nCopies(sourceIds.size(), "?"));
+        List<Object> args = new java.util.ArrayList<>();
+        args.add(sourceType);
+        args.addAll(sourceIds);
+        return jdbc.queryForObject(
+            "select coalesce(sum(jl.credit - jl.debit), 0) from journal_line jl "
+          + "join journal_entry je on je.id = jl.journal_id join account a on a.id = jl.account_id "
+          + "where a.code in (" + codes + ") and je.source_type = ? and je.source_id in (" + marks + ")",
+            java.math.BigDecimal.class, args.toArray());
+    }
+
+    /**
+     * Value of a customer's open credit orders not yet delivered (so not yet in the ledger):
+     * order total + transport minus the revenue already booked for each order.
+     */
+    public java.math.BigDecimal undeliveredCreditOrders(UUID customerId) {
+        return jdbc.queryForObject("""
+            select coalesce(sum(greatest(o.total - coalesce(b.booked, 0), 0)), 0)
+            from (select so.id,
+                         coalesce(so.transport_and_lifting, 0)
+                       + coalesce((select sum(round(sl.qty * sl.unit_price, 2) - coalesce(sl.discount_amt, 0))
+                                   from so_line sl where sl.so_id = so.id), 0) as total
+                  from sales_order so
+                  where so.customer_id = ? and so.payment_mode = 'CREDIT' and so.workflow = 'SO_FIRST'
+                    and so.status in ('PENDING', 'PARTIALLY_DELIVERED')) o
+            left join (select je.source_id, sum(jl.credit - jl.debit) as booked
+                       from journal_line jl join journal_entry je on je.id = jl.journal_id
+                       join account a on a.id = jl.account_id
+                       where a.code in ('4000', '4010', '4400', '2100') and je.source_type = 'SALES_DELIVERY'
+                       group by je.source_id) b on b.source_id = o.id
+        """, java.math.BigDecimal.class, customerId);
+    }
+
     // ---- COA reads ----
     public List<AccountGroup> listGroups() { return groups.findAll(); }
 
