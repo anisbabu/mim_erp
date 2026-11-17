@@ -171,6 +171,8 @@ public class SalesService {
         // the part taken today is delivered from its warehouse; the rest stays pending on the same line
         List<SalesDtos.Allocation> deliverNow = new ArrayList<>();
         for (var a : req.allocations()) {
+            if (a.warehouseId() == null && a.deliverQty() != null && a.deliverQty().signum() > 0)
+                throw new ApiException("Choose a warehouse for the quantity taken now");
             BigDecimal now = a.deliverNow();
             if (now.signum() < 0 || now.compareTo(a.qty()) > 0)
                 throw new ApiException("Take-now quantity must be between 0 and the ordered quantity");
@@ -649,11 +651,11 @@ public class SalesService {
     // ===================================================================
 
     @Transactional(readOnly = true)
-    public byte[] generateOrderChallanPdf(UUID soId, boolean bn) {
+    public byte[] generateOrderChallanPdf(UUID soId, boolean bn, List<UUID> dcIds) {
         SalesOrder so = orders.findById(soId)
             .orElseThrow(() -> new ApiException("Sales order not found"));
 
-        List<DeliveryChallan> dcList = challans.findBySoIdWithLines(soId);
+        List<DeliveryChallan> dcList = onlyChallans(challans.findBySoIdWithLines(soId), dcIds);
         if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
 
         var custOpt = customers.findById(so.getCustomerId());
@@ -844,13 +846,19 @@ public class SalesService {
     // ===================================================================
 
     @Transactional(readOnly = true)
-    public byte[] generateWarehouseTokenPdf(UUID soId, boolean bn) {
+    public byte[] generateWarehouseTokenPdf(UUID soId, boolean bn, List<UUID> dcIds) {
         SalesOrder so = orders.findById(soId)
             .orElseThrow(() -> new ApiException("Sales order not found"));
 
-        List<DeliveryChallan> dcList = challans.findBySoIdWithLines(soId);
+        List<DeliveryChallan> dcList = onlyChallans(challans.findBySoIdWithLines(soId), dcIds);
         if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
         return tokenPdf(so, dcList, bn);
+    }
+
+    /** dcIds = only these challans of the order (the pickup just made from "Take Now"); null/empty = all. */
+    private static List<DeliveryChallan> onlyChallans(List<DeliveryChallan> all, List<UUID> dcIds) {
+        if (dcIds == null || dcIds.isEmpty()) return all;
+        return all.stream().filter(dc -> dcIds.contains(dc.getId())).toList();
     }
 
     /** Dispatch token for one pickup only — a customer who collects an order in parts gets a token per pickup. */

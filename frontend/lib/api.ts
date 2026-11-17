@@ -423,9 +423,9 @@ export const endpoints = {
     if (!res.ok) throw new Error("Failed to generate invoice");
     return res.blob();
   },
-  warehouseTokenBlob: async (soId: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
+  warehouseTokenBlob: async (soId: string, lang: "en" | "bn" = "en", dcIds?: string[]): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/sales/orders/${soId}/warehouse-token?lang=${lang}`, {
+    const res = await fetch(`${BASE}/api/sales/orders/${soId}/warehouse-token?lang=${lang}${dcIds?.length ? "&dc=" + dcIds.join(",") : ""}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) {
@@ -435,9 +435,9 @@ export const endpoints = {
     }
     return res.blob();
   },
-  orderChallanBlob: async (soId: string, lang: "en" | "bn" = "en"): Promise<Blob> => {
+  orderChallanBlob: async (soId: string, lang: "en" | "bn" = "en", dcIds?: string[]): Promise<Blob> => {
     const token = loadToken();
-    const res = await fetch(`${BASE}/api/sales/orders/${soId}/challan?lang=${lang}`, {
+    const res = await fetch(`${BASE}/api/sales/orders/${soId}/challan?lang=${lang}${dcIds?.length ? "&dc=" + dcIds.join(",") : ""}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) {

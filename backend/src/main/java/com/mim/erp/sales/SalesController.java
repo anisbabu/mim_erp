@@ -78,8 +78,9 @@ public class SalesController {
 
     /** Warehouse dispatch token — one page per warehouse DC. */
     @GetMapping(value = "/orders/{soId}/warehouse-token", produces = "application/pdf")
-    public ResponseEntity<byte[]> warehouseToken(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang) {
-        byte[] pdf = service.generateWarehouseTokenPdf(soId, PdfKit.isBn(lang));
+    public ResponseEntity<byte[]> warehouseToken(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang,
+                                                 @RequestParam(required = false) java.util.List<UUID> dc) {
+        byte[] pdf = service.generateWarehouseTokenPdf(soId, PdfKit.isBn(lang), dc);
         return ResponseEntity.ok()
             .header("Content-Disposition", "attachment; filename=\"dispatch-token-" + soId + sfx(lang) + ".pdf\"")
             .body(pdf);
@@ -87,8 +88,9 @@ public class SalesController {
 
     /** Delivery challan PDF for all challans under a sales order. */
     @GetMapping(value = "/orders/{soId}/challan", produces = "application/pdf")
-    public ResponseEntity<byte[]> orderChallan(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang) {
-        byte[] pdf = service.generateOrderChallanPdf(soId, PdfKit.isBn(lang));
+    public ResponseEntity<byte[]> orderChallan(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang,
+                                               @RequestParam(required = false) java.util.List<UUID> dc) {
+        byte[] pdf = service.generateOrderChallanPdf(soId, PdfKit.isBn(lang), dc);
         return ResponseEntity.ok()
             .header("Content-Disposition", "attachment; filename=\"challan-" + soId + sfx(lang) + ".pdf\"")
             .body(pdf);
