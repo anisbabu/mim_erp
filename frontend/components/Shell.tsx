@@ -319,10 +319,18 @@ export default function Shell({ children }: { children: ReactNode }) {
             </select>
           )}
 
-          <button onClick={() => setLang(lang === "en" ? "bn" : "en")} className="o-nav-btn !px-2 text-[12px]"
-            title={lang === "en" ? "বাংলা" : "English"} aria-label="Language">
-            {lang === "en" ? "EN" : "বাং"}
-          </button>
+          {/* language tabs: both shown, the active one filled */}
+          <div role="tablist" aria-label="Language"
+            className="flex items-center rounded-md overflow-hidden bg-white border border-slate-300 text-[12px] leading-none">
+            {([["en", "EN"], ["bn", "বাংলা"]] as const).map(([code, label]) => (
+              <button key={code} type="button" role="tab" aria-selected={lang === code}
+                onClick={() => setLang(code)}
+                className={`px-2.5 py-1.5 font-medium transition-colors ${
+                  lang === code ? "bg-brand text-white" : "text-slate-500 hover:bg-slate-100"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
 
           <button onClick={toggleTheme} aria-label="Toggle dark mode" className="o-nav-btn !px-2">
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
