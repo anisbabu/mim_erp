@@ -17,7 +17,7 @@ import java.util.Map;
 /** Printable credit note (or cash-refund voucher) for a sales return. */
 final class SalesReturnPdf {
 
-    private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private SalesReturnPdf() {}
 
@@ -39,7 +39,6 @@ final class SalesReturnPdf {
             PdfKit k = new PdfKit(bn, doc, writer);
             boolean credit = "CREDIT_NOTE".equals(r.get("settlement"));
 
-            doc.add(k.para("MIM ENTERPRISE", true, false, 18, Color.BLACK, Element.ALIGN_CENTER, 0, 2));
             doc.add(k.para(bn ? (credit ? "ক্রেডিট নোট" : "নগদ ফেরত ভাউচার") : (credit ? "CREDIT NOTE" : "CASH REFUND VOUCHER"),
                 true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 10));
 
@@ -94,25 +93,6 @@ final class SalesReturnPdf {
                 : (bn ? "পণ্য ফেরতের বিপরীতে নগদ ফেরত দেওয়া হয়েছে।" : "Cash has been refunded against the returned goods."),
                 false, true, 8, Color.DARK_GRAY, Element.ALIGN_LEFT, 8, 0));
 
-            PdfPTable sign = new PdfPTable(2);
-            sign.setWidthPercentage(100);
-            sign.setSpacingBefore(30);
-            float sw = k.pageWidth() / 2 - 20;
-            for (String s : bn ? new String[]{"গ্রাহকের স্বাক্ষর", "অনুমোদনকারী"} : new String[]{"Customer signature", "Authorised by"}) {
-                PdfPCell cell = k.cell(s, true, 9, Color.BLACK, Element.ALIGN_CENTER, sw, 0);
-                cell.setBorder(Rectangle.TOP);
-                cell.setPaddingTop(4);
-                PdfPCell wrap = new PdfPCell();
-                wrap.setBorder(Rectangle.NO_BORDER);
-                wrap.setPaddingLeft(10);
-                wrap.setPaddingRight(10);
-                PdfPTable inner = new PdfPTable(1);
-                inner.setWidthPercentage(100);
-                inner.addCell(cell);
-                wrap.addElement(inner);
-                sign.addCell(wrap);
-            }
-            doc.add(sign);
             doc.close();
             return out.toByteArray();
         } catch (DocumentException e) {

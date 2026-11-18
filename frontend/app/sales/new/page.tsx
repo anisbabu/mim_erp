@@ -8,9 +8,13 @@ import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
 import QuickCustomer from "@/components/QuickCustomer";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import { productKeywords } from "@/lib/productSearch";
 import { useI18n } from "@/lib/i18n";
 
 type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
+/** Quantity delivered at order time: all of it from the chosen warehouse, nothing without one —
+ *  that stays pending and is taken later from Sales orders → Take now. */
+const takeOf = (l: Line) => (l.warehouseId ? Number(l.qty) || 0 : 0);
 
 export default function NewSalePage() {
   const { user, activeShopId } = useAuth();
@@ -120,7 +124,8 @@ export default function NewSalePage() {
       const supplierName = p.supplierId && supplierById[p.supplierId] ? dn(supplierById[p.supplierId]) : undefined;
       const thickness = p.thicknessLabel ?? (p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined);
       const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
-      return { value: p.id, label: lang === "bn" && p.nameBn ? p.nameBn : p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub };
+      return { value: p.id, label: lang === "bn" && p.nameBn ? p.nameBn : p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub,
+        keywords: productKeywords(p, p.supplierId ? supplierById[p.supplierId] : undefined) };
     }),
     [products, supplierById, lang]);
 
@@ -212,7 +217,7 @@ export default function NewSalePage() {
 
   const pendingWarnings = useMemo(() => {
     const wantByProduct: Record<string, number> = {};
-    for (const l of lines) if (l.productId && l.warehouseId) wantByProduct[l.productId] = (wantByProduct[l.productId] ?? 0) + (Number(l.qty) || 0);
+    for (const l of lines) if (l.productId && l.warehouseId) wantByProduct[l.productId] = (wantByProduct[l.productId] ?? 0) + takeOf(l);
     return Object.entries(wantByProduct).flatMap(([pid, want]) => {
       const waiting = committedByProduct[pid] ?? [];
       if (!waiting.length || want <= 0) return [];
@@ -242,7 +247,8 @@ export default function NewSalePage() {
         : 0;
       if (!isLast) assigned += lineDisc;
       return { productId: l.productId, warehouseId: l.warehouseId || null, qty: Number(l.qty),
-               unitPrice: Number(l.unitPrice), discountAmt: lineDisc };
+               unitPrice: Number(l.unitPrice), discountAmt: lineDisc,
+               deliverQty: l.warehouseId ? takeOf(l) : null };
     });
     if (!allocations.length) { setMsg({ kind: "err", text: t("Add at least one line with qty.") }); return; }
     // out-of-band price is only a warning here (red hint stays on the line); the order still saves,

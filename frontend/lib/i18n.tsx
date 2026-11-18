@@ -923,6 +923,10 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Delivery mobile": { en: "Delivery mobile", bn: "ডেলিভারি মোবাইল" },
   "Leave blank to use customer's address": { en: "Leave blank to use customer's address", bn: "ফাঁকা রাখলে গ্রাহকের ঠিকানা ব্যবহার হবে" },
   "Leave blank to use customer's mobile": { en: "Leave blank to use customer's mobile", bn: "ফাঁকা রাখলে গ্রাহকের মোবাইল ব্যবহার হবে" },
+  "Take now": { en: "Take now", bn: "এখন নিচ্ছে" },
+  "Take Now": { en: "Take Now", bn: "এখন নিচ্ছে" },
+  "Nothing left to deliver": { en: "Nothing left to deliver", bn: "সরবরাহের আর কিছু বাকি নেই" },
+  "Take Now is more than the balance": { en: "Take Now is more than the balance", bn: "এখন নিচ্ছে বাকির চেয়ে বেশি" },
   "all pending (no warehouse)": { en: "all pending (no warehouse)", bn: "সব অপেক্ষমাণ (গুদাম নেই)" },
   "pending": { en: "pending", bn: "অপেক্ষমাণ" },
   "Discount authorised by": { en: "Discount authorised by", bn: "ছাড় অনুমোদন করেছেন" },
@@ -985,6 +989,7 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Select warehouse…": { en: "Select warehouse…", bn: "গুদাম বাছাই করুন…" },
   "still no stock": { en: "still no stock", bn: "এখনও মজুদ নেই" },
   "Fulfilling…": { en: "Fulfilling…", bn: "পূরণ হচ্ছে…" },
+  "Deliver the Take now quantities": { en: "Deliver the Take now quantities", bn: "এখন নেওয়ার পরিমাণ ডেলিভারি দিন" },
   "Confirm fulfillment": { en: "Confirm fulfillment", bn: "পূরণ নিশ্চিত করুন" },
   "Choose a warehouse and quantity for at least one line.": { en: "Choose a warehouse and quantity for at least one line.", bn: "কমপক্ষে একটি লাইনের জন্য গুদাম ও পরিমাণ বাছাই করুন।" },
   // dashboard

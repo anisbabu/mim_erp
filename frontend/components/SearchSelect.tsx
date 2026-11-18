@@ -4,7 +4,36 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/lib/i18n";
 
-export type Option = { value: string; label: string; sublabel?: string };
+// keywords: extra hidden text to search on (e.g. supplier, colour, thickness) - not displayed
+export type Option = { value: string; label: string; sublabel?: string; keywords?: string };
+
+// lowercase words, split at punctuation and at letter/number boundaries: "P5126" -> p, 5126; "12mela" -> 12, mela.
+// \p{M} keeps Bangla vowel signs inside their word.
+// A lone "x" between two numbers is a size separator and is dropped: "4x25", "4 X 25", "4*25" -> 4, 25.
+function searchTokens(s: string): string[] {
+  const t = s.toLowerCase().split(/[^\p{L}\p{M}\p{N}]+/u).flatMap((x) => x.match(/\p{N}+|[\p{L}\p{M}]+/gu) ?? []);
+  return t.filter((w, i) => !(w === "x" && isNum(t[i - 1]) && isNum(t[i + 1])));
+}
+const isNum = (w?: string) => !!w && /^\p{N}+$/u.test(w);
+
+// true if word w is within one edit (insert/delete/replace) of the start of token tk
+function nearPrefix(w: string, tk: string): boolean {
+  for (const len of [w.length - 1, w.length, w.length + 1]) {
+    if (len < 1 || len > tk.length) continue;
+    if (editDistance(w, tk.slice(0, len)) <= 1) return true;
+  }
+  return false;
+}
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++)
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
 
 // Searchable dropdown ("select to search"). Keyboard + click, filters as you type.
 // Dropdown is portalled to document.body so it is never clipped by overflow:auto parents.
@@ -31,15 +60,24 @@ export default function SearchSelect({
   const selected = options.find((o) => o.value === value) || null;
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return options;
-    const sNorm = s.replace(/\s+/g, "");
-    return options.filter((o) => {
-      const label = o.label.toLowerCase();
-      const sub = (o.sublabel ?? "").toLowerCase();
-      if (label.includes(s) || sub.includes(s)) return true;
-      return label.replace(/\s+/g, "").includes(sNorm) || sub.replace(/\s+/g, "").includes(sNorm);
-    });
+    const words = searchTokens(q);
+    if (words.length === 0) return options;
+    // every typed word must start some word of the option (label, sublabel or keywords), in any order:
+    // "18 ahmed ply" / "12mela" / "12 mela" - numbers match whole-number starts, so "12" never hits SKU "P5126"
+    // Ranked in tiers, list order kept within a tier:
+    //   1 exact - numbers equal ("handle 12" -> 12MM before 128MM), words by start
+    //   2 number prefix - "12" also finds 128 / 1200
+    //   3 typo - one-letter slip in a 4+ letter word ("ahamed" finds "Ahmed"); never for numbers
+    const exact: Option[] = [], numPrefix: Option[] = [], fuzzy: Option[] = [];
+    for (const o of options) {
+      const toks = searchTokens(`${o.label} ${o.sublabel ?? ""} ${o.keywords ?? ""}`);
+      const hit = (w: string) => toks.some((tk) => tk.startsWith(w));
+      const hitExact = (w: string) => (isNum(w) ? toks.includes(w) : hit(w));
+      if (words.every(hitExact)) exact.push(o);
+      else if (words.every(hit)) numPrefix.push(o);
+      else if (words.every((w) => hit(w) || (w.length >= 4 && !/\p{N}/u.test(w) && toks.some((tk) => nearPrefix(w, tk))))) fuzzy.push(o);
+    }
+    return [...exact, ...numPrefix, ...fuzzy];
   }, [q, options]);
 
   useEffect(() => {
