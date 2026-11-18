@@ -293,8 +293,8 @@ export type ChequeEvent = {
 
 export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
 export type Me = { token?: string; username: string; fullName?: string; role: Role; shopIds: string[] };
-export type DemoInvoiceRow = { id: string; code: string; demo_date: string; customer_name?: string; customer_mobile?: string; salesperson?: string; total: number; so_id?: string | null; so_no?: string | null; created_at: string };
-export type DemoInvoiceSaved = { id: string; code: string; demoDate: string; request: { customerId?: string; customerName?: string; customerMobile?: string; customerAddress?: string; salesperson?: string; salespersonBn?: string; note?: string; lines: { productId?: string; name: string; unit?: string; qty: number; unitPrice: number; discount: number }[] } };
+export type DemoInvoiceRow = { id: string; code: string; demo_date: string; customer_name?: string; customer_mobile?: string; salesperson?: string; total: number; so_id?: string | null; so_no?: string | null; created_at: string; doc_type?: "DEMO" | "QUOTATION" };
+export type DemoInvoiceSaved = { id: string; code: string; demoDate: string; request: { customerId?: string; customerName?: string; customerMobile?: string; customerAddress?: string; salesperson?: string; salespersonBn?: string; note?: string; docType?: "DEMO" | "QUOTATION"; lines:{ productId?: string; name: string; unit?: string; qty: number; unitPrice: number; discount: number }[] } };
 export type AuditAction = "create" | "update" | "delete" | "restore" | "role_change" | "login" | "logout" | "login_failed";
 export type AuditEntry = {
   id: number; at: string; userId?: string | null; login: string; userName: string; userRole: string;

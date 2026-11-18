@@ -41,8 +41,11 @@ public class DemoInvoice {
     }
 
     public record Line(UUID productId, String name, String unit, BigDecimal qty, BigDecimal unitPrice, BigDecimal discount) {}
+    /** docType: "DEMO" (demo slip, the default) or "QUOTATION" - sets the PDF title and the number series. */
     public record Request(UUID customerId, String customerName, String customerMobile, String customerAddress, String salesperson,
-                          String salespersonBn, String note, List<Line> lines) {}
+                          String salespersonBn, String note, List<Line> lines, String docType) {
+        boolean quotation() { return "QUOTATION".equalsIgnoreCase(docType); }
+    }
 
     private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd-MM-yyyy");
 
@@ -53,9 +56,9 @@ public class DemoInvoice {
         boolean blank = req != null && (req.salesperson() == null || req.salesperson().isBlank());
         Request r = blank ? new Request(req.customerId(), req.customerName(), req.customerMobile(), req.customerAddress(),
             u.getFullName() != null && !u.getFullName().isBlank() ? u.getFullName() : u.getUsername(),
-            u.getFullNameBn(), req.note(), req.lines()) : req;
+            u.getFullNameBn(), req.note(), req.lines(), req.docType()) : req;
         BigDecimal total = validate(r);
-        String code = docNo.next("DEMO");
+        String code = docNo.next(r.quotation() ? "QT" : "DEMO");
         try {
             UUID id = jdbc.queryForObject(
                 "INSERT INTO demo_invoice (code, customer_name, customer_mobile, salesperson, total, payload, created_by) "
@@ -71,7 +74,8 @@ public class DemoInvoice {
     @GetMapping
     public List<Map<String, Object>> list() {
         return jdbc.queryForList(
-            "SELECT id, code, demo_date, customer_name, customer_mobile, salesperson, total, so_id, so_no, created_at "
+            "SELECT id, code, demo_date, customer_name, customer_mobile, salesperson, total, so_id, so_no, created_at, "
+            + "COALESCE(payload->>'docType', 'DEMO') AS doc_type "
             + "FROM demo_invoice ORDER BY created_at DESC LIMIT 300");
     }
 
@@ -167,13 +171,16 @@ public class DemoInvoice {
             PdfKit k = new PdfKit(bn, doc, writer);
 
             doc.add(k.para("MIM ENTERPRISE", true, false, 18, Color.BLACK, Element.ALIGN_CENTER, 0, 2));
-            doc.add(k.para(bn ? "ডেমো ইনভয়েস" : "DEMO INVOICE", true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 2));
-            doc.add(k.para(bn ? "শুধু মূল্য তুলনার জন্য - এটি কর ইনভয়েস নয়" : "For price comparison only - not a tax invoice",
+            boolean qt = r.quotation();
+            doc.add(k.para(qt ? (bn ? "কোটেশন" : "QUOTATION") : (bn ? "ডেমো স্লিপ" : "DEMO SLIP"),
+                true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 2));
+            doc.add(k.para(qt ? (bn ? "মূল্য প্রস্তাব - এটি কর ইনভয়েস নয়" : "Price quotation - not a tax invoice")
+                              : (bn ? "শুধু মূল্য তুলনার জন্য - এটি কর ইনভয়েস নয়" : "For price comparison only - not a tax invoice"),
                 false, true, 8, Color.DARK_GRAY, Element.ALIGN_CENTER, 0, 8));
 
             String name = r.customerName() == null || r.customerName().isBlank() ? "-" : r.customerName().trim();
             String[][] meta = {
-                {bn ? "ডেমো নং" : "Demo no.", code},
+                {qt ? (bn ? "কোটেশন নং" : "Quotation no.") : (bn ? "ডেমো নং" : "Demo no."), code},
                 {bn ? "তারিখ" : "Date", date.format(D)},
                 {bn ? "গ্রাহক" : "Customer", name},
                 {bn ? "মোবাইল" : "Mobile", r.customerMobile() == null || r.customerMobile().isBlank() ? "-" : r.customerMobile().trim()},
@@ -236,8 +243,10 @@ public class DemoInvoice {
 
             if (r.note() != null && !r.note().isBlank())
                 doc.add(k.para(r.note().trim(), false, true, 8, Color.DARK_GRAY, Element.ALIGN_LEFT, 8, 0));
-            doc.add(k.para(bn ? "এটি একটি ডেমো ইনভয়েস। কোনো বিক্রয় বা স্টক লেনদেন করা হয়নি।"
-                              : "This is a demo invoice. No sale or stock movement has been recorded.",
+            doc.add(k.para(qt ? (bn ? "এটি একটি কোটেশন। কোনো বিক্রয় বা স্টক লেনদেন করা হয়নি।"
+                                    : "This is a quotation. No sale or stock movement has been recorded.")
+                              : (bn ? "এটি একটি ডেমো স্লিপ। কোনো বিক্রয় বা স্টক লেনদেন করা হয়নি।"
+                                    : "This is a demo slip. No sale or stock movement has been recorded."),
                 false, true, 7.5f, Color.GRAY, Element.ALIGN_LEFT, 10, 0));
             doc.close();
             return out.toByteArray();
