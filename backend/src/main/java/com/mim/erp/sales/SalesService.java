@@ -544,17 +544,17 @@ public class SalesService {
 
             // meta: invoice details, customer and salesperson in one compact grid
             // payment mode and "discount by" are not printed (the balance box already says cash or credit)
-            List<String[]> facts = new ArrayList<>(List.of(
-                new String[]{"Invoice No", so.getSoNo()}, new String[]{"Date", PdfKit.date(so.getOrderDate())}));
-            // every challan this invoice covers, short numbers comma separated: "2910, 2911, 2912"
+            String[][] invFacts = {{"Invoice No", so.getSoNo()}, {"Date", PdfKit.date(so.getOrderDate())}};
+            doc.add(slipMeta(kit, bn, invFacts, custOpt.orElse(null), so.getSalespersonId(), so.getShopId(),
+                null, delivery.mobile(), delivery.address()));
+
+            // every challan this invoice covers, just above the lines: "Against Ref: 2910, 2911, 2912"
             String dcNos = challans.findBySoIdWithLines(soId).stream()
                 .filter(dc -> !"CANCELLED".equals(dc.getStatus()))
                 .map(DeliveryChallan::getDcNo).filter(Objects::nonNull).distinct().sorted()
                 .map(SalesService::shortDocNo).collect(Collectors.joining(", "));
-            if (!dcNos.isEmpty()) facts.add(new String[]{"Challan No", dcNos});
-            String[][] invFacts = facts.toArray(new String[0][]);
-            doc.add(slipMeta(kit, bn, invFacts, custOpt.orElse(null), so.getSalespersonId(), so.getShopId(),
-                null, delivery.mobile(), delivery.address()));
+            if (!dcNos.isEmpty())
+                doc.add(kit.para(kit.l("Against Ref") + ": " + dcNos, true, false, 9, Color.BLACK, Element.ALIGN_LEFT, 0, 4));
 
             // line items: # | Product | Qty | Unit Price | Total (discount, if any, is one row under the lines)
             Color teal = PdfKit.TINT;
