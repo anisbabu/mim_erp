@@ -170,7 +170,6 @@ public class DemoInvoice {
             doc.open();
             PdfKit k = new PdfKit(bn, doc, writer);
 
-            doc.add(k.para("MIM ENTERPRISE", true, false, 18, Color.BLACK, Element.ALIGN_CENTER, 0, 2));
             boolean qt = r.quotation();
             doc.add(k.para(qt ? (bn ? "কোটেশন" : "QUOTATION") : (bn ? "ডেমো স্লিপ" : "DEMO SLIP"),
                 true, false, 13, Color.BLACK, Element.ALIGN_CENTER, 0, 2));

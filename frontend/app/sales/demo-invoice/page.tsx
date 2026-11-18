@@ -207,7 +207,8 @@ export default function DemoInvoicePage() {
                   </div>
                 </td>
                 <td><input className="inp" value={r.unit} onChange={(e) => setRow(i, { unit: e.target.value })} /></td>
-                <td><input className="inp num" type="number" min={0} value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })} /></td>
+                <td><input className="inp num" type="number" min={0} value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })}
+                  onFocus={(e) => e.target.select()} /></td>
                 <td><input className="inp num" type="number" min={0} value={r.price} onChange={(e) => setRow(i, { price: e.target.value })} /></td>
                 <td><input className="inp num" type="number" min={0} value={r.disc} onChange={(e) => setRow(i, { disc: e.target.value })} /></td>
                 <td className="num">{money(lineAmt(r))}</td>
