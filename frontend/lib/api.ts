@@ -75,7 +75,7 @@ export type Product = {
   supplierId?: string; category?: string; productGroup?: string; productGroupId?: string; supplierTag?: string; edgingSize?: string; color?: string; side?: string; fullName?: string; comments?: string; active?: boolean;
 };
 export type Warehouse = { id: string; code: string; name: string; nameBn?: string; branch?: string; address?: string };
-export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string; groupId?: string; creditDays?: number };
+export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; mobile2?: string; mobile3?: string; address?: string; groupId?: string; creditDays?: number };
 export type ProductGroup = { id: string; name: string };
 export type SupplierGroup = { id: string; code: string; name: string; nameBn?: string };
 export type Shop      = {

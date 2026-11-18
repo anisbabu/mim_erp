@@ -88,7 +88,7 @@ export default function SuppliersPage() {
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     const list = s ? rows.filter((r) =>
-      [r.code, r.name, r.nameBn, r.mobile, groupById[r.groupId ?? ""]?.name, groupById[r.groupId ?? ""]?.nameBn]
+      [r.code, r.name, r.nameBn, r.mobile, r.mobile2, r.mobile3, groupById[r.groupId ?? ""]?.name, groupById[r.groupId ?? ""]?.nameBn]
         .filter(Boolean).some((v) => v!.toLowerCase().includes(s))) : rows;
     return [...list].sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true }));
   }, [q, rows, groupById]);
@@ -121,8 +121,12 @@ export default function SuppliersPage() {
             <input className="inp" value={f.name ?? ""} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
           <div className="field"><label>{t("Name (Bangla)")}</label>
             <input className="inp" value={f.nameBn ?? ""} onChange={(e) => setF({ ...f, nameBn: e.target.value })} /></div>
-          <div className="field"><label>{t("Mobile")}</label>
+          <div className="field"><label>{t("Mobile 1")}</label>
             <input className="inp" value={f.mobile ?? ""} onChange={(e) => setF({ ...f, mobile: e.target.value })} /></div>
+          <div className="field"><label>{t("Mobile 2")}</label>
+            <input className="inp" value={f.mobile2 ?? ""} onChange={(e) => setF({ ...f, mobile2: e.target.value })} /></div>
+          <div className="field"><label>{t("Mobile 3")}</label>
+            <input className="inp" value={f.mobile3 ?? ""} onChange={(e) => setF({ ...f, mobile3: e.target.value })} /></div>
           <div className="field"><label>{t("Credit days")}</label>
             <input className="inp num" type="number" min={0} value={f.creditDays ?? 0}
               onChange={(e) => setF({ ...f, creditDays: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} /></div>
@@ -138,7 +142,7 @@ export default function SuppliersPage() {
             {paged.map((s) => (
               <tr key={s.id}>
                 <td className="font-mono text-[13px]">{s.code}</td>
-                <td>{groupName(s.groupId)}</td><td>{s.name}</td><td className="muted">{s.nameBn ?? "—"}</td><td>{s.mobile ?? "—"}</td>
+                <td>{groupName(s.groupId)}</td><td>{s.name}</td><td className="muted">{s.nameBn ?? "—"}</td><td className="whitespace-nowrap">{[s.mobile, s.mobile2, s.mobile3].filter(Boolean).join(", ") || "—"}</td>
                 <td className="text-right whitespace-nowrap">
                   <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(s)}><EditIcon /></button>
                   <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(s.id)}><TrashIcon /></button>
