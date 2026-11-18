@@ -1044,6 +1044,11 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Code, name and ledger are required.": { en: "Code, name and ledger are required.", bn: "কোড, নাম ও খতিয়ান আবশ্যক।" },
   "Ledger code and name are required.": { en: "Ledger code and name are required.", bn: "খতিয়ানের কোড ও নাম আবশ্যক।" },
   "Ledgers and their sub ledgers, with live balances for the current financial year.": { en: "Ledgers and their sub ledgers, with live balances for the current financial year.", bn: "খতিয়ান ও তার উপ-খতিয়ানসমূহ, চলতি অর্থবছরের সরাসরি ব্যালেন্সসহ।" },
+  "Copy as new product": { en: "Copy as new product", bn: "নতুন পণ্য হিসেবে কপি" },
+  "Copy of": { en: "Copy of", bn: "কপি:" },
+  "change what differs, then Add": { en: "change what differs, then Add", bn: "যা আলাদা তা বদলে যোগ করুন" },
+  "already used by": { en: "already used by", bn: "ইতিমধ্যে ব্যবহৃত:" },
+  "change a field or edit the Code": { en: "change a field or edit the Code", bn: "কোনো ঘর বদলান বা কোড সম্পাদনা করুন" },
 };
 
 type I18n = {
