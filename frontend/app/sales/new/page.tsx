@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
 import QuickCustomer from "@/components/QuickCustomer";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import { productKeywords } from "@/lib/productSearch";
 import { useI18n } from "@/lib/i18n";
 
 type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
@@ -123,7 +124,8 @@ export default function NewSalePage() {
       const supplierName = p.supplierId && supplierById[p.supplierId] ? dn(supplierById[p.supplierId]) : undefined;
       const thickness = p.thicknessLabel ?? (p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined);
       const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
-      return { value: p.id, label: lang === "bn" && p.nameBn ? p.nameBn : p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub };
+      return { value: p.id, label: lang === "bn" && p.nameBn ? p.nameBn : p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub,
+        keywords: productKeywords(p, p.supplierId ? supplierById[p.supplierId] : undefined) };
     }),
     [products, supplierById, lang]);
 

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Product, type Supplier } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import { productKeywords } from "@/lib/productSearch";
 import { TrashIcon } from "@/components/Icons";
 
 type Line = { productId: string; qty: string; unitPrice: string; free: boolean };
@@ -26,11 +27,15 @@ export default function NewPoPage() {
   const productById  = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
   const supplierOpts: Option[] = useMemo(
     () => suppliers.map((s) => ({ value: s.id, label: dn(s), sublabel: s.code })), [suppliers, dn]);
+  const supplierById = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
   const productOpts: Option[] = useMemo(
     () => products
       .filter((p) => !supplierId || p.supplierId === supplierId)
-      .map((p) => ({ value: p.id, label: p.fullName || (dn(p) + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: p.sku })),
-    [products, dn, supplierId]);
+      .map((p) => ({
+        value: p.id, label: p.fullName || (dn(p) + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: p.sku,
+        keywords: productKeywords(p, p.supplierId ? supplierById[p.supplierId] : undefined),
+      })),
+    [products, dn, supplierId, supplierById]);
 
   const update     = (i: number, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
