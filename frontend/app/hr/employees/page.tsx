@@ -19,6 +19,7 @@ export default function EmployeesPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [status, setStatus] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
 
   const load = () => endpoints.employees().then(setRows).catch(() => {});
   useEffect(() => { load(); endpoints.shops().then(setShops).catch(() => {}); }, []);
@@ -54,10 +55,12 @@ export default function EmployeesPage() {
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter((r) => [r.code, r.name, r.nameBn, r.designation, r.mobile]
+    const byStatus = status === "ALL" ? rows : rows.filter((r) => r.active === (status === "ACTIVE"));
+    if (!s) return byStatus;
+    return byStatus.filter((r) => [r.code, r.name, r.nameBn, r.designation, r.mobile]
       .filter(Boolean).some((v) => v!.toLowerCase().includes(s)));
-  }, [q, rows]);
+  }, [q, rows, status]);
+  const activeCount = rows.filter((r) => r.active).length;
 
   return (
     <div>
@@ -85,6 +88,10 @@ export default function EmployeesPage() {
           <div className="field"><label>{t("Address")}</label>
             <input className="inp" value={f.address ?? ""} onChange={(e) => setF({ ...f, address: e.target.value })} /></div>
         </div>
+          <div className="field"><label>{t("Status")}</label>
+            <select className="inp" value={f.active === false ? "INACTIVE" : "ACTIVE"} onChange={(e) => setF({ ...f, active: e.target.value === "ACTIVE" })}>
+              <option value="ACTIVE">{t("Active")}</option><option value="INACTIVE">{t("Inactive")}</option>
+            </select></div>
 
         {/* salary profile */}
         <div className="text-[11px] uppercase tracking-wide text-[#8b929b] mt-5 mb-2">{t("Salary profile")}</div>
@@ -116,15 +123,21 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      <div className="mb-3" style={{ maxWidth: 320 }}>
-        <input className="inp" placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="mb-3 flex items-center gap-3 flex-wrap">
+        <input className="inp" style={{ maxWidth: 320 }} placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
+        {([["ALL", t("All"), rows.length], ["ACTIVE", t("Active"), activeCount], ["INACTIVE", t("Inactive"), rows.length - activeCount]] as const).map(([k, label, n]) => (
+          <button key={k} type="button" className="chip" onClick={() => setStatus(k)}
+            style={status === k ? { background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" } : undefined}>
+            {label} ({n})
+          </button>
+        ))}
       </div>
 
       <div className="card table-wrap">
         <table className="tbl">
           <thead><tr>
             <th>{t("Code")}</th><th>{t("Name")}</th><th>{t("Designation")}</th><th>{t("Shop")}</th>
-            <th>{t("Salary type")}</th><th className="text-right">{t("Gross salary")}</th><th className="text-right">{t("Actions")}</th>
+            <th>{t("Salary type")}</th><th className="text-right">{t("Gross salary")}</th><th>{t("Status")}</th><th className="text-right">{t("Actions")}</th>
           </tr></thead>
           <tbody>
             {filtered.map((e) => (
@@ -136,6 +149,7 @@ export default function EmployeesPage() {
                 <td className="text-xs">{e.salaryType === "MONTHLY" ? t("Monthly") : t("Daily wage")}</td>
                 <td className="num">{Number(e.grossSalary ?? 0).toFixed(2)}</td>
                 <td className="text-right whitespace-nowrap">
+                <td><span className="chip" style={e.active ? undefined : { opacity: 0.6 }}>{e.active ? t("Active") : t("Inactive")}</span></td>
                   <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(e)}><EditIcon /></button>
                   <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(e.id)}><TrashIcon /></button>
                 </td>
