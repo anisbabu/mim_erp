@@ -165,11 +165,15 @@ export default function ReceivePage() {
                     </td>
                     <td className="num">{l.freeProduct ? t("Free") : money(l.unitPrice)}</td>
                     <td className="text-center">
-                      <input className="inp num text-center" style={{ width: 100, marginLeft: "auto", marginRight: "auto",
-                        borderColor: !l.freeProduct && priceOf(l) !== l.unitPrice ? "#b45309" : undefined }}
-                        type="text" inputMode="decimal" disabled={!on || l.freeProduct}
-                        value={l.freeProduct ? "0" : (price[l.poLineId] ?? "")}
-                        onChange={(e) => setPrice((p) => ({ ...p, [l.poLineId]: e.target.value.replace(/[^0-9.]/g, "") }))} /></td>
+                      {l.freeProduct ? (
+                        <span className="chip">{t("Free")}</span>
+                      ) : (
+                        <input className="inp num text-center" style={{ width: 100, marginLeft: "auto", marginRight: "auto",
+                          borderColor: priceOf(l) !== l.unitPrice ? "#b45309" : undefined }}
+                          type="text" inputMode="decimal" disabled={!on}
+                          value={price[l.poLineId] ?? ""}
+                          onChange={(e) => setPrice((p) => ({ ...p, [l.poLineId]: e.target.value.replace(/[^0-9.]/g, "") }))} />
+                      )}</td>
                     <td className="num">{money(r * priceOf(l))}</td>
                   </tr>
                 );
