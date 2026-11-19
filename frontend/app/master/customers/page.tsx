@@ -51,6 +51,12 @@ export default function CustomersPage() {
     if (!s) return rows;
     return rows.filter((r) => [r.code, r.name, r.nameBn, r.mobile].filter(Boolean).some((v) => v!.toLowerCase().includes(s)));
   }, [q, rows]);
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [q]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageClamped = Math.min(page, totalPages);
+  const paged = filtered.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE);
 
   return (
     <div>
@@ -104,7 +110,7 @@ export default function CustomersPage() {
           <thead><tr><th>{t("Code")}</th><th>{t("Name")}</th><th>{t("Type")}</th>
             <th className="text-right">{t("Credit limit")}</th><th className="text-right">{t("Actions")}</th></tr></thead>
           <tbody>
-            {filtered.map((c) => (
+            {paged.map((c) => (
               <tr key={c.id}>
                 <td className="font-mono text-[13px]">{c.code}</td>
                 <td>{dn(c)}</td>
@@ -119,6 +125,13 @@ export default function CustomersPage() {
           </tbody>
         </table>
       </div>
+      {totalPages > 1 && (
+        <div className="mt-3 flex items-center gap-2">
+          <button className="btn-ghost" disabled={pageClamped <= 1} onClick={() => setPage(pageClamped - 1)}>{t("Prev")}</button>
+          <span className="text-sm muted">{t("Page")} {pageClamped} / {totalPages} · {filtered.length}</span>
+          <button className="btn-ghost" disabled={pageClamped >= totalPages} onClick={() => setPage(pageClamped + 1)}>{t("Next")}</button>
+        </div>
+      )}
     </div>
   );
 }
