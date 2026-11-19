@@ -26,7 +26,7 @@ export default function SuppliersPage() {
   const [gf, setGf] = useState<{ code: string; name: string; nameBn: string }>({ code: "", name: "", nameBn: "" });
   const [editGroupId, setEditGroupId] = useState<string | null>(null);
   const [gq, setGq] = useState("");
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
   const [gPage, setGPage] = useState(1);
 
