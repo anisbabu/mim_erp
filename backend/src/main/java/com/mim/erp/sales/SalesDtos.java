@@ -8,14 +8,24 @@ public class SalesDtos {
 
     /**
      * One allocation: take `qty` of a product FROM a specific warehouse. discountAmt is a flat line discount (null = 0).
-     * Sales orders: the whole qty is delivered at order time when a warehouse is set; with no warehouse it stays pending.
+     * Sales orders: `deliverQty` is the part the customer takes at order time (like a partial goods receipt on a
+     * purchase order); the rest stays pending on the line and is delivered later from the orders screen.
+     * deliverQty null = the whole qty when a warehouse is set; with no warehouse everything stays pending.
      */
     public record Allocation(UUID productId, UUID warehouseId, BigDecimal qty, BigDecimal unitPrice,
-                             BigDecimal discountAmt) {
+                             BigDecimal discountAmt, BigDecimal deliverQty) {
+
+        @com.fasterxml.jackson.annotation.JsonCreator
+        public Allocation {}
+
+        public Allocation(UUID productId, UUID warehouseId, BigDecimal qty, BigDecimal unitPrice, BigDecimal discountAmt) {
+            this(productId, warehouseId, qty, unitPrice, discountAmt, null);
+        }
 
         /** Quantity delivered at order time. */
         public BigDecimal deliverNow() {
-            return warehouseId == null ? BigDecimal.ZERO : qty;
+            if (warehouseId == null) return BigDecimal.ZERO;
+            return deliverQty == null ? qty : deliverQty;
         }
     }
 

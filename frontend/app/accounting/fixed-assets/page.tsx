@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type FixedAsset, type LedgerRow } from "@/lib/api";
@@ -102,7 +103,7 @@ export default function FixedAssetsPage() {
           <div className="section-label mb-3">{t("Dispose of asset")}</div>
           <div className="form-grid cols-2 mb-3">
             <div className="field"><label>{t("Date")}</label>
-              <input className="inp" type="date" value={disp.date} onChange={(e) => setDisp({ ...disp, date: e.target.value })} /></div>
+              <DateInput className="inp" value={disp.date} onChange={(e) => setDisp({ ...disp, date: e.target.value })} /></div>
             <div className="field"><label>{t("Sale proceeds")}</label>
               <input className="inp num" type="number" min={0} value={disp.proceeds} onChange={(e) => setDisp({ ...disp, proceeds: e.target.value })} /></div>
             <div className="field"><label>{t("Proceeds received in")}</label>
@@ -127,7 +128,7 @@ export default function FixedAssetsPage() {
           <div className="field"><label>{t("Category")}</label>
             <input className="inp" value={f.category} placeholder="Vehicles, Furniture, Equipment…" onChange={(e) => setF({ ...f, category: e.target.value })} /></div>
           <div className="field"><label>{t("Purchase date")}</label>
-            <input className="inp" type="date" value={f.purchaseDate} onChange={(e) => setF({ ...f, purchaseDate: e.target.value })} /></div>
+            <DateInput className="inp" value={f.purchaseDate} onChange={(e) => setF({ ...f, purchaseDate: e.target.value })} /></div>
           <div className="field"><label>{t("Cost")}</label>
             <input className="inp num" type="number" min={0} value={f.cost} onChange={(e) => setF({ ...f, cost: e.target.value })} /></div>
           <div className="field"><label>{t("Residual value")}</label>

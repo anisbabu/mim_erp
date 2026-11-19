@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type LedgerRow, type JournalEntryView } from "@/lib/api";
@@ -80,7 +81,7 @@ export default function JournalPage() {
       <div className="card p-5 mb-6">
         <div className="form-grid cols-2 mb-4">
           <div className="field"><label>{t("Date")}</label>
-            <input className="inp" type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} /></div>
+            <DateInput className="inp" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} /></div>
           <div className="field"><label>{t("Narration")}</label>
             <input className="inp" value={narration} onChange={(e) => setNarration(e.target.value)} placeholder="reason / reference" /></div>
         </div>
@@ -131,8 +132,8 @@ export default function JournalPage() {
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
         <div className="section-label">{t("Journal register")}</div>
         <div className="flex items-end gap-2">
-          <div className="field"><label>{t("From")}</label><input className="inp" type="date" value={rf} onChange={(e) => setRf(e.target.value)} /></div>
-          <div className="field"><label>{t("To")}</label><input className="inp" type="date" value={rt} onChange={(e) => setRt(e.target.value)} /></div>
+          <div className="field"><label>{t("From")}</label><DateInput className="inp" value={rf} onChange={(e) => setRf(e.target.value)} /></div>
+          <div className="field"><label>{t("To")}</label><DateInput className="inp" value={rt} onChange={(e) => setRt(e.target.value)} /></div>
         </div>
       </div>
       <p className="text-[12px] muted mb-3">{t("Posted entries can't be edited or deleted. To correct one, reverse it and post the right entry.")}</p>

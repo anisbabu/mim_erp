@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
@@ -157,7 +158,7 @@ export default function PurchaseReturnsPage() {
                 </div>
                 <div className="field">
                   <label>{t("Return date")} *</label>
-                  <input className="inp" type="date" value={returnDate} max={today()}
+                  <DateInput className="inp" value={returnDate} max={today()}
                     min={String(data.receipt.receipt_date).slice(0, 10)} onChange={(e) => setReturnDate(e.target.value)} />
                 </div>
                 <div className="field">

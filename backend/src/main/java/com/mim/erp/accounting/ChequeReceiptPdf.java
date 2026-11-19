@@ -15,7 +15,7 @@ import java.time.format.DateTimeFormatter;
 /** Acknowledgement slip handed to the customer when their cheque is received. */
 public final class ChequeReceiptPdf {
 
-    private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private ChequeReceiptPdf() {}
 

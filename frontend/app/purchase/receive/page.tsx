@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -185,17 +186,17 @@ export default function ReceivePage() {
               <div className="section-label mb-3">{t("Supplier bill")}</div>
               <div className="form-grid cols-4">
                 <div className="field"><label>{t("Received on")}</label>
-                  <input className="inp" type="date" value={bill.receiptDate} max={new Date().toISOString().slice(0, 10)}
+                  <DateInput className="inp" value={bill.receiptDate} max={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => setBill({ ...bill, receiptDate: e.target.value })} />
                   <div className="h-4 leading-4 text-[11px] muted">{t("Blank = today; set an earlier date for late entry")}</div></div>
                 <div className="field"><label>{t("Supplier bill no.")}</label>
                   <input className="inp" value={bill.billNo} onChange={(e) => setBill({ ...bill, billNo: e.target.value })}
                     placeholder={t("Can be keyed later")} /></div>
                 <div className="field"><label>{t("Bill date")}</label>
-                  <input className="inp" type="date" value={bill.billDate} max={new Date().toISOString().slice(0, 10)}
+                  <DateInput className="inp" value={bill.billDate} max={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => setBill({ ...bill, billDate: e.target.value })} /></div>
                 <div className="field"><label>{t("Due date")}</label>
-                  <input className="inp" type="date" value={bill.dueDate} min={bill.billDate || undefined}
+                  <DateInput className="inp" value={bill.dueDate} min={bill.billDate || undefined}
                     onChange={(e) => setBill({ ...bill, dueDate: e.target.value })} />
                   <div className="h-4 leading-4 text-[11px] muted">{t("Blank = bill date + supplier credit days")}</div></div>
                 <div className="field"><label>{t("Freight / carriage")}</label>

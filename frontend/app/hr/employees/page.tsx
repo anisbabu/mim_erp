@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Employee, type Shop } from "@/lib/api";
@@ -18,8 +19,8 @@ export default function EmployeesPage() {
   const [f, setF] = useState<Partial<Employee>>({ ...EMPTY });
   const [editId, setEditId] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [status, setStatus] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
   const load = () => endpoints.employees().then(setRows).catch(() => {});
   useEffect(() => { load(); endpoints.shops().then(setShops).catch(() => {}); }, []);
@@ -84,14 +85,14 @@ export default function EmployeesPage() {
           <div className="field"><label>{t("Mobile")}</label>
             <input className="inp" value={f.mobile ?? ""} onChange={(e) => setF({ ...f, mobile: e.target.value })} /></div>
           <div className="field"><label>{t("Joining date")}</label>
-            <input className="inp" type="date" value={f.joiningDate ?? ""} onChange={(e) => setF({ ...f, joiningDate: e.target.value })} /></div>
+            <DateInput className="inp" value={f.joiningDate ?? ""} onChange={(e) => setF({ ...f, joiningDate: e.target.value })} /></div>
           <div className="field"><label>{t("Address")}</label>
             <input className="inp" value={f.address ?? ""} onChange={(e) => setF({ ...f, address: e.target.value })} /></div>
-        </div>
           <div className="field"><label>{t("Status")}</label>
             <select className="inp" value={f.active === false ? "INACTIVE" : "ACTIVE"} onChange={(e) => setF({ ...f, active: e.target.value === "ACTIVE" })}>
               <option value="ACTIVE">{t("Active")}</option><option value="INACTIVE">{t("Inactive")}</option>
             </select></div>
+        </div>
 
         {/* salary profile */}
         <div className="text-[11px] uppercase tracking-wide text-[#8b929b] mt-5 mb-2">{t("Salary profile")}</div>
@@ -148,8 +149,8 @@ export default function EmployeesPage() {
                 <td>{shopName(e.shopId)}</td>
                 <td className="text-xs">{e.salaryType === "MONTHLY" ? t("Monthly") : t("Daily wage")}</td>
                 <td className="num">{Number(e.grossSalary ?? 0).toFixed(2)}</td>
-                <td className="text-right whitespace-nowrap">
                 <td><span className="chip" style={e.active ? undefined : { opacity: 0.6 }}>{e.active ? t("Active") : t("Inactive")}</span></td>
+                <td className="text-right whitespace-nowrap">
                   <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(e)}><EditIcon /></button>
                   <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(e.id)}><TrashIcon /></button>
                 </td>

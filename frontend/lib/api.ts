@@ -4,12 +4,15 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
-/** Format ISO date string "yyyy-mm-dd" → "dd/mm/yyyy" for display. */
+/**
+ * Format an ISO date "yyyy-mm-dd" → "dd/mm/yyyy" for display.
+ * A timestamp ("yyyy-mm-dd hh:mm:ss" or "yyyy-mm-ddThh:mm:ss…") keeps its time: "dd/mm/yyyy hh:mm:ss".
+ */
 export function fmtDate(d: string | null | undefined): string {
   if (!d) return "—";
-  const parts = d.split("-");
-  if (parts.length !== 3) return d;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}(?::\d{2})?))?/.exec(String(d));
+  if (!m) return String(d);
+  return `${m[3]}/${m[2]}/${m[1]}${m[4] ? ` ${m[4]}` : ""}`;
 }
 
 let authToken: string | null = null;

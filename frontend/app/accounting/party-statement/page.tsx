@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
@@ -106,9 +107,9 @@ export default function PartyStatementPage() {
         <div className="field" style={{ minWidth: 300 }}><label>{type === "CUSTOMER" ? t("Customer") : t("Supplier")}</label>
           <SearchSelect options={opts} value={partyId} onChange={setPartyId} placeholder={t("Search…")} /></div>
         <div className="field"><label>{t("From")}</label>
-          <input className="inp" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+          <DateInput className="inp" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
         <div className="field"><label>{t("To")}</label>
-          <input className="inp" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+          <DateInput className="inp" value={to} onChange={(e) => setTo(e.target.value)} /></div>
       </Toolbar>
       {err && <div className="note note-err mb-3">{err}</div>}
       {!partyId && <p className="muted text-sm">{t("Pick a customer or supplier to see their statement.")}</p>}

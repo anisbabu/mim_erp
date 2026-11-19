@@ -56,8 +56,13 @@ export default function ChartOfAccountsPage() {
   const [busy, setBusy] = useState(false);
   const codeTouched = useRef(false);
 
+  const firstLoad = useRef(true);
   function load() {
-    endpoints.coaGroups().then(setGroups).catch(() => {});
+    endpoints.coaGroups().then((gs) => {
+      setGroups(gs);
+      // Land collapsed (top-level groups only); later reloads keep the user's open/closed state.
+      if (firstLoad.current) { firstLoad.current = false; setCollapsed(new Set(gs.map((g) => g.id))); }
+    }).catch(() => {});
     endpoints.coaLedgers().then(setLedgers).catch(() => {});
   }
   useEffect(() => { load(); }, []);

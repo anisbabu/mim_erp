@@ -47,7 +47,7 @@ public class DemoInvoice {
         boolean quotation() { return "QUOTATION".equalsIgnoreCase(docType); }
     }
 
-    private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /** Save a demo invoice and give it a unique code (DEMO-yyyy-nnnnnn). */
     @PostMapping

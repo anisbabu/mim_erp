@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useState } from "react";
 import { endpoints, fmtDate, type AgingReport } from "@/lib/api";
@@ -26,7 +27,7 @@ export default function Aging({ type }: { type: "CUSTOMER" | "SUPPLIER" }) {
     <div>
       <Toolbar onPdf={rep ? () => savePdf(() => endpoints.reportPdfQuery("reports/aging", `type=${type}&asOf=${asOf}`, lang), `aging-${type.toLowerCase()}-${asOf}${lang === "bn" ? "-bn" : ""}.pdf`, setErr) : undefined}>
         <div className="field"><label>{t("As at")}</label>
-          <input className="inp" type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} /></div>
+          <DateInput className="inp" value={asOf} onChange={(e) => setAsOf(e.target.value)} /></div>
       </Toolbar>
       {err && <div className="note note-err mb-3">{err}</div>}
       <div className="report-sheet">

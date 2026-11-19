@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { endpoints, fmtDate, type ContraRow, type MoneyLedger } from "@/lib/api";
@@ -57,7 +58,7 @@ export default function ContraPage() {
       <div className="card p-5 mb-5" onKeyDown={(e) => { if (e.key === "Enter" && !busy) submit(); }}>
         <div className="form-grid cols-3">
           <div className="field"><label>{t("Date")} *</label>
-            <input className="inp" type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput className="inp" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
             <div className="h-4 leading-4" /></div>
           <div className="field"><label>{t("From (paid out of)")} *</label>
             <select className="inp" value={from} onChange={(e) => setFrom(e.target.value)}>

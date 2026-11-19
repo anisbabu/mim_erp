@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   endpoints, fmtDate, type Account, type BounceReason, type Customer, type Cheque, type ChequeReminderSettings, type ChequeEvent, type ChequeStatus,
@@ -318,7 +319,7 @@ export default function ChequesPage() {
           <div className="field"><label>{t("Amount")}</label>
             <input className="inp num" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
           <div className="field"><label>{t("Maturity date")}</label>
-            <input className="inp" type="date" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} /></div>
+            <DateInput className="inp" value={maturityDate} onChange={(e) => setMaturityDate(e.target.value)} /></div>
           <div className="field"><label>{t("Cheque no.")}</label>
             <input className="inp" value={chequeNo} onChange={(e) => setChequeNo(e.target.value)} />
             <div className="h-4 leading-4 text-[12px] truncate" style={{ color: "var(--st-bounced-fg)" }}>
@@ -468,7 +469,7 @@ export default function ChequesPage() {
                               <input className="inp num" type="number" min={0} value={ed.amount}
                                 onChange={(e) => setEd((x) => ({ ...x, amount: e.target.value }))} /></div>
                             <div className="field"><label>{t("Maturity date")}</label>
-                              <input className="inp" type="date" value={ed.maturityDate}
+                              <DateInput className="inp" value={ed.maturityDate}
                                 onChange={(e) => setEd((x) => ({ ...x, maturityDate: e.target.value }))} /></div>
                             <div className="field"><label>{t("Cheque no.")}</label>
                               <input className="inp" value={ed.chequeNo}
@@ -491,7 +492,7 @@ export default function ChequesPage() {
                         <div className="flex flex-wrap items-end gap-3">
                           {(acting.action === "date" || acting.action === "resubmit") && (
                             <div className="field"><label>{t("New maturity date")}</label>
-                              <input className="inp" type="date" value={actDate} onChange={(e) => setActDate(e.target.value)} /></div>
+                              <DateInput className="inp" value={actDate} onChange={(e) => setActDate(e.target.value)} /></div>
                           )}
                           {(acting.action === "date" || acting.action === "hold") && (
                             <div className="field"><label>{t("Requested by")}</label>
