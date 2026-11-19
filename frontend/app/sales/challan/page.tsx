@@ -372,17 +372,16 @@ export default function ChallanPage() {
           value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)} />
       </div>
 
-      <button className="btn w-full sm:w-auto" onClick={submit} disabled={busy}>
-        {busy ? t("Issuing…") : t("Issue challan")}
-      </button>
-
-      {msg && (
-        <div className="mt-4 text-sm rounded-lg px-4 py-3"
-          style={{ background: msg.kind === "ok" ? "#e6efe9" : "#fbeceb",
-                   color:      msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>
-          {msg.text}
-        </div>
-      )}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <button className="btn w-full sm:w-auto shrink-0" onClick={submit} disabled={busy}>
+          {busy ? t("Issuing…") : t("Issue challan")}
+        </button>
+        {msg && (
+          <div className="text-sm" style={{ color: msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>
+            {msg.text}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
