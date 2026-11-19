@@ -1,9 +1,10 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useCallback, useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import {
-  endpoints, type AuditAction, type AuditDetail, type AuditEntry, type AuditFacets, type AuditFilter,
+  endpoints, fmtDate, type AuditAction, type AuditDetail, type AuditEntry, type AuditFacets, type AuditFilter,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
@@ -173,11 +174,11 @@ export default function ActivityLogPage() {
         </div>
         <div className="field" style={{ width: 140 }}>
           <label>{t("From")}</label>
-          <input className="inp" type="date" value={filter.from} onChange={set("from")} />
+          <DateInput className="inp" value={filter.from} onChange={set("from")} />
         </div>
         <div className="field" style={{ width: 140 }}>
           <label>{t("To")}</label>
-          <input className="inp" type="date" value={filter.to} onChange={set("to")} />
+          <DateInput className="inp" value={filter.to} onChange={set("to")} />
         </div>
         <div className="field" style={{ width: 200 }}>
           <label>{t("Record ID")}</label>
@@ -199,7 +200,7 @@ export default function ActivityLogPage() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} onClick={() => open(r.id)} style={{ cursor: "pointer" }}>
-                <td className="whitespace-nowrap tabular-nums">{r.at}</td>
+                <td className="whitespace-nowrap tabular-nums">{fmtDate(r.at)}</td>
                 <td>
                   <div>{r.userName}</div>
                   <div className="text-[11px] muted">{r.userRole.toLowerCase()}</div>
@@ -250,7 +251,7 @@ export default function ActivityLogPage() {
 
       {/* detail: old and new values side by side */}
       <Drawer open={!!detail} onClose={closeDetail} title={t("Activity details")}
-        subtitle={detail ? `#${detail.id} · ${detail.at}` : undefined}
+        subtitle={detail ? `#${detail.id} · ${fmtDate(detail.at)}` : undefined}
         footer={<button className="btn-ghost" onClick={closeDetail}>{t("Close")}</button>}>
         {detail && (
           <div>

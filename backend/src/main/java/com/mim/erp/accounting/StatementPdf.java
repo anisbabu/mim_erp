@@ -28,7 +28,7 @@ import java.util.Map;
  */
 final class StatementPdf {
 
-    private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    private static final DateTimeFormatter D = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final NumberFormat MONEY = NumberFormat.getNumberInstance(new Locale("en", "IN"));
     static {
         MONEY.setMinimumFractionDigits(2);

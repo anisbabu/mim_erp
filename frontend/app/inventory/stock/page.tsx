@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 import { useEffect, useState, useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
 import { endpoints, type StockRow, type SupplierStockRow, type StockStatusRow, type StockSummaryRow,
@@ -153,9 +154,9 @@ export default function StockPage() {
       {view === "summary" && (
         <div className="flex flex-wrap items-end gap-3 mb-3">
           <label className="field"><span>{t("From")}</span>
-            <input type="date" className="inp" value={sumFrom} onChange={(e) => setSumFrom(e.target.value)} /></label>
+            <DateInput className="inp" value={sumFrom} onChange={(e) => setSumFrom(e.target.value)} /></label>
           <label className="field"><span>{t("To")}</span>
-            <input type="date" className="inp" value={sumTo} onChange={(e) => setSumTo(e.target.value)} /></label>
+            <DateInput className="inp" value={sumTo} onChange={(e) => setSumTo(e.target.value)} /></label>
           <label className="field"><span>{t("Warehouse")}</span>
             <select className="inp" value={sumWh} onChange={(e) => setSumWh(e.target.value)}>
               <option value="">{t("All warehouses")}</option>

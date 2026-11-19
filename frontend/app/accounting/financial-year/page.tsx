@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type FinancialYear, type LedgerRow, type OpeningBalance } from "@/lib/api";
@@ -113,9 +114,9 @@ export default function FinancialYearPage() {
             <div className="field"><label>{t("Name")}</label>
               <input className="inp" placeholder="2026-2027" value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} /></div>
             <div className="field"><label>{t("Start date")}</label>
-              <input className="inp" type="date" value={nf.startDate} onChange={(e) => setNf({ ...nf, startDate: e.target.value })} /></div>
+              <DateInput className="inp" value={nf.startDate} onChange={(e) => setNf({ ...nf, startDate: e.target.value })} /></div>
             <div className="field"><label>{t("End date")}</label>
-              <input className="inp" type="date" value={nf.endDate} onChange={(e) => setNf({ ...nf, endDate: e.target.value })} /></div>
+              <DateInput className="inp" value={nf.endDate} onChange={(e) => setNf({ ...nf, endDate: e.target.value })} /></div>
             <div className="field"><label>{t("Set current")}</label>
               <label className="h-10 flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={nf.current} onChange={(e) => setNf({ ...nf, current: e.target.checked })} />

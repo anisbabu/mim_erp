@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type BankAccountRow, type BankHistoryRow, type BankOpen } from "@/lib/api";
@@ -65,7 +66,7 @@ export default function BankReconPage() {
               {banks.map((b) => <option key={b.id} value={b.id}>{bn(b)}</option>)}
             </select></div>
           <div className="field"><label>{t("Statement date")}</label>
-            <input className="inp" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            <DateInput className="inp" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="field"><label>{t("Closing balance on statement")}</label>
             <input className="inp num" type="number" value={balance} onChange={(e) => setBalance(e.target.value)} /></div>
           <div className="field"><label>{t("Note")}</label>

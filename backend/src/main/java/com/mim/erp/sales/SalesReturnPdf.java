@@ -32,9 +32,10 @@ final class SalesReturnPdf {
     @SuppressWarnings("unchecked")
     static byte[] render(Map<String, Object> r, boolean bn) {
         try {
-            Document doc = new Document(PageSize.A5, 28, 28, 36, 40);
+            Document doc = PdfKit.slip();
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             PdfWriter writer = PdfWriter.getInstance(doc, out);
+            PdfKit.printActualSize(writer);
             doc.open();
             PdfKit k = new PdfKit(bn, doc, writer);
             boolean credit = "CREDIT_NOTE".equals(r.get("settlement"));

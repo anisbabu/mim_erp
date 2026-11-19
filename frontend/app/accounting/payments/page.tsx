@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
@@ -155,7 +156,7 @@ export default function PaymentsPage() {
             </div>
           </div>
           <div className="field"><label>{t("Date")} *</label>
-            <input className="inp" type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
+            <DateInput className="inp" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
             <div className="h-4 leading-4" /></div>
           <div className="field"><label>{t("Method")}</label>
             <select className="inp" value={method} onChange={(e) => setMethod(e.target.value as "CASH" | "BANK")}>

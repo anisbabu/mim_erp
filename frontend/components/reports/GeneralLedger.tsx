@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useMemo, useState } from "react";
 import { endpoints, fmtDate, type GeneralLedger, type LedgerRow } from "@/lib/api";
@@ -40,9 +41,9 @@ export default function GeneralLedgerReport() {
         <div className="field" style={{ minWidth: 300 }}><label>{t("Ledger")}</label>
           <SearchSelect options={opts} value={accountId} onChange={setAccountId} placeholder={t("Search…")} /></div>
         <div className="field"><label>{t("From")}</label>
-          <input className="inp" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+          <DateInput className="inp" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
         <div className="field"><label>{t("To")}</label>
-          <input className="inp" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+          <DateInput className="inp" value={to} onChange={(e) => setTo(e.target.value)} /></div>
       </Toolbar>
       {err && <div className="note note-err mb-3">{err}</div>}
       {!accountId && <p className="muted text-sm">{t("Pick a ledger to see its account statement.")}</p>}

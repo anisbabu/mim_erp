@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 
 import { useEffect, useState } from "react";
 import { endpoints, fmtDate, type DiscountBySalesperson } from "@/lib/api";
@@ -31,9 +32,9 @@ export function DiscountBySalespersonReport() {
     <div>
       <Toolbar>
         <div className="field"><label>{t("From")}</label>
-          <input className="inp" type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
+          <DateInput className="inp" value={from} onChange={(e) => setFrom(e.target.value)} /></div>
         <div className="field"><label>{t("To")}</label>
-          <input className="inp" type="date" value={to} onChange={(e) => setTo(e.target.value)} /></div>
+          <DateInput className="inp" value={to} onChange={(e) => setTo(e.target.value)} /></div>
       </Toolbar>
       {err && <div className="note note-err mb-3">{err}</div>}
       <div className="report-sheet">

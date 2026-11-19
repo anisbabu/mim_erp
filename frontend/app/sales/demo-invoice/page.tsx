@@ -31,6 +31,7 @@ export default function DemoInvoicePage() {
   const [mobile, setMobile] = useState("");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
+  const [docType, setDocType] = useState<"DEMO" | "QUOTATION">("DEMO");   // printed as the PDF title
   const [rows, setRows] = useState<Row[]>([blank()]);
   const [err, setErr] = useState("");
   const [newCust, setNewCust] = useState(false);
@@ -96,7 +97,7 @@ export default function DemoInvoicePage() {
     if (bad) { setErr(`${t("Enter a quantity for")} ${bad.name}`); return; }
     const lines = used.map((r) => ({ productId: r.pid || null, name: r.name.trim(), unit: r.unit.trim(), qty: num(r.qty), unitPrice: num(r.price), discount: num(r.disc) }));
     setBusy(true); setOkMsg("");
-    endpoints.saveDemoInvoice({ customerId: custId || null, customerName: name, customerMobile: mobile, customerAddress: address, salesperson, salespersonBn, note, lines })
+    endpoints.saveDemoInvoice({ customerId: custId || null, customerName: name, customerMobile: mobile, customerAddress: address, salesperson, salespersonBn, note, lines, docType })
       .then((r) => {
         setOkMsg(`${t("Saved as")} ${r.code}`);
         loadSaved();
@@ -115,6 +116,7 @@ export default function DemoInvoicePage() {
       const r = d.request;
       setCustId(r.customerId ?? ""); setName(r.customerName ?? ""); setMobile(r.customerMobile ?? ""); setAddress(r.customerAddress ?? "");
       setSalesperson(r.salesperson ?? ""); setSalespersonBn(r.salespersonBn ?? ""); setNote(r.note ?? "");
+      setDocType(r.docType === "QUOTATION" ? "QUOTATION" : "DEMO");
       setRows(r.lines.map((l) => {
         const p = (l.productId && productById.get(l.productId)) || products.find((x) => productLabel(x) === l.name || x.name === l.name || x.fullName === l.name);
         return { pid: p?.id ?? "", custom: !p, name: l.name, unit: l.unit ?? "", qty: String(l.qty), price: String(l.unitPrice), disc: l.discount ? String(l.discount) : "" };
@@ -130,7 +132,7 @@ export default function DemoInvoicePage() {
     return k ? saved.filter((r) => [r.code, r.customer_name, r.customer_mobile, r.salesperson].some((v) => v && String(v).toLowerCase().includes(k))) : saved;
   }, [saved, q]);
 
-  function clear() { setSalesperson(user ? (user.fullName || user.username) : ""); setCustId(""); setName(""); setMobile(""); setAddress(""); setNote(""); setRows([blank()]); setErr(""); setOkMsg(""); }
+  function clear() { setSalesperson(user ? (user.fullName || user.username) : ""); setCustId(""); setName(""); setMobile(""); setAddress(""); setNote(""); setDocType("DEMO"); setRows([blank()]); setErr(""); setOkMsg(""); }
 
   return (
     <div>
@@ -143,6 +145,17 @@ export default function DemoInvoicePage() {
       <QuickCustomer open={newCust} onClose={() => setNewCust(false)} existing={customers}
         onCreated={(c) => { setCustomers((cs) => [...cs, c]); setCustId(c.id); setName(dn(c)); setMobile(c.mobile ?? ""); setAddress(c.address ?? ""); }} />
       <div className="card p-5 mb-5">
+        {/* what the PDF is titled: one of the two, never both */}
+        <div className="flex items-center gap-5 mb-4" role="radiogroup" aria-label={t("Print as")}>
+          <span className="text-[13px] font-medium">{t("Print as")}</span>
+          {([["DEMO", "Demo Slip"], ["QUOTATION", "Quotation"]] as const).map(([v, label]) => (
+            <label key={v} className="flex items-center gap-2 text-[13px] cursor-pointer">
+              <input type="checkbox" role="radio" aria-checked={docType === v} checked={docType === v}
+                onChange={() => setDocType(v)} />
+              {t(label)}
+            </label>
+          ))}
+        </div>
         <div className="section-label mb-3">{t("Customer")}</div>
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}>
@@ -194,7 +207,8 @@ export default function DemoInvoicePage() {
                   </div>
                 </td>
                 <td><input className="inp" value={r.unit} onChange={(e) => setRow(i, { unit: e.target.value })} /></td>
-                <td><input className="inp num" type="number" min={0} value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })} /></td>
+                <td><input className="inp num" type="number" min={0} value={r.qty} onChange={(e) => setRow(i, { qty: e.target.value })}
+                  onFocus={(e) => e.target.select()} /></td>
                 <td><input className="inp num" type="number" min={0} value={r.price} onChange={(e) => setRow(i, { price: e.target.value })} /></td>
                 <td><input className="inp num" type="number" min={0} value={r.disc} onChange={(e) => setRow(i, { disc: e.target.value })} /></td>
                 <td className="num">{money(lineAmt(r))}</td>
@@ -240,7 +254,8 @@ export default function DemoInvoicePage() {
           <tbody>
             {shown.map((r) => (
               <tr key={r.id}>
-                <td className="font-mono text-[13px]">{r.code}</td>
+                <td className="font-mono text-[13px]">{r.code}
+                  <span className="chip bg-slate-100 text-slate-600 ml-2 font-sans">{t(r.doc_type === "QUOTATION" ? "Quotation" : "Demo Slip")}</span></td>
                 <td>{fmtDate(r.demo_date)}</td>
                 <td>{r.customer_name ?? "—"}{r.customer_mobile && <span className="muted ml-2 text-[12px]">{r.customer_mobile}</span>}</td>
                 <td>{r.salesperson ?? "—"}</td>

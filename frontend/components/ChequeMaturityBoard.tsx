@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 import { fmtDate, type Cheque, type ChequeStatus, type ChequeEventType } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 
@@ -100,7 +101,7 @@ export default function ChequeMaturityBoard({
 
       <label className={`mat-tile ${later?.n ? "mat-later" : ""} ${pickedLater ? "is-active" : ""}`}>
         <div className="text-[11px] font-semibold uppercase tracking-wide">{t("Pick date")}</div>
-        <input type="date" className="inp mt-1 !h-7 !py-0 !text-[12px]" min={today} value={pickedLater}
+        <DateInput className="inp mt-1 !h-7 !py-0 !text-[12px]" min={today} value={pickedLater}
           onChange={(e) => onSelect(e.target.value || null)} />
         <div className="text-[12px] tabular-nums opacity-80 mt-1 h-4 leading-4">
           {later ? `${later.n} · ${tk(later.amt)}` : ""}

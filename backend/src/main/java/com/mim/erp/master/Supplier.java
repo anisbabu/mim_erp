@@ -14,6 +14,8 @@ public class Supplier {
     private String name;
     private String nameBn;
     private String mobile;
+    private String mobile2;
+    private String mobile3;
     private String address;
     private UUID groupId;
     private int creditDays;   // a supplier bill is due this many days after the bill date

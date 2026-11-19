@@ -8,6 +8,9 @@ export const EditIcon = () => (
 
 export { PackageCheck as ReceiveIcon } from "lucide-react";
 
+import { Copy } from "lucide-react";
+export const CopyIcon = () => <Copy size={14} />;
+
 export const TrashIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

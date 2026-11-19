@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Product, type ProductGroup, type Supplier } from "@/lib/api";
 import SearchSelect from "@/components/SearchSelect";
 import { useI18n } from "@/lib/i18n";
-import { EditIcon, TrashIcon } from "@/components/Icons";
+import { CopyIcon, EditIcon, TrashIcon } from "@/components/Icons";
 
 const CATEGORIES  = ["MDF", "PLY", "MELAMINE", "HPL", "ACRYLIC SHEET", "FORMICA", "PVC", "EDGING","PLAIN BOARD", "LOOSE VENEER", "VENEER", "ELEGANT","WPC"];
 const THICKNESSES = [6, 12, 16.3, 18, 19, 25];
@@ -241,7 +241,8 @@ export default function ProductsPage() {
   const [f, setF]               = useState<Partial<Product>>({ type: "BOARD", unit: "PCS" });
   const [editId, setEditId]     = useState<string | null>(null);
   const [manualSku, setManualSku] = useState(false);
-  const [q, setQ]               = useState("");
+  const [copyOf, setCopyOf]     = useState<string | null>(null);   // name of the product being copied
+  const [q, setQ]              = useState("");
   const [page, setPage]         = useState(1);
   const [msg, setMsg]           = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
@@ -264,7 +265,7 @@ export default function ProductsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [f.type, f.thicknessMm, f.edgingSize, f.name, f.category, f.color, f.supplierId, suppliers]);
 
-  function reset() { setF({ type: "BOARD", unit: "PCS" }); setEditId(null); setManualSku(false); }
+  function reset() { setF({ type: "BOARD", unit: "PCS" }); setEditId(null); setManualSku(false); setCopyOf(null); }
 
   function handleType(type: "BOARD" | "HARDWARE") {
     setF({ type, unit: type === "BOARD" ? "PCS" : undefined, thicknessMm: undefined, edgingSize: undefined });
@@ -303,6 +304,13 @@ export default function ProductsPage() {
     if (Number(f.priceLower) > Number(f.priceUpper)) {
       setMsg({ kind: "err", text: t("Price (low) cannot be above Price (high)") }); return;
     }
+    // Code (SKU) is unique; an unchanged copy keeps the original's code
+    const sku = f.sku?.trim().toLowerCase();
+    const clash = sku ? rows.find((r) => r.id !== editId && r.sku?.trim().toLowerCase() === sku) : undefined;
+    if (clash) {
+      setMsg({ kind: "err", text: `${t("Code")} ${f.sku} ${t("already used by")} ${clash.fullName || clash.name} - ${t("change a field or edit the Code")}` });
+      return;
+    }
     const body = {
       ...f,
       thicknessMm: isBoard && !isEdging ? f.thicknessMm : undefined,
@@ -324,7 +332,14 @@ export default function ProductsPage() {
     catch (e: any) { setMsg({ kind: "err", text: e.message }); }
   }
 
-  function edit(p: Product) { setF(p); setEditId(p.id); setManualSku(false); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function edit(p: Product) { setF(p); setEditId(p.id); setManualSku(false); setCopyOf(null); setMsg(null); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+  // start a NEW product prefilled from an existing one; Code and Full Name re-generate as fields change
+  function copy(p: Product) {
+    const { id: _id, active: _a, productGroup: _g, ...rest } = p;
+    setF(rest); setEditId(null); setManualSku(false); setCopyOf(p.fullName || p.name); setMsg(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   const supplierName = useMemo(() => new Map(suppliers.map((s) => [s.id, s.name])), [suppliers]);
 
@@ -355,6 +370,9 @@ export default function ProductsPage() {
       <h1 className="page-title mb-5">{t("Products")}</h1>
 
       <div className="card p-5 mb-6">
+        {copyOf && (
+          <div className="note mb-4">{t("Copy of")} <b>{copyOf}</b> - {t("change what differs, then Add")}</div>
+        )}
         {isBoard ? (
           <div className="form-grid cols-3">
             {/* row 1 */}
@@ -501,7 +519,7 @@ export default function ProductsPage() {
 
         <div className="mt-4 flex items-center gap-2">
           <button className="btn" onClick={save}>{editId ? t("Update") : t("Add")}</button>
-          {editId && <button className="btn-ghost" onClick={reset}>{t("Cancel")}</button>}
+          {(editId || copyOf) && <button className="btn-ghost" onClick={reset}>{t("Cancel")}</button>}
           {msg && <span className="text-sm ml-1" style={{ color: msg.kind === "ok" ? "#2f6f5e" : "#b3261e" }}>{msg.text}</span>}
         </div>
       </div>
@@ -540,6 +558,8 @@ export default function ProductsPage() {
                 <td className="text-sm muted">{p.comments ?? "—"}</td>
                 <td className="text-right whitespace-nowrap">
                   <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(p)}><EditIcon /></button>
+                  <button className="btn-icon btn-icon-edit mr-1" title={t("Copy as new product")} aria-label={t("Copy as new product")}
+                    onClick={() => copy(p)}><CopyIcon /></button>
                   <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(p.id)}><TrashIcon /></button>
                 </td>
               </tr>

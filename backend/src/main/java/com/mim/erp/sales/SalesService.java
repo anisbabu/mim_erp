@@ -548,6 +548,14 @@ public class SalesService {
             doc.add(slipMeta(kit, bn, invFacts, custOpt.orElse(null), so.getSalespersonId(), so.getShopId(),
                 null, delivery.mobile(), delivery.address()));
 
+            // every challan this invoice covers, just above the lines: "Against Ref: 2910, 2911, 2912"
+            String dcNos = challans.findBySoIdWithLines(soId).stream()
+                .filter(dc -> !"CANCELLED".equals(dc.getStatus()))
+                .map(DeliveryChallan::getDcNo).filter(Objects::nonNull).distinct().sorted()
+                .map(SalesService::shortDocNo).collect(Collectors.joining(", "));
+            if (!dcNos.isEmpty())
+                doc.add(kit.para(kit.l("Against Ref") + ": " + dcNos, true, false, 9, Color.BLACK, Element.ALIGN_LEFT, 0, 4));
+
             // line items: # | Product | Qty | Unit Price | Total (discount, if any, is one row under the lines)
             Color teal = PdfKit.TINT;
             PdfPTable tbl = new PdfPTable(5);
@@ -1262,6 +1270,12 @@ public class SalesService {
      * customer | salesperson name - mobile, their Bangla lines, customer contact, any extra facts, and the
      * delivery address across the full width. {@code docFacts}/{@code extra} are {label, value} pairs.
      */
+    /** "DC-2026-002910" -> "2910"; any other format is returned unchanged. */
+    static String shortDocNo(String no) {
+        var m = java.util.regex.Pattern.compile("^[A-Z]+-\\d{4}-(\\d+)$").matcher(no);
+        return m.matches() ? String.valueOf(Long.parseLong(m.group(1))) : no;
+    }
+
     /**
      * Slip header, the same on invoice, challan and token:
      *   left column  — document no, date, customer (Bangla name under the English one)

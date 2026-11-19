@@ -4,12 +4,15 @@
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
-/** Format ISO date string "yyyy-mm-dd" → "dd/mm/yyyy" for display. */
+/**
+ * Format an ISO date "yyyy-mm-dd" → "dd/mm/yyyy" for display.
+ * A timestamp ("yyyy-mm-dd hh:mm:ss" or "yyyy-mm-ddThh:mm:ss…") keeps its time: "dd/mm/yyyy hh:mm:ss".
+ */
 export function fmtDate(d: string | null | undefined): string {
   if (!d) return "—";
-  const parts = d.split("-");
-  if (parts.length !== 3) return d;
-  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}(?::\d{2})?))?/.exec(String(d));
+  if (!m) return String(d);
+  return `${m[3]}/${m[2]}/${m[1]}${m[4] ? ` ${m[4]}` : ""}`;
 }
 
 let authToken: string | null = null;
@@ -75,7 +78,7 @@ export type Product = {
   supplierId?: string; category?: string; productGroup?: string; productGroupId?: string; supplierTag?: string; edgingSize?: string; color?: string; side?: string; fullName?: string; comments?: string; active?: boolean;
 };
 export type Warehouse = { id: string; code: string; name: string; nameBn?: string; branch?: string; address?: string };
-export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; address?: string; groupId?: string; creditDays?: number };
+export type Supplier  = { id: string; code: string; name: string; nameBn?: string; mobile?: string; mobile2?: string; mobile3?: string; address?: string; groupId?: string; creditDays?: number };
 export type ProductGroup = { id: string; name: string };
 export type SupplierGroup = { id: string; code: string; name: string; nameBn?: string };
 export type Shop      = {
@@ -293,8 +296,8 @@ export type ChequeEvent = {
 
 export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
 export type Me = { token?: string; username: string; fullName?: string; role: Role; shopIds: string[] };
-export type DemoInvoiceRow = { id: string; code: string; demo_date: string; customer_name?: string; customer_mobile?: string; salesperson?: string; total: number; so_id?: string | null; so_no?: string | null; created_at: string };
-export type DemoInvoiceSaved = { id: string; code: string; demoDate: string; request: { customerId?: string; customerName?: string; customerMobile?: string; customerAddress?: string; salesperson?: string; salespersonBn?: string; note?: string; lines: { productId?: string; name: string; unit?: string; qty: number; unitPrice: number; discount: number }[] } };
+export type DemoInvoiceRow = { id: string; code: string; demo_date: string; customer_name?: string; customer_mobile?: string; salesperson?: string; total: number; so_id?: string | null; so_no?: string | null; created_at: string; doc_type?: "DEMO" | "QUOTATION" };
+export type DemoInvoiceSaved = { id: string; code: string; demoDate: string; request: { customerId?: string; customerName?: string; customerMobile?: string; customerAddress?: string; salesperson?: string; salespersonBn?: string; note?: string; docType?: "DEMO" | "QUOTATION"; lines:{ productId?: string; name: string; unit?: string; qty: number; unitPrice: number; discount: number }[] } };
 export type AuditAction = "create" | "update" | "delete" | "restore" | "role_change" | "login" | "logout" | "login_failed";
 export type AuditEntry = {
   id: number; at: string; userId?: string | null; login: string; userName: string; userRole: string;

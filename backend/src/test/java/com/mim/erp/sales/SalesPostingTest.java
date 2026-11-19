@@ -136,6 +136,30 @@ class SalesPostingTest {
         assertBillsMatchLedger(c);
     }
 
+    /** Like a partial goods receipt: 10 ordered, 4 taken at order time, then 2, then the last 4. */
+    @Test
+    void partTakenAtOrderLeavesTheBalancePendingOnTheSameLine() {
+        UUID c = customer();
+        var r = order(c, "CREDIT", null,
+            new SalesDtos.Allocation(product, warehouse, bd("10"), bd("100"), null, bd("4")));
+        String pending = "select qty_pending from so_line where so_id = ?";
+        String status = "select status from sales_order where id = ?";
+
+        assertThat(jdbc.queryForObject(pending, BigDecimal.class, r.soId())).isEqualByComparingTo("6");
+        assertThat(jdbc.queryForObject(status, String.class, r.soId())).isEqualTo("PARTIALLY_DELIVERED");
+        assertThat(revenue(r.soId())).isEqualByComparingTo("400");
+
+        fulfil(r.soId(), "2");
+        assertThat(jdbc.queryForObject(pending, BigDecimal.class, r.soId())).isEqualByComparingTo("4");
+        assertThat(revenue(r.soId())).isEqualByComparingTo("600");
+
+        fulfil(r.soId(), "4");
+        assertThat(jdbc.queryForObject(pending, BigDecimal.class, r.soId())).isEqualByComparingTo("0");
+        assertThat(jdbc.queryForObject(status, String.class, r.soId())).isEqualTo("DELIVERED");
+        assertThat(revenue(r.soId())).isEqualByComparingTo("1000");
+        assertBillsMatchLedger(c);
+    }
+
     @Test
     void pendingCreditOrdersCountAgainstTheLimit() {
         UUID c = customer();

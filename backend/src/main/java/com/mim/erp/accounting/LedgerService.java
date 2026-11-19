@@ -44,7 +44,7 @@ public class LedgerService {
             AccountGroup g = groups.findByCode("SC").orElseThrow(() -> new ApiException("Sundry Creditors group missing"));
             Account a = new Account();
             a.setCode("SC-" + s.getCode());
-            a.setName(s.getName());
+            a.setName(s.getName() == null ? null : s.getName().toUpperCase(java.util.Locale.ROOT));
             a.setNameBn(s.getNameBn());
             a.setType("LIABILITY");
             a.setGroupId(g.getId());

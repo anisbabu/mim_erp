@@ -1,4 +1,5 @@
 "use client";
+import DateInput from "@/components/DateInput";
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import Drawer from "@/components/Drawer";
@@ -96,9 +97,9 @@ export default function SupplierBillsPage() {
             <input className="inp" autoFocus value={f.billNo} onChange={(e) => setF({ ...f, billNo: e.target.value })} />
             <div className="h-4 leading-4 text-[11px]" style={{ color: "#b91c1c" }}>{err}</div></div>
           <div className="field"><label>{t("Bill date")}</label>
-            <input className="inp" type="date" max={today()} value={f.billDate} onChange={(e) => setF({ ...f, billDate: e.target.value })} /></div>
+            <DateInput className="inp" max={today()} value={f.billDate} onChange={(e) => setF({ ...f, billDate: e.target.value })} /></div>
           <div className="field"><label>{t("Due date")}</label>
-            <input className="inp" type="date" min={f.billDate || undefined} value={f.dueDate} onChange={(e) => setF({ ...f, dueDate: e.target.value })} />
+            <DateInput className="inp" min={f.billDate || undefined} value={f.dueDate} onChange={(e) => setF({ ...f, dueDate: e.target.value })} />
             <div className="h-4 leading-4 text-[11px] muted">{t("Blank = bill date + supplier credit days")}</div></div>
           <p className="text-[12px] muted">{t("Amounts are already posted and can't change here. Use a purchase return for goods sent back.")}</p>
           <button type="submit" hidden />

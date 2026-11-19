@@ -62,6 +62,7 @@ public class MasterController {
     @PostMapping("/suppliers")
     public Supplier saveSupplier(@RequestBody Supplier s) {
         if (s.getCode() == null || s.getCode().isBlank()) s.setCode(nextSupplierCode());
+        s.setName(upper(s.getName()));
         return suppliers.save(s);
     }
 
@@ -76,7 +77,7 @@ public class MasterController {
         return String.format("SUP-%04d", max + 1);
     }
     @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
-    @PostMapping("/supplier-groups") public SupplierGroup saveSupplierGroup(@RequestBody SupplierGroup g) { return supplierGroups.save(g); }
+    @PostMapping("/supplier-groups") public SupplierGroup saveSupplierGroup(@RequestBody SupplierGroup g) { g.setName(upper(g.getName())); return supplierGroups.save(g); }
     @CacheEvict(cacheNames = MasterCache.NAME, allEntries = true)
     @PostMapping("/customers") public Customer  saveCustomer(@RequestBody Customer c) {
         if ("PARTY".equals(c.getType()) && c.getCreditLimit() == null)
@@ -202,8 +203,9 @@ public class MasterController {
     @PutMapping("/suppliers/{id}")
     public Supplier updateSupplier(@PathVariable UUID id, @RequestBody Supplier in) {
         Supplier s = suppliers.findById(id).orElseThrow(() -> new ApiException("Supplier not found"));
-        s.setCode(in.getCode()); s.setName(in.getName()); s.setNameBn(keepBn(in.getNameBn(), s.getNameBn()));
-        s.setMobile(in.getMobile()); s.setAddress(in.getAddress()); s.setGroupId(in.getGroupId());
+        s.setCode(in.getCode()); s.setName(upper(in.getName())); s.setNameBn(keepBn(in.getNameBn(), s.getNameBn()));
+        s.setMobile(in.getMobile()); s.setMobile2(in.getMobile2()); s.setMobile3(in.getMobile3());
+        s.setAddress(in.getAddress()); s.setGroupId(in.getGroupId());
         if (in.getCreditDays() < 0) throw new ApiException("Credit days can't be negative");
         s.setCreditDays(in.getCreditDays());
         return suppliers.save(s);
@@ -213,7 +215,7 @@ public class MasterController {
     @PutMapping("/supplier-groups/{id}")
     public SupplierGroup updateSupplierGroup(@PathVariable UUID id, @RequestBody SupplierGroup in) {
         SupplierGroup g = supplierGroups.findById(id).orElseThrow(() -> new ApiException("Supplier group not found"));
-        g.setCode(in.getCode()); g.setName(in.getName()); g.setNameBn(keepBn(in.getNameBn(), g.getNameBn()));
+        g.setCode(in.getCode()); g.setName(upper(in.getName())); g.setNameBn(keepBn(in.getNameBn(), g.getNameBn()));
         return supplierGroups.save(g);
     }
 
