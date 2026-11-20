@@ -111,7 +111,7 @@ html.dark {
 @layer components {
 
   /* ── Field / label ──────────────────────────────────────────────────────── */
-  .field { @apply flex flex-col gap-0 min-w-0; }
+  .field { @apply flex flex-col gap-1 min-w-0; }
   .field > label, .lbl {
     @apply block text-[12px] font-semibold leading-4 h-4 w-full;
     color: var(--text);
@@ -120,7 +120,7 @@ html.dark {
 
   /* ── Inputs ─────────────────────────────────────────────────────────────── */
   .inp {
-    @apply w-full h-6 box-border px-1.5 text-[13px] transition-colors;
+    @apply w-full h-8 box-border px-1.5 text-[13px] transition-colors;
     background: transparent;
     color: var(--text);
     border: 0;
@@ -171,14 +171,14 @@ html.dark {
   .inp.num, .num { @apply text-right tabular-nums; }
 
   /* ── Form grid ──────────────────────────────────────────────────────────── */
-  .form-grid { @apply grid gap-x-3 gap-y-1 items-start; }
+  .form-grid { @apply grid gap-x-3 gap-y-3 items-start; }
   .form-grid.cols-2 { @apply grid-cols-1 sm:grid-cols-2; }
   .form-grid.cols-3 { @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-3; }
   .form-grid.cols-4 { @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-4; }
 
   /* ── Buttons ────────────────────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center h-7 border px-3 text-[13px] font-medium text-white transition-colors disabled:opacity-50;
+    @apply inline-flex items-center justify-center h-8 border px-3 text-[13px] font-medium text-white transition-colors disabled:opacity-50;
     background: var(--brand);
     border-color: var(--brand);
     border-radius: 3px;
@@ -186,14 +186,14 @@ html.dark {
   .btn:hover:not(:disabled) { background: var(--brand-dark); border-color: var(--brand-dark); }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center h-7 border px-3 text-[13px] font-medium transition-colors disabled:opacity-50;
+    @apply inline-flex items-center justify-center h-8 border px-3 text-[13px] font-medium transition-colors disabled:opacity-50;
     background: var(--btn2-bg);
     color: var(--text);
     border-color: var(--btn2-bg);
     border-radius: 3px;
   }
   .btn-ghost:hover:not(:disabled) { background: var(--btn2-hover); border-color: var(--btn2-hover); }
-  .btn-sm { @apply h-6 px-2 text-[12px]; }
+  .btn-sm { @apply h-7 px-2.5 text-[12px]; }
   .btn-danger-ghost { color: #dc2626; background: transparent; border-color: #fca5a5; }
   .btn-danger-ghost:hover { background: #fef2f2; }
   html.dark .btn-danger-ghost { color: #fca5a5; border-color: #4c0519; }
@@ -201,7 +201,7 @@ html.dark {
 
   /* ── Icon-only action buttons ───────────────────────────────────────────── */
   .btn-icon {
-    @apply inline-flex items-center justify-center h-7 w-7 rounded transition-colors;
+    @apply inline-flex items-center justify-center h-8 w-8 rounded transition-colors;
     border: 1px solid transparent;
   }
   .btn-icon-edit { color: var(--action); }
@@ -222,12 +222,12 @@ html.dark {
   }
   .muted { color: var(--muted); }
   .page-title { @apply text-[18px] leading-6 font-medium; color: var(--text); }
-  .section-label { @apply text-[10px] uppercase tracking-wide font-bold; color: var(--brand); border-left: 2px solid var(--brand); padding-left: 6px; }
+  .section-label { @apply text-[10px] uppercase tracking-widest font-bold; color: var(--brand); border-left: 2px solid var(--brand); padding-left: 6px; }
 
   /* ── Tables ─────────────────────────────────────────────────────────────── */
   .tbl { @apply w-full border-collapse; font-size: 13px; }
   .tbl th {
-    @apply font-semibold px-2.5 py-1 border-b whitespace-nowrap text-[13px];
+    @apply font-semibold px-3 py-2 border-b whitespace-nowrap text-[13px];
     text-align: center;
     color: var(--text);
     border-color: var(--border);
@@ -235,7 +235,7 @@ html.dark {
     vertical-align: middle;
   }
   .tbl td {
-    @apply px-2.5 py-0.5 border-b align-middle;
+    @apply px-3 py-1.5 border-b align-middle;
     border-color: var(--border-soft);
     color: var(--text);
   }
@@ -250,7 +250,7 @@ html.dark {
   .table-wrap { @apply overflow-x-auto; }
 
   /* ── Feedback ───────────────────────────────────────────────────────────── */
-  .note { @apply text-[13px] rounded px-3 py-1.5; }
+  .note { @apply text-[13px] rounded px-3 py-2; }
   .note-ok { background: var(--note-ok-bg); color: var(--note-ok-fg); }
   .note-err { background: var(--note-err-bg); color: var(--note-err-fg); }
 
@@ -306,11 +306,11 @@ html.dark {
 /* ── Financial statements (IAS 1 style) ─────────────────────────────────── */
 .stmt { width: 100%; border-collapse: collapse; font-size: 13px; }
 .stmt th {
-  padding: 8px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0;
+  padding: 8px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   color: var(--muted); border-bottom: 2px solid var(--text); text-align: right; white-space: nowrap;
 }
 .stmt th:first-child { text-align: left; }
-.stmt td { padding: 3px 12px; border-bottom: 1px solid var(--border-soft); color: var(--text); }
+.stmt td { padding: 5px 12px; border-bottom: 1px solid var(--border-soft); color: var(--text); }
 .stmt td.n, .stmt th.n { text-align: right; font-variant-numeric: tabular-nums; width: 150px; white-space: nowrap; }
 .stmt td.ref, .stmt th.ref { width: 52px; text-align: center; color: var(--muted); font-size: 11px; }
 .stmt tr.h td { font-weight: 700; padding-top: 14px; border-bottom: 0; }
@@ -323,12 +323,12 @@ html.dark {
 /* wide report tables: numbers right-aligned in fixed columns, double rule under grand totals */
 .rpt { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .rpt th {
-  padding: 7px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0;
+  padding: 7px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
   color: var(--muted); background: var(--tbl-th-bg); border-bottom: 1px solid var(--border); white-space: nowrap;
 }
 .rpt th.n, .rpt td.n { text-align: right; font-variant-numeric: tabular-nums; }
 .rpt th.l, .rpt td.l { text-align: left; }
-.rpt td { padding: 3px 10px; border-bottom: 1px solid var(--border-soft); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rpt td { padding: 5px 10px; border-bottom: 1px solid var(--border-soft); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rpt tbody tr:hover td { background: var(--tbl-tr-hover); }
 .rpt tfoot td { font-weight: 700; border-top: 1px solid var(--text); border-bottom: 3px double var(--text); background: transparent; padding: 7px 10px; }
 .rpt .grp td { font-weight: 700; background: var(--tbl-tfoot-bg); border-bottom: 1px solid var(--border); }
@@ -357,9 +357,9 @@ html.dark .status-info { background: #0c4a6e; color: #bae6fd; }
 }
 
 /* ── Top navbar + app switcher ──────────────────────────────────────────── */
-.o-nav { background: var(--nav-bg); color: #fff; height: 36px; }
+.o-nav { background: var(--nav-bg); color: #fff; height: 46px; }
 .o-nav-btn {
-  display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 9px;
+  display: inline-flex; align-items: center; gap: 4px; height: 46px; padding: 0 12px;
   font-size: 13px; font-weight: 400; color: rgb(255 255 255 / 0.9); white-space: nowrap;
   transition: background-color 80ms ease;
 }
@@ -369,19 +369,19 @@ html.dark .status-info { background: #0c4a6e; color: #bae6fd; }
 .o-nav-scroll { overflow-x: auto; scrollbar-width: none; }
 .o-nav-scroll::-webkit-scrollbar { display: none; }
 .o-menu {
-  position: absolute; top: 36px; z-index: 60; min-width: 190px; padding: 4px 0;
+  position: absolute; top: 46px; z-index: 60; min-width: 190px; padding: 4px 0;
   background: var(--surface); color: var(--text);
   border: 1px solid var(--border); border-top: 0; border-radius: 0 0 4px 4px;
   box-shadow: 0 6px 16px rgb(0 0 0 / 0.14);
 }
 .o-menu-item {
-  display: flex; align-items: center; gap: 8px; width: 100%; padding: 3px 12px;
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 16px;
   font-size: 13px; color: var(--text); text-align: left; white-space: nowrap;
 }
 .o-menu-item:hover { background: var(--tbl-tr-hover); }
 .o-menu-item.is-active { font-weight: 600; color: var(--brand); background: var(--brand-soft); }
 html.dark .o-menu-item.is-active { color: #fff; }
-.o-menu-head { padding: 8px 16px 2px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .01em; color: var(--muted); }
+.o-menu-head { padding: 8px 16px 2px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .o-apps { display: grid; grid-template-columns: repeat(3, 96px); gap: 4px; padding: 10px; }
 .o-app {
   display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px;

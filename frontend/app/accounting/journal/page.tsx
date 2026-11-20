@@ -78,7 +78,7 @@ export default function JournalPage() {
       <PageHeader crumbs={["Accounting", "Transactions"]} title={t("Journal entry")}
         subtitle={t("Post a manual double-entry journal. Debits must equal credits.")} />
 
-      <div className="card p-3 mb-6">
+      <div className="card p-5 mb-6">
         <div className="form-grid cols-2 mb-4">
           <div className="field"><label>{t("Date")}</label>
             <DateInput className="inp" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} /></div>
