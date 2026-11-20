@@ -299,7 +299,7 @@ export default function ChequesPage() {
         </div>
       )}
 
-      <div className="card p-5 mb-6">
+      <div className="card p-3 mb-6">
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Customer")}</label>
             <SearchSelect options={customerOpts} value={customerId} onChange={setCustomerId}

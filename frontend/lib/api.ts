@@ -324,9 +324,25 @@ async function pdfBlob(path: string): Promise<Blob> {
   return res.blob();
 }
 
+// The product list is large (several MB on production): download it once and share it between pages
+// for a few minutes. Any product save/update/delete drops the copy so the next read is fresh.
+const PRODUCTS_TTL_MS = 5 * 60 * 1000;
+let productsCache: { at: number; p: Promise<Product[]> } | null = null;
+function cachedProducts(): Promise<Product[]> {
+  if (productsCache && Date.now() - productsCache.at < PRODUCTS_TTL_MS) return productsCache.p;
+  const p = api.get<Product[]>("/api/master/products");
+  productsCache = { at: Date.now(), p };
+  p.catch(() => { if (productsCache?.p === p) productsCache = null; });   // never keep a failed load
+  return p;
+}
+function dropProducts<T>(p: Promise<T>): Promise<T> {
+  productsCache = null;
+  return p.finally(() => { productsCache = null; });
+}
+
 export const endpoints = {
   // master
-  products:   () => api.get<Product[]>("/api/master/products"),
+  products:   () => cachedProducts(),
   productGroups: () => api.get<ProductGroup[]>("/api/master/product-groups"),
   createProductGroup: (name: string) => api.post<ProductGroup>("/api/master/product-groups", { name }),
   warehouses: () => api.get<Warehouse[]>("/api/master/warehouses"),
@@ -334,19 +350,19 @@ export const endpoints = {
   supplierGroups: () => api.get<SupplierGroup[]>("/api/master/supplier-groups"),
   shops:      () => api.get<Shop[]>("/api/master/shops"),
   customers:  () => api.get<Customer[]>("/api/master/customers"),
-  saveProduct:   (b: Partial<Product>)   => api.post<Product>("/api/master/products", b),
+  saveProduct:   (b: Partial<Product>)   => dropProducts(api.post<Product>("/api/master/products", b)),
   saveSupplier:  (b: Partial<Supplier>)  => api.post<Supplier>("/api/master/suppliers", b),
   createSupplierGroup: (b: Partial<SupplierGroup>) => api.post<SupplierGroup>("/api/master/supplier-groups", b),
   saveCustomer:  (b: Partial<Customer>)  => api.post<Customer>("/api/master/customers", b),
   saveWarehouse: (b: Partial<Warehouse>) => api.post<Warehouse>("/api/master/warehouses", b),
   saveShop:      (b: Partial<Shop>)      => api.post<Shop>("/api/master/shops", b),
-  updateProduct:   (id: string, b: Partial<Product>)   => api.put<Product>(`/api/master/products/${id}`, b),
+  updateProduct:   (id: string, b: Partial<Product>)   => dropProducts(api.put<Product>(`/api/master/products/${id}`, b)),
   updateSupplier:  (id: string, b: Partial<Supplier>)  => api.put<Supplier>(`/api/master/suppliers/${id}`, b),
   updateSupplierGroup: (id: string, b: Partial<SupplierGroup>) => api.put<SupplierGroup>(`/api/master/supplier-groups/${id}`, b),
   updateCustomer:  (id: string, b: Partial<Customer>)  => api.put<Customer>(`/api/master/customers/${id}`, b),
   updateWarehouse: (id: string, b: Partial<Warehouse>) => api.put<Warehouse>(`/api/master/warehouses/${id}`, b),
   updateShop:      (id: string, b: Partial<Shop>)      => api.put<Shop>(`/api/master/shops/${id}`, b),
-  deleteProduct:   (id: string) => api.del(`/api/master/products/${id}`),
+  deleteProduct:   (id: string) => dropProducts(api.del(`/api/master/products/${id}`)),
   deleteSupplier:  (id: string) => api.del(`/api/master/suppliers/${id}`),
   deleteSupplierGroup: (id: string) => api.del(`/api/master/supplier-groups/${id}`),
   deleteCustomer:  (id: string) => api.del(`/api/master/customers/${id}`),

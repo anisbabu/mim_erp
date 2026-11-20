@@ -144,7 +144,7 @@ export default function PaymentsPage() {
       </div>
 
       {/* entry */}
-      <div className="card p-5 mb-6">
+      <div className="card p-3 mb-6">
         <div className="section-label mb-3">{isPay ? t("New payment voucher") : t("New receipt voucher")}</div>
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}>

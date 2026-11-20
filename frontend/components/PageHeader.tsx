@@ -12,7 +12,7 @@ export default function PageHeader({ title, subtitle, crumbs, actions }: {
 }) {
   const { t } = useI18n();
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3" style={{ borderBottom: "1px solid var(--border)" }}>
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-2 pb-1.5" style={{ borderBottom: "1px solid var(--border)" }}>
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-1.5">
           {crumbs?.map((c) => (

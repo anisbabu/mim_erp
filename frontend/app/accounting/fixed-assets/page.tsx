@@ -99,7 +99,7 @@ export default function FixedAssetsPage() {
       </div>
 
       {disp && (
-        <div className="card p-5 mb-6">
+        <div className="card p-3 mb-6">
           <div className="section-label mb-3">{t("Dispose of asset")}</div>
           <div className="form-grid cols-2 mb-3">
             <div className="field"><label>{t("Date")}</label>
@@ -120,7 +120,7 @@ export default function FixedAssetsPage() {
         </div>
       )}
 
-      <div className="card p-5">
+      <div className="card p-3">
         <div className="section-label mb-3">{t("Register a new asset")}</div>
         <div className="form-grid cols-2 gap-x-4 gap-y-4">
           <div className="field"><label>{t("Asset name")}</label>

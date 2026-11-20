@@ -67,7 +67,7 @@ export default function EmployeesPage() {
     <div>
       <h1 className="page-title mb-5">{t("Employees")}</h1>
 
-      <div className="card p-5 mb-6">
+      <div className="card p-3 mb-6">
         {/* identity */}
         <div className="form-grid cols-3">
           <div className="field"><label>{t("Code")}</label>
