@@ -377,7 +377,7 @@ export default function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="flex-1 px-3 md:px-4 py-2 max-w-6xl w-full mx-auto">{children}</main>
+      <main className="flex-1 px-4 md:px-6 py-4 md:py-5 max-w-6xl w-full mx-auto">{children}</main>
     </div>
   );
 }

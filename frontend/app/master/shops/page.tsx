@@ -46,7 +46,7 @@ export default function ShopsPage() {
     <div>
       <h1 className="page-title mb-5">{t("Shops")}</h1>
 
-      <div className="card p-3 mb-6">
+      <div className="card p-5 mb-6">
         <div className="form-grid cols-3">
           <div className="field"><label>{t("Code")}</label>
             <input className="inp" value={f.code ?? ""} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>

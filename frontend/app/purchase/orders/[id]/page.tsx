@@ -48,7 +48,7 @@ export default function PoDetailsPage() {
         <Link href="/purchase/orders" className="btn-ghost btn-sm">{t("← Back to list")}</Link>
       </div>
 
-      <div className="card p-3 mb-5">
+      <div className="card p-5 mb-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 text-sm">
           <div><span className="muted">{t("Supplier")}:</span> <span className="font-medium">{data.supplierName}</span></div>
           <div><span className="muted">{t("Date")}:</span> <span>{fmtDate(data.orderDate)}</span></div>

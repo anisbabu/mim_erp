@@ -369,7 +369,7 @@ export default function ProductsPage() {
     <div>
       <h1 className="page-title mb-5">{t("Products")}</h1>
 
-      <div className="card p-3 mb-6">
+      <div className="card p-5 mb-6">
         {copyOf && (
           <div className="note mb-4">{t("Copy of")} <b>{copyOf}</b> - {t("change what differs, then Add")}</div>
         )}

@@ -90,7 +90,7 @@ export default function PurchaseReturnsPage() {
         actions={<button className="btn" onClick={() => setOpen((v) => !v)}>{open ? t("Close") : t("New return")}</button>} />
 
       {open && (
-        <div className="card p-3 mb-6">
+        <div className="card p-5 mb-6">
           <div className="section-label mb-3">{t("New return")}</div>
           <div className="form-grid cols-4">
             <div className="field" style={{ gridColumn: "span 2" }}>

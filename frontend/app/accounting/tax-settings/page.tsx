@@ -34,7 +34,7 @@ export default function TaxSettingsPage() {
         subtitle={t("Selling prices include VAT. When on, every sale splits its VAT into Output VAT (2100).")}
         actions={<button className="btn" onClick={save} disabled={busy}>{busy ? "…" : t("Save")}</button>} />
 
-      <div className="card p-3" style={{ maxWidth: 640 }}>
+      <div className="card p-5" style={{ maxWidth: 640 }}>
         <div className="form-grid cols-2">
           <div className="field"><label>{t("Charge VAT on sales")}</label>
             <select className="inp" value={enabled ? "on" : "off"} onChange={(e) => setEnabled(e.target.value === "on")}>
