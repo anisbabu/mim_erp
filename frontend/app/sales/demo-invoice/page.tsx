@@ -144,7 +144,7 @@ export default function DemoInvoicePage() {
 
       <QuickCustomer open={newCust} onClose={() => setNewCust(false)} existing={customers}
         onCreated={(c) => { setCustomers((cs) => [...cs, c]); setCustId(c.id); setName(dn(c)); setMobile(c.mobile ?? ""); setAddress(c.address ?? ""); }} />
-      <div className="card p-5 mb-5">
+      <div className="card p-3 mb-5">
         {/* what the PDF is titled: one of the two, never both */}
         <div className="flex items-center gap-5 mb-4" role="radiogroup" aria-label={t("Print as")}>
           <span className="text-[13px] font-medium">{t("Print as")}</span>
@@ -229,7 +229,7 @@ export default function DemoInvoicePage() {
       <div className="flex flex-wrap items-center gap-3 mb-5">
         <button className="btn-ghost" onClick={() => setRows((rs) => [...rs, blank()])}>+ {t("Add item")}</button>
       </div>
-      <div className="card p-5">
+      <div className="card p-3">
         <div className="field"><label>{t("Note (optional)")}</label>
           <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} /></div>
         {err && <div className="note note-err mt-4">{err}</div>}

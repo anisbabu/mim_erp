@@ -48,7 +48,7 @@ function ChequeWatch() {
     (pick === "overdue" ? c.maturityDate < today : pick ? c.maturityDate === pick : true));
 
   return (
-    <div className="card p-5 mb-6">
+    <div className="card p-3 mb-6">
       <div className="flex items-baseline justify-between mb-3">
         <div>
           <div className="font-medium">{t("Cheque maturity")}</div>

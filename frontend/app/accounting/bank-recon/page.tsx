@@ -59,7 +59,7 @@ export default function BankReconPage() {
       <PageHeader crumbs={["Accounting", "Transactions"]} title={t("Bank reconciliation")}
         subtitle={t("Tick the ledger lines that appear on the bank statement. Save when the difference is zero.")} />
 
-      <div className="card p-5 mb-5">
+      <div className="card p-3 mb-5">
         <div className="form-grid cols-2 gap-x-4 gap-y-4" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
           <div className="field"><label>{t("Bank ledger")}</label>
             <select className="inp" value={bankId} onChange={(e) => setBankId(e.target.value)}>
@@ -101,7 +101,7 @@ export default function BankReconPage() {
             </table>
           </div>
 
-          <div className="card p-5 mb-6">
+          <div className="card p-3 mb-6">
             <table className="stmt" style={{ maxWidth: 520 }}>
               <tbody>
                 <tr className="l"><td>{t("Book balance on statement date")}</td><td className="n">{fmtMoney(open.bookBalance, "0.00")}</td></tr>

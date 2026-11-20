@@ -100,7 +100,7 @@ export default function SuppliersPage() {
   return (
     <div>
       <h1 className="page-title mb-5">{t("Suppliers")}</h1>
-      <div className="card p-5 mb-6">
+      <div className="card p-3 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <div className="section-label">{editId ? t("Edit supplier") : t("New supplier")}</div>
           <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export default function SuppliersPage() {
       </div>
       <Pager page={pageClamped} totalPages={totalPages} onChange={setPage} t={t} />
 
-      <div className="card p-5 mt-8 mb-6">
+      <div className="card p-3 mt-8 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
           <div className="section-label">{editGroupId ? t("Edit group") : t("New group")}</div>
           <div className="flex items-center gap-2">

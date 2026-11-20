@@ -55,7 +55,7 @@ export default function ContraPage() {
       <PageHeader crumbs={["Accounting", "Transactions"]} title={t("Contra voucher")}
         subtitle={t("Move money between our own cash and bank ledgers: deposits, withdrawals, bank to bank.")} />
 
-      <div className="card p-5 mb-5" onKeyDown={(e) => { if (e.key === "Enter" && !busy) submit(); }}>
+      <div className="card p-3 mb-5" onKeyDown={(e) => { if (e.key === "Enter" && !busy) submit(); }}>
         <div className="form-grid cols-3">
           <div className="field"><label>{t("Date")} *</label>
             <DateInput className="inp" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
