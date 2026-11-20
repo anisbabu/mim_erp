@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/lib/i18n";
 
@@ -37,6 +38,7 @@ function editDistance(a: string, b: string): number {
 
 // Searchable dropdown ("select to search"). Keyboard + click, filters as you type.
 // Dropdown is portalled to document.body so it is never clipped by overflow:auto parents.
+// The list is virtualized: only the rows in view are in the DOM, so thousands of products open instantly.
 export default function SearchSelect({
   options, value, onChange, placeholder: placeholderProp, disabled, className,
 }: {
@@ -56,11 +58,20 @@ export default function SearchSelect({
   const boxRef = useRef<HTMLDivElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const selected = options.find((o) => o.value === value) || null;
+  const selected = useMemo(() => options.find((o) => o.value === value) || null, [options, value]);
+
+  // split every option into search words once per options list, not on every keystroke
+  const tokens = useMemo(
+    () => options.map((o) => searchTokens(`${o.label} ${o.sublabel ?? ""} ${o.keywords ?? ""}`)),
+    [options]);
+
+  // typing updates the box at once; the (heavier) filtering follows a moment later
+  const dq = useDeferredValue(q);
 
   const filtered = useMemo(() => {
-    const words = searchTokens(q);
+    const words = searchTokens(dq);
     if (words.length === 0) return options;
     // every typed word must start some word of the option (label, sublabel or keywords), in any order:
     // "18 ahmed ply" / "12mela" / "12 mela" - numbers match whole-number starts, so "12" never hits SKU "P5126"
@@ -69,16 +80,30 @@ export default function SearchSelect({
     //   2 number prefix - "12" also finds 128 / 1200
     //   3 typo - one-letter slip in a 4+ letter word ("ahamed" finds "Ahmed"); never for numbers
     const exact: Option[] = [], numPrefix: Option[] = [], fuzzy: Option[] = [];
-    for (const o of options) {
-      const toks = searchTokens(`${o.label} ${o.sublabel ?? ""} ${o.keywords ?? ""}`);
+    options.forEach((o, i) => {
+      const toks = tokens[i];
       const hit = (w: string) => toks.some((tk) => tk.startsWith(w));
       const hitExact = (w: string) => (isNum(w) ? toks.includes(w) : hit(w));
       if (words.every(hitExact)) exact.push(o);
       else if (words.every(hit)) numPrefix.push(o);
       else if (words.every((w) => hit(w) || (w.length >= 4 && !/\p{N}/u.test(w) && toks.some((tk) => nearPrefix(w, tk))))) fuzzy.push(o);
-    }
+    });
     return [...exact, ...numPrefix, ...fuzzy];
-  }, [q, options]);
+  }, [dq, options, tokens]);
+
+  const hic = Math.min(hi, Math.max(filtered.length - 1, 0));
+
+  const virt = useVirtualizer({
+    count: open ? filtered.length : 0,
+    getScrollElement: () => listRef.current,
+    estimateSize: (i) => (filtered[i]?.sublabel ? 44 : 36),
+    overscan: 8,
+  });
+
+  // keep the highlighted row in view while arrowing through the list
+  useEffect(() => {
+    if (open && filtered.length) virt.scrollToIndex(hic, { align: "auto" });
+  }, [hic, open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -102,6 +127,16 @@ export default function SearchSelect({
   // closing hands focus back to the field, so Tab carries on to the next field of the form
   function close() { setOpen(false); setQ(""); btnRef.current?.focus(); }
   function pick(v: string) { onChange(v); close(); }
+
+  const row = (o: Option, i: number) => (
+    <button type="button" onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}
+      className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+        i === hic ? "bg-brand-soft" : o.value === value ? "bg-slate-50" : "bg-white"
+      }`}>
+      <div className="truncate">{o.label}</div>
+      {o.sublabel && <div className="text-[12px] muted truncate">{o.sublabel}</div>}
+    </button>
+  );
 
   return (
     <div className={`relative ${className ?? ""}`} ref={boxRef}>
@@ -128,25 +163,24 @@ export default function SearchSelect({
             <input autoFocus className="inp" placeholder={placeholder} value={q}
               onChange={(e) => { setQ(e.target.value); setHi(0); }}
               onKeyDown={(e) => {
-                if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(h + 1, filtered.length - 1)); }
-                else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
-                else if (e.key === "Enter") { e.preventDefault(); if (filtered[hi]) pick(filtered[hi].value); }
+                if (e.key === "ArrowDown") { e.preventDefault(); setHi(Math.min(hic + 1, filtered.length - 1)); }
+                else if (e.key === "ArrowUp") { e.preventDefault(); setHi(Math.max(hic - 1, 0)); }
+                else if (e.key === "Enter") { e.preventDefault(); if (filtered[hic]) pick(filtered[hic].value); }
                 else if (e.key === "Escape") close();
                 // the list lives at the end of <body>: go back to the field first so Tab moves on from there
                 else if (e.key === "Tab") close();
               }} />
           </div>
-          <div style={{ maxHeight: 240, overflowY: "auto" }}>
+          <div ref={listRef} style={{ maxHeight: 240, overflowY: "auto" }}>
             {filtered.length === 0 && <div className="px-3 py-2 text-sm muted">{t("No matches")}</div>}
-            {filtered.map((o, i) => (
-              <button key={o.value} type="button" onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}
-                className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                  i === hi ? "bg-brand-soft" : o.value === value ? "bg-slate-50" : "bg-white"
-                }`}>
-                <div className="truncate">{o.label}</div>
-                {o.sublabel && <div className="text-[12px] muted truncate">{o.sublabel}</div>}
-              </button>
-            ))}
+            <div style={{ height: virt.getTotalSize(), position: "relative" }}>
+              {virt.getVirtualItems().map((v) => (
+                <div key={filtered[v.index].value} data-index={v.index} ref={virt.measureElement}
+                     style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${v.start}px)` }}>
+                  {row(filtered[v.index], v.index)}
+                </div>
+              ))}
+            </div>
           </div>
         </div>,
         document.body
