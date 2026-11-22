@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[] };
-type Heading = { heading: string };          // small caption that splits a group into sub-sections
+type Heading = { heading: string; inline?: boolean };   // caption that splits a group into sub-sections; inline = links straight in the navbar, no dropdown
 type Entry = Item | Heading;
 const isHeading = (e: Entry): e is Heading => "heading" in e;
 const ALL: Role[] = ["SALESPERSON", "MANAGER", "ACCOUNTANT", "ADMIN"];
@@ -53,7 +53,7 @@ const groups: Group[] = [
     { href: "/accounting/financial-year", label: "Financial year", roles: BOOKS, icon: CalendarRange },
     { href: "/accounting/tax-settings", label: "VAT settings", roles: BOOKS, icon: Settings },
     { href: "/accounting/fixed-assets", label: "Fixed assets", roles: BOOKS, icon: Package },
-    { heading: "Transactions" },
+    { heading: "Transactions", inline: true },
     { href: "/accounting/journal", label: "Journal entry", roles: BOOKS, icon: BookOpen },
     { href: "/accounting/payments", label: "Receipts & payments", roles: BOOKS, icon: Banknote },
     { href: "/accounting/contra", label: "Contra voucher", roles: ["ACCOUNTANT", "ADMIN"], icon: ArrowLeftRight },
@@ -224,11 +224,11 @@ export default function Shell({ children }: { children: ReactNode }) {
     visible[0];
 
   // split the app's entries into caption sections; apps without captions render flat links
-  const sections: { heading: string | null; items: Item[] }[] = [];
+  const sections: { heading: string | null; inline: boolean; items: Item[] }[] = [];
   (app?.items ?? []).forEach((e) => {
-    if (isHeading(e)) sections.push({ heading: e.heading, items: [] });
+    if (isHeading(e)) sections.push({ heading: e.heading, inline: !!e.inline, items: [] });
     else {
-      if (sections.length === 0) sections.push({ heading: null, items: [] });
+      if (sections.length === 0) sections.push({ heading: null, inline: false, items: [] });
       sections[sections.length - 1].items.push(e);
     }
   });
@@ -279,8 +279,16 @@ export default function Shell({ children }: { children: ReactNode }) {
           {!isHome && !flat && sections.map((s) => {
             const id = `sec:${s.heading}`;
             const has = s.items.some(isActive);
+            if (s.inline) return (
+              <div key={id} className="flex items-center min-w-0 o-nav-scroll">
+                {s.items.map((n) => (
+                  <Link key={n.href} href={n.href} aria-current={isActive(n) ? "page" : undefined}
+                    className={`o-nav-btn ${isActive(n) ? "is-active" : ""}`} style={{ padding: "0 9px" }}>{t(n.label)}</Link>
+                ))}
+              </div>
+            );
             return (
-              <div key={id} className="relative" data-menu>
+              <div key={id} className="relative shrink-0" data-menu>
                 <button className={`o-nav-btn ${menu === id ? "is-open" : ""} ${has ? "is-active" : ""}`}
                   onClick={() => toggleMenu(id)} aria-expanded={menu === id}>
                   {t(s.heading ?? app.label)} <ChevronDown size={13} />
