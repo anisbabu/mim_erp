@@ -42,29 +42,12 @@ export default function NewPoPage() {
   const addLine    = () => setLines((ls) => [...ls, { productId: "", qty: "", unitPrice: "", free: false }]);
   const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
-  function bandStatus(l: Line): "out" | "ok" | "none" {
-    if (l.free || !l.productId || !l.unitPrice) return "none";
-    const p = productById[l.productId];
-    if (!p || (p.priceLower == null && p.priceUpper == null)) return "none";
-    const price = Number(l.unitPrice);
-    if (p.priceLower != null && price < p.priceLower) return "out";
-    if (p.priceUpper != null && price > p.priceUpper) return "out";
-    return "ok";
-  }
-
   const totalQty   = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
   const totalValue = lines.reduce((s, l) => s + (l.free ? 0 : (Number(l.qty) * Number(l.unitPrice) || 0)), 0);
 
   async function submit() {
     setMsg(null);
     if (!supplierId) { setMsg({ kind: "err", text: "Select a supplier." }); return; }
-
-    const outLines = lines.filter((l) => !l.free && l.productId && l.unitPrice && bandStatus(l) === "out");
-    if (outLines.length > 0) {
-      const names = outLines.map((l) => productById[l.productId]?.fullName || productById[l.productId]?.name || l.productId);
-      setMsg({ kind: "err", text: `Price out of band for: ${names.join(", ")}. Ask admin to update the band in Products.` });
-      return;
-    }
 
     const payload = {
       supplierId, note,
@@ -114,20 +97,12 @@ export default function NewPoPage() {
           </tr></thead>
           <tbody>
             {lines.map((l, i) => {
-              const p       = productById[l.productId];
-              const band    = bandStatus(l);
-              const hasBand = p && (p.priceLower != null || p.priceUpper != null);
               return (
                 <tr key={i}>
                   <td className="align-top">
                     <SearchSelect options={productOpts} value={l.productId}
                       onChange={(v) => update(i, { productId: v })} placeholder={t("Search…")} />
-                    <div className="text-[11px] mt-1 h-4 leading-4"
-                      style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
-                      {hasBand
-                        ? `band ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? " · out of band" : ""}`
-                        : (p ? "no band set" : "")}
-                    </div>
+                    <div className="h-4 mt-1" />
                   </td>
                   <td className="text-center align-top pt-2">
                     <input type="checkbox" checked={l.free}
@@ -140,8 +115,7 @@ export default function NewPoPage() {
                     <div className="h-4 mt-1" />
                   </td>
                   <td className="text-right align-top">
-                    <input className="inp num" style={{ width: 100, marginLeft: "auto",
-                        borderColor: band === "out" ? "#b3261e" : undefined }}
+                    <input className="inp num" style={{ width: 100, marginLeft: "auto" }}
                       type="number" min={0}
                       value={l.free ? "" : l.unitPrice} disabled={l.free}
                       onChange={(e) => update(i, { unitPrice: e.target.value })}
