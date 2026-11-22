@@ -14,7 +14,7 @@ import {
   FilePen, ShoppingCart, Store, Truck, Undo2, UserCog, Users, Wallet, Warehouse, type LucideIcon,
 } from "lucide-react";
 
-type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[] };
+type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[]; hidden?: boolean };   // hidden = left out of every menu; page and data stay
 type Heading = { heading: string; inline?: boolean };   // caption that splits a group into sub-sections; inline = links straight in the navbar, no dropdown
 type Entry = Item | Heading;
 const isHeading = (e: Entry): e is Heading => "heading" in e;
@@ -54,13 +54,13 @@ const groups: Group[] = [
     { href: "/accounting/tax-settings", label: "VAT settings", roles: BOOKS, icon: Settings },
     { href: "/accounting/fixed-assets", label: "Fixed assets", roles: BOOKS, icon: Package },
     { heading: "Transactions", inline: true },
-    { href: "/accounting/journal", label: "Journal entry", roles: BOOKS, icon: BookOpen },
+    { href: "/accounting/journal", label: "Journal", roles: BOOKS, icon: BookOpen },
     { href: "/accounting/payments", label: "Receipts & payments", roles: BOOKS, icon: Banknote },
     { href: "/accounting/contra", label: "Contra voucher", roles: ["ACCOUNTANT", "ADMIN"], icon: ArrowLeftRight },
     { href: "/accounting/approvals", label: "Voucher approvals", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: ClipboardList },
     { href: "/accounting/cheques", label: "Cheques received", roles: BOOKS, icon: Landmark },
-    { href: "/accounting/petty-cash", label: "Petty cash", roles: BOOKS, icon: Wallet },
-    { href: "/accounting/bank-recon", label: "Bank reconciliation", roles: BOOKS, icon: Scale },
+    { href: "/accounting/petty-cash", label: "Petty cash", roles: BOOKS, icon: Wallet, hidden: true },
+    { href: "/accounting/bank-recon", label: "Bank reconciliation", roles: BOOKS, icon: Scale, hidden: true },
     { heading: "Reports" },
     { href: "/accounting/party-statement", label: "Party statement", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: Contact },
     { href: "/reports", label: "Financial reports", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: BarChart3,
@@ -82,7 +82,7 @@ const groups: Group[] = [
 function visibleGroups(role: Role): Group[] {
   return groups
     .map((g) => {
-      const kept = g.items.filter((e) => isHeading(e) || e.roles.includes(role));
+      const kept = g.items.filter((e) => isHeading(e) || (!e.hidden && e.roles.includes(role)));
       const items = kept.filter((e, i) => !isHeading(e) || (kept[i + 1] !== undefined && !isHeading(kept[i + 1])));
       return { ...g, items };
     })
