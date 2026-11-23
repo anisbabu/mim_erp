@@ -14,8 +14,8 @@ import {
   FilePen, ShoppingCart, Store, Truck, Undo2, UserCog, Users, Wallet, Warehouse, type LucideIcon,
 } from "lucide-react";
 
-type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[] };
-type Heading = { heading: string };          // small caption that splits a group into sub-sections
+type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[]; hidden?: boolean };   // hidden = left out of every menu; page and data stay
+type Heading = { heading: string; inline?: boolean };   // caption that splits a group into sub-sections; inline = links straight in the navbar, no dropdown
 type Entry = Item | Heading;
 const isHeading = (e: Entry): e is Heading => "heading" in e;
 const ALL: Role[] = ["SALESPERSON", "MANAGER", "ACCOUNTANT", "ADMIN"];
@@ -30,7 +30,6 @@ const groups: Group[] = [
     { href: "/purchase/orders/new", label: "Purchase Order", roles: ["MANAGER", "ADMIN"], icon: ShoppingCart },
     { href: "/purchase/orders", label: "Purchase Order List", roles: ["MANAGER", "ADMIN"], icon: ClipboardList },
     { href: "/purchase/receive", label: "Receive goods", roles: ["MANAGER", "ADMIN"], icon: PackageCheck },
-    { href: "/purchase/bills", label: "Supplier bills", roles: ["MANAGER", "ADMIN"], icon: FileText },
     { href: "/purchase/returns", label: "Purchase returns", roles: ["MANAGER", "ADMIN"], icon: Undo2 },
   ]},
   { label: "Inventory", icon: Boxes, color: "#e99d00", items: [
@@ -53,14 +52,17 @@ const groups: Group[] = [
     { href: "/accounting/financial-year", label: "Financial year", roles: BOOKS, icon: CalendarRange },
     { href: "/accounting/tax-settings", label: "VAT settings", roles: BOOKS, icon: Settings },
     { href: "/accounting/fixed-assets", label: "Fixed assets", roles: BOOKS, icon: Package },
-    { heading: "Transactions" },
-    { href: "/accounting/journal", label: "Journal entry", roles: BOOKS, icon: BookOpen },
+    { heading: "Transactions", inline: true },
+    { href: "/accounting/journal", label: "Journal", roles: BOOKS, icon: BookOpen },
+    { href: "/accounting/supplier-bills", label: "Supplier bills", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: FileText,
+      also: ["/purchase/bills"] },
+    { href: "/accounting/customer-invoices", label: "Customer invoices", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: ReceiptText },
     { href: "/accounting/payments", label: "Receipts & payments", roles: BOOKS, icon: Banknote },
     { href: "/accounting/contra", label: "Contra voucher", roles: ["ACCOUNTANT", "ADMIN"], icon: ArrowLeftRight },
     { href: "/accounting/approvals", label: "Voucher approvals", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: ClipboardList },
     { href: "/accounting/cheques", label: "Cheques received", roles: BOOKS, icon: Landmark },
-    { href: "/accounting/petty-cash", label: "Petty cash", roles: BOOKS, icon: Wallet },
-    { href: "/accounting/bank-recon", label: "Bank reconciliation", roles: BOOKS, icon: Scale },
+    { href: "/accounting/petty-cash", label: "Petty cash", roles: BOOKS, icon: Wallet, hidden: true },
+    { href: "/accounting/bank-recon", label: "Bank reconciliation", roles: BOOKS, icon: Scale, hidden: true },
     { heading: "Reports" },
     { href: "/accounting/party-statement", label: "Party statement", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: Contact },
     { href: "/reports", label: "Financial reports", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: BarChart3,
@@ -82,7 +84,7 @@ const groups: Group[] = [
 function visibleGroups(role: Role): Group[] {
   return groups
     .map((g) => {
-      const kept = g.items.filter((e) => isHeading(e) || e.roles.includes(role));
+      const kept = g.items.filter((e) => isHeading(e) || (!e.hidden && e.roles.includes(role)));
       const items = kept.filter((e, i) => !isHeading(e) || (kept[i + 1] !== undefined && !isHeading(kept[i + 1])));
       return { ...g, items };
     })
@@ -224,11 +226,11 @@ export default function Shell({ children }: { children: ReactNode }) {
     visible[0];
 
   // split the app's entries into caption sections; apps without captions render flat links
-  const sections: { heading: string | null; items: Item[] }[] = [];
+  const sections: { heading: string | null; inline: boolean; items: Item[] }[] = [];
   (app?.items ?? []).forEach((e) => {
-    if (isHeading(e)) sections.push({ heading: e.heading, items: [] });
+    if (isHeading(e)) sections.push({ heading: e.heading, inline: !!e.inline, items: [] });
     else {
-      if (sections.length === 0) sections.push({ heading: null, items: [] });
+      if (sections.length === 0) sections.push({ heading: null, inline: false, items: [] });
       sections[sections.length - 1].items.push(e);
     }
   });
@@ -279,8 +281,16 @@ export default function Shell({ children }: { children: ReactNode }) {
           {!isHome && !flat && sections.map((s) => {
             const id = `sec:${s.heading}`;
             const has = s.items.some(isActive);
+            if (s.inline) return (
+              <div key={id} className="flex items-center min-w-0 o-nav-scroll">
+                {s.items.map((n) => (
+                  <Link key={n.href} href={n.href} aria-current={isActive(n) ? "page" : undefined}
+                    className={`o-nav-btn ${isActive(n) ? "is-active" : ""}`} style={{ padding: "0 9px" }}>{t(n.label)}</Link>
+                ))}
+              </div>
+            );
             return (
-              <div key={id} className="relative" data-menu>
+              <div key={id} className="relative shrink-0" data-menu>
                 <button className={`o-nav-btn ${menu === id ? "is-open" : ""} ${has ? "is-active" : ""}`}
                   onClick={() => toggleMenu(id)} aria-expanded={menu === id}>
                   {t(s.heading ?? app.label)} <ChevronDown size={13} />

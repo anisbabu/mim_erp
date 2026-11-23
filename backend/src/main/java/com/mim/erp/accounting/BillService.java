@@ -26,7 +26,7 @@ import java.util.*;
  *   CREDIT - settles it: customer credit (receipt, credit note), supplier debit (payment).
  * Opening balances entered for a year (not carried forward by a year close) become OPENING items.
  *
- * A new item is matched oldest-first against the open items on the other side (by due date), unless
+ * A new item is matched oldest-first against the open items on the other side (by bill date), unless
  * the caller then sets the allocation itself ({@link #allocate}). Whatever a credit does not settle is
  * an advance / on-account amount. Reversals and cheque bounces are matched against the entry they
  * undo, so the bills that entry paid open again.
@@ -41,8 +41,25 @@ public class BillService implements ApplicationRunner {
 
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
+    private final org.springframework.beans.factory.ObjectProvider<PartyListener> listeners;
 
-    public BillService(JdbcTemplate jdbc, TransactionTemplate tx) { this.jdbc = jdbc; this.tx = tx; }
+    public BillService(JdbcTemplate jdbc, TransactionTemplate tx,
+                       org.springframework.beans.factory.ObjectProvider<PartyListener> listeners) {
+        this.jdbc = jdbc; this.tx = tx; this.listeners = listeners;
+    }
+
+    /** Told when a party's bills or their matching change (e.g. so a PO can close once its bills are paid). */
+    public interface PartyListener { void partyChanged(String partyType, UUID partyId); }
+
+    /** partyType and partyId null = every party (after a rebuild). */
+    private void notifyParty(String partyType, UUID partyId) {
+        listeners.orderedStream().forEach(l -> l.partyChanged(partyType, partyId));
+    }
+
+    private void notifyItem(UUID itemId) {
+        jdbc.queryForList("select party_type, party_id from party_item where id = ?", itemId)
+            .forEach(r -> notifyParty((String) r.get("party_type"), (UUID) r.get("party_id")));
+    }
 
     public record Alloc(UUID billId, BigDecimal amount) {}
 
@@ -86,6 +103,7 @@ public class BillService implements ApplicationRunner {
         """, UUID.class);
         for (UUID j : journals) onPosted(j);
         restoreManual(manual, held);
+        notifyParty(null, null);
         Integer n = jdbc.queryForObject("select count(*) from party_item", Integer.class);
         return n == null ? 0 : n;
     }
@@ -148,6 +166,7 @@ public class BillService implements ApplicationRunner {
         String sql = switch (sourceType) {
             case "SALES_INVOICE" -> "select so_no from sales_order where id = ?";
             case "GRN" -> "select coalesce(bill_no || ' / ' || grn_no, grn_no) from goods_receipt where id = ?";
+            case "SUPPLIER_BILL" -> "select coalesce(supplier_invoice_no || ' / ' || bill_no, bill_no) from supplier_bill where id = ?";
             case "PURCHASE_RETURN" -> "select coalesce(debit_note_no, return_no) from purchase_return where id = ?";
             case "RECEIPT", "PAYMENT" -> "select coalesce(voucher_no, payment_no) from payment where id = ?";
             case "SALES_RETURN" -> "select coalesce(credit_note_no, return_no) from sales_return where id = ?";
@@ -179,8 +198,10 @@ public class BillService implements ApplicationRunner {
         UUID sourceId = (UUID) je.get("source_id");
         String sourceDoc = docNoFor(sourceType, sourceId);   // lines posted before V71 carry no ref_no
         // a goods receipt carries the supplier's own due date
-        LocalDate grnDue = "GRN".equals(sourceType) && sourceId != null
-            ? jdbc.queryForList("select due_date from goods_receipt where id = ?", java.sql.Date.class, sourceId)
+        String dueSql = "GRN".equals(sourceType) ? "select due_date from goods_receipt where id = ?"
+            : "SUPPLIER_BILL".equals(sourceType) ? "select due_date from supplier_bill where id = ?" : null;
+        LocalDate grnDue = dueSql != null && sourceId != null
+            ? jdbc.queryForList(dueSql, java.sql.Date.class, sourceId)
                 .stream().filter(Objects::nonNull).map(java.sql.Date::toLocalDate).findFirst().orElse(null)
             : null;
         List<UUID> created = new ArrayList<>();
@@ -210,13 +231,19 @@ public class BillService implements ApplicationRunner {
             prefer.add(order);
             prefer.addAll(jdbc.queryForList("select id from delivery_challan where so_id = ?", UUID.class, order));
         }
-        if ("PURCHASE_RETURN".equals(sourceType) && sourceId != null)   // a debit note settles its own receipt first
+        if ("PURCHASE_RETURN".equals(sourceType) && sourceId != null) {  // a debit note settles its own receipt's bill first
             prefer.addAll(jdbc.queryForList("select grn_id from purchase_return where id = ?", UUID.class, sourceId));
+            prefer.addAll(jdbc.queryForList(
+                "select bl.bill_id from purchase_return r join supplier_bill_line bl on bl.grn_id = r.grn_id"
+              + " join supplier_bill b on b.id = bl.bill_id and b.status = 'POSTED' where r.id = ?", UUID.class, sourceId));
+        }
         for (UUID item : created) {
             if (orig != null) matchOriginal(item, orig);
             if (!prefer.isEmpty()) matchSource(item, prefer);
             fifo(item);
         }
+        lines.stream().map(l -> Arrays.asList(l.get("party_type"), l.get("party_id"))).distinct()
+            .forEach(k -> notifyParty((String) k.get(0), (UUID) k.get(1)));
     }
 
     /** The supplier's bill no. / due date were keyed or corrected on a GRN: carry them onto its open bill. */
@@ -255,7 +282,7 @@ public class BillService implements ApplicationRunner {
     }
 
     // ------------------------------------------------------------------ allocation
-    /** Settle an item oldest-first (by due date) against the open items on the other side. */
+    /** Settle an item oldest-first (by bill date) against the open items on the other side. */
     public void fifo(UUID itemId) {
         if (Boolean.TRUE.equals(jdbc.queryForObject("select hold_auto from party_item where id = ?", Boolean.class, itemId))) return;
         Map<String, Object> it = item(itemId);
@@ -299,6 +326,7 @@ public class BillService implements ApplicationRunner {
             link(credit, a.billId(), a.amount(), true);
             left = left.subtract(a.amount());
         }
+        notifyItem(credit);
     }
 
     /**
@@ -329,6 +357,7 @@ public class BillService implements ApplicationRunner {
             total = total.add(a.amount());
         }
         if (total.signum() == 0) throw new ApiException("Enter an amount against at least one bill");
+        notifyItem(creditId);
         return Map.of("matched", total, "left", left);
     }
 
@@ -342,6 +371,7 @@ public class BillService implements ApplicationRunner {
             throw new ApiException("Item not found");
         int n = jdbc.update("delete from bill_allocation where bill_id = ? or credit_id = ?", itemId, itemId);
         jdbc.update("update party_item set hold_auto = true where id = ?", itemId);
+        notifyItem(itemId);
         return Map.of("released", n);
     }
 
@@ -394,14 +424,14 @@ public class BillService implements ApplicationRunner {
     }
 
     // ------------------------------------------------------------------ reads
-    /** Open bills (oldest due first) and unallocated credits / advances of one party. */
+    /** Open bills (oldest bill date first) and unallocated credits / advances of one party. */
     public Map<String, Object> openItems(String partyType, UUID partyId) {
         List<Map<String, Object>> rows = jdbc.queryForList("""
             select i.id, i.kind, i.source_type, i.doc_no, i.doc_date, i.due_date, i.amount, i.hold_auto,
                    i.amount - coalesce((select sum(x.amount) from bill_allocation x where x.bill_id = i.id or x.credit_id = i.id), 0) as open_amount
             from party_item i
             where i.party_type = ? and i.party_id = ?
-            order by i.due_date, i.doc_date, i.created_at
+            order by i.doc_date, i.due_date, i.created_at
         """, partyType, partyId);
         List<Map<String, Object>> bills = new ArrayList<>(), credits = new ArrayList<>(), matched = new ArrayList<>();
         BigDecimal billTotal = BigDecimal.ZERO, creditTotal = BigDecimal.ZERO;
@@ -437,7 +467,7 @@ public class BillService implements ApplicationRunner {
             select b.doc_no, b.doc_date, b.amount as bill_amount, x.amount
             from bill_allocation x join party_item b on b.id = case when x.credit_id = ? then x.bill_id else x.credit_id end
             where x.credit_id = ? or x.bill_id = ?
-            order by b.due_date, b.doc_date
+            order by b.doc_date, b.due_date
         """, credit, credit, credit);
     }
 
@@ -477,7 +507,7 @@ public class BillService implements ApplicationRunner {
                      i.amount - coalesce((select sum(x.amount) from bill_allocation x where x.bill_id = i.id or x.credit_id = i.id), 0) as open_amount
               from party_item i where i.account_id = ? and i.kind = ? and not i.hold_auto
             ) t where open_amount > 0
-            order by due_date, doc_date, created_at
+            order by doc_date, due_date, created_at
         """, accountId, kind);
     }
 

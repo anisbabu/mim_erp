@@ -163,6 +163,47 @@ export type PoDetails = {
   orderDate: string; status: string; note?: string;
   lines: PoLineView[];
   totalQty: number; totalValue: number;
+  progress?: PoProgress;
+  receipts?: PoReceiptBill[];
+};
+/** Receipt / bill / payment progress of a PO. A PO is CLOSED once received, billed and paid. */
+export type PoProgress = {
+  poId: string; status: string;
+  receiptStatus: "PENDING" | "PARTIAL" | "DONE";
+  billStatus: "NONE" | "PARTIAL" | "BILLED";
+  payStatus: "UNPAID" | "PARTIAL" | "PAID";
+  unbilled: number; billed: number; paid: number; remaining: number;
+};
+export type PoReceiptBill = {
+  grn_id: string; grn_no: string; receipt_date: string; to_bill: number;
+  bill_id?: string; bill_no?: string; supplier_invoice_no?: string; due_date?: string; total?: number; open_amount: number;
+};
+export type SupplierBillRow = {
+  id: string; bill_no: string; supplier_invoice_no?: string; bill_date: string; due_date: string;
+  grn_value: number; total: number; variance: number; status: "POSTED" | "CANCELLED"; legacy: boolean;
+  note?: string; created_by?: string; cancel_reason?: string; po_id: string; po_no: string;
+  supplier_id: string; supplier_code: string; supplier_name: string; supplier_name_bn?: string;
+  amount: number; open_amount: number; paid: number; grn_nos?: string; item_id?: string;
+  pay_status: "UNPAID" | "PARTIAL" | "PAID" | "CANCELLED";
+};
+/** Delivery / payment progress of a sales order. An order is CLOSED once delivered and fully paid. */
+export type SoProgress = {
+  soId: string; status: string;
+  deliveryStatus: "PENDING" | "PARTIAL" | "DONE";
+  payStatus: "UNPAID" | "PARTIAL" | "PAID";
+  invoiced: number; paid: number; remaining: number;
+};
+/** One customer invoice (a delivery, a day-end invoice or an opening balance) with what is still owed. */
+export type CustomerInvoiceRow = {
+  item_id: string; customer_id: string; source_type: string; source_id?: string; doc_no: string; doc_date: string;
+  due_date?: string; amount: number; open_amount: number; paid: number; so_id?: string; so_no?: string; dc_no?: string;
+  customer_code: string; customer_name: string; customer_name_bn?: string;
+  pay_status: "UNPAID" | "PARTIAL" | "PAID";
+};
+export type UnbilledGrn = {
+  grn_id: string; grn_no: string; receipt_date: string; bill_no?: string; bill_date?: string; due_date?: string;
+  to_bill: number; po_id: string; po_no: string;
+  supplier_id: string; supplier_code: string; supplier_name: string; supplier_name_bn?: string;
 };
 export type PurchaseOrder = { id: string; poNo: string; supplierId: string; status: string; orderDate: string; note?: string };
 export type SalesOrder = { id: string; soNo: string; customerId: string; shopId: string; workflow: string; status: string; orderDate: string };
@@ -373,12 +414,21 @@ export const endpoints = {
   createPo:    (b: unknown) => api.post<PurchaseOrder>("/api/purchase/orders", b),
   allPos:      () => api.get<PurchaseOrder[]>("/api/purchase/orders"),
   openPos:     () => api.get<PurchaseOrder[]>("/api/purchase/orders/open"),
+  poProgress:  () => api.get<PoProgress[]>("/api/purchase/orders/progress"),
   poDetails:   (poId: string) => api.get<PoDetails>(`/api/purchase/orders/${poId}`),
   receiveView: (poId: string) => api.get<PoView>(`/api/purchase/orders/${poId}/receive-view`),
   receive:     (poId: string, b: unknown) => api.post(`/api/purchase/orders/${poId}/receive`, b),
   grnList:     (supplierId?: string) => api.get<GrnRow[]>(`/api/purchase/receipts${supplierId ? `?supplierId=${supplierId}` : ""}`),
   updateGrnBill: (grnId: string, b: { billNo: string; billDate?: string | null; dueDate?: string | null }) =>
     api.put(`/api/purchase/receipts/${grnId}/bill`, b),
+  supplierBills: (supplierId?: string) =>
+    api.get<SupplierBillRow[]>(`/api/accounting/supplier-bills${supplierId ? `?supplierId=${supplierId}` : ""}`),
+  unbilledGrns: (supplierId?: string) =>
+    api.get<UnbilledGrn[]>(`/api/accounting/supplier-bills/unbilled${supplierId ? `?supplierId=${supplierId}` : ""}`),
+  createSupplierBill: (b: { supplierInvoiceNo: string; billDate?: string | null; dueDate?: string | null; note?: string | null;
+                            lines: { grnId: string; amount?: number | null }[] }) =>
+    api.post<{ id: string; billNo: string; total: number; variance: number; dueDate: string }>("/api/accounting/supplier-bills", b),
+  cancelSupplierBill: (id: string, reason: string) => api.post(`/api/accounting/supplier-bills/${id}/cancel`, { reason }),
   purchaseReturns: () => api.get<PurchaseReturnRow[]>("/api/purchase/returns"),
   purchaseReturnable: (grnId: string) => api.get<PurchaseReturnable>(`/api/purchase/returns/returnable/${grnId}`),
   createPurchaseReturn: (b: unknown) => api.post<{ id: string; returnNo: string; debitNoteNo?: string; settlement: string; goodsValue: number }>("/api/purchase/returns", b),
@@ -410,6 +460,9 @@ export const endpoints = {
   consolidate:      (b: unknown) => api.post("/api/sales/consolidate", b),
   openChallanLines: (customerId: string) => api.get<ChallanLineView[]>(`/api/sales/challans/open/lines?customerId=${customerId}`),
   salesOrders:  () => api.get<SalesOrder[]>("/api/sales/orders"),
+  soProgress:   () => api.get<SoProgress[]>("/api/sales/orders/progress"),
+  customerInvoices: (customerId?: string) =>
+    api.get<CustomerInvoiceRow[]>(`/api/accounting/customer-invoices${customerId ? `?customerId=${customerId}` : ""}`),
   salesReturns:  () => api.get<SalesReturnRow[]>("/api/sales/returns"),
   returnable:    (soId: string) => api.get<Returnable>(`/api/sales/returns/returnable/${soId}`),
   createSalesReturn: (b: unknown) => api.post<{ id: string; returnNo: string; creditNoteNo?: string; settlement: string; goodsValue: number }>("/api/sales/returns", b),

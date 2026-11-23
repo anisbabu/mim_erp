@@ -1,4 +1,5 @@
 "use client";
+import { today } from "@/lib/fmt";
 import DateInput from "@/components/DateInput";
 import { useEffect, useState, useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -8,7 +9,6 @@ import { endpoints, type StockRow, type SupplierStockRow, type StockStatusRow, t
 const PAGE_SIZE = 20;
 type View = "all" | "product" | "warehouse" | "supplier" | "summary";
 
-const today = () => new Date().toISOString().slice(0, 10);
 const monthStart = () => today().slice(0, 8) + "01";
 
 export default function StockPage() {

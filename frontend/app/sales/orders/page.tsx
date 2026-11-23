@@ -1,6 +1,8 @@
 "use client";
 import { Fragment, useEffect, useState, useMemo } from "react";
-import { endpoints, fmtDate, type SalesOrder, type Customer, type SoLineView, type Warehouse, type WarehouseStock, type PickupView } from "@/lib/api";
+import { StatusChip } from "@/components/PoProgressChips";
+import { fmtMoney } from "@/lib/fmt";
+import { endpoints, fmtDate, type SalesOrder, type SoProgress, type Customer, type SoLineView, type Warehouse, type WarehouseStock, type PickupView } from "@/lib/api";
 import { beep } from "@/lib/beep";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
@@ -13,6 +15,7 @@ type FulfillDraft = { warehouseId: string; qty: string };
 export default function SalesOrdersPage() {
   const { t, dn, lang } = useI18n();
   const [orders, setOrders] = useState<SalesOrder[]>([]);
+  const [progress, setProgress] = useState<Record<string, SoProgress>>({});
   const [customers, setCustomers] = useState<Record<string, Customer>>({});
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -33,6 +36,7 @@ export default function SalesOrdersPage() {
 
   useEffect(() => {
     endpoints.salesOrders().then(setOrders).catch(() => {});
+    endpoints.soProgress().then((p) => setProgress(Object.fromEntries(p.map((x) => [x.soId, x])))).catch(() => {});
     endpoints.customers()
         .then((c) => setCustomers(Object.fromEntries(c.map((x) => [x.id, x]))))
         .catch(() => {});
@@ -195,7 +199,7 @@ export default function SalesOrdersPage() {
   }
 
   const statusChip = (s: string) =>
-    s === "DELIVERED" ? "chip chip-posted" : s === "PARTIALLY_DELIVERED" ? "chip chip-hold" : "chip chip-pending";
+    s === "DELIVERED" || s === "CLOSED" || s === "INVOICED" ? "chip chip-posted" : s === "PARTIALLY_DELIVERED" ? "chip chip-hold" : "chip chip-pending";
 
   return (
       <div>
@@ -219,13 +223,13 @@ export default function SalesOrdersPage() {
           <table className="tbl">
             <thead><tr>
               <th>{t("SO no")}</th><th>{t("Customer")}</th><th>{t("Workflow")}</th><th>{t("Date")}</th>
-              <th>{t("Status")}</th>
+              <th>{t("Status")}</th><th>{t("Payment")}</th>
               <th className="num">{t("Qty")}</th><th className="num">{t("Take Now")}</th><th className="num">{t("Balance")}</th>
               <th>{t("Documents")}</th><th>{t("Actions")}</th>
             </tr></thead>
             <tbody>
             {pageItems.length === 0 && (
-                <tr><td colSpan={10} className="muted">
+                <tr><td colSpan={11} className="muted">
                   {search ? t("No matching orders.") : t("No sales orders yet.")}
                 </td></tr>
             )}
@@ -237,7 +241,8 @@ export default function SalesOrdersPage() {
               const notYetFulfilled = o.status === "PENDING"; // SO_FIRST order with zero challans so far
               const offTitle = t("Nothing delivered yet — fulfill the order first");
               const lines = orderLines[o.id];
-              const canFulfill = o.workflow === "SO_FIRST" && o.status !== "DELIVERED";
+              const canFulfill = o.workflow === "SO_FIRST" && o.status !== "DELIVERED" && o.status !== "CLOSED";
+              const pr = progress[o.id];
               const lineRow = "h-8 flex items-center justify-end gap-2 whitespace-nowrap";
               return (
                   <Fragment key={o.id}>
@@ -250,6 +255,12 @@ export default function SalesOrdersPage() {
                       <td className="text-xs text-center">{t(o.workflow)}</td>
                       <td className="text-center whitespace-nowrap">{fmtDate(o.orderDate)}</td>
                       <td className="text-center"><span className={statusChip(o.status)}>{t(o.status)}</span></td>
+                      <td className="text-center whitespace-nowrap">
+                        {pr ? <>
+                          <StatusChip kind="pay" value={pr.payStatus} />
+                          {pr.remaining > 0 && <div className="text-[11px] muted tabular-nums mt-0.5">{t("Remaining")} {fmtMoney(pr.remaining)}</div>}
+                        </> : "—"}
+                      </td>
                       {/* one stacked entry per product line, same height across Qty / Take now / Balance */}
                       <td className="num">
                         {!lines ? <span className="muted">…</span> : lines.map((l) => (
@@ -350,7 +361,7 @@ export default function SalesOrdersPage() {
 
                     {pickupsOpenId === o.id && (
                       <tr className="bg-[#faf9f6] border-t border-line">
-                        <td colSpan={10} className="py-3">
+                        <td colSpan={11} className="py-3">
                           {!pickups[o.id] && !pickupsErr && (
                             <div className="text-[12px] text-[#6b6960]">{t("Loading pickups…")}</div>
                           )}
@@ -378,15 +389,15 @@ export default function SalesOrdersPage() {
                                               onOpen={() => openDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk")}
                                               onDownload={() => downloadDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk", `token-${p.dcNo}.pdf`)}
                                               onShare={() => shareDoc(() => endpoints.challanTokenBlob(p.dcId, lang), p.dcId + "tk", `token-${p.dcNo}.pdf`, `Dispatch Token ${p.dcNo}`)} />
-                                    <button className="btn-ghost btn-sm" disabled={pBusy} title={t("Print this pickup's challan")}
+                                    <button className="btn btn-print btn-sm" disabled={pBusy} title={t("Print this pickup's challan")}
                                             onClick={() => openDoc(() => endpoints.challanBlob(p.dcId, lang), pKey)}>
                                       {pBusy ? "…" : "🖨"}
                                     </button>
-                                    <button className="btn-ghost btn-sm" disabled={pBusy} title={t("Download this pickup's challan")}
+                                    <button className="btn btn-print btn-sm" disabled={pBusy} title={t("Download this pickup's challan")}
                                             onClick={() => downloadDoc(() => endpoints.challanBlob(p.dcId, lang), pKey, `${p.dcNo}.pdf`)}>
                                       ↓
                                     </button>
-                                    <button className="btn btn-sm" disabled={pBusy} title={t("Share this pickup's challan")}
+                                    <button className="btn btn-share btn-sm" disabled={pBusy} title={t("Share this pickup's challan")}
                                             onClick={() => shareDoc(() => endpoints.challanBlob(p.dcId, lang), pKey, `${p.dcNo}.pdf`, `Challan ${p.dcNo}`)}>
                                       ↗
                                     </button>
@@ -436,11 +447,11 @@ function DocGroup({ label, busy, offTitle, titles, onOpen, onDownload, onShare }
     <div className="flex items-center gap-2" title={offTitle}>
       <span className="text-[10px] uppercase tracking-wide muted leading-none whitespace-nowrap w-14 text-right">{label}</span>
       <div className="inline-flex overflow-hidden rounded" style={{ border: "1px solid var(--input-border)", background: "var(--surface)" }}>
-        <button className={cell} disabled={off} title={offTitle ?? titles[0]} onClick={onOpen}>
+        <button className={cell} style={{ color: "var(--role-print)" }} disabled={off} title={offTitle ?? titles[0]} onClick={onOpen}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : <Printer size={14} />}
         </button>
-        <button className={cell} style={sep} disabled={off} title={offTitle ?? titles[1]} onClick={onDownload}><Download size={14} /></button>
-        <button className={cell} style={{ ...sep, color: "var(--brand)" }} disabled={off} title={offTitle ?? titles[2]} onClick={onShare}><Share2 size={14} /></button>
+        <button className={cell} style={{ ...sep, color: "var(--role-print)" }} disabled={off} title={offTitle ?? titles[1]} onClick={onDownload}><Download size={14} /></button>
+        <button className={cell} style={{ ...sep, color: "var(--role-share)" }} disabled={off} title={offTitle ?? titles[2]} onClick={onShare}><Share2 size={14} /></button>
       </div>
     </div>
   );

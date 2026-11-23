@@ -134,11 +134,11 @@ export default function ChallanListPage() {
                         onClick={() => openChallan(dc.id)}>
                         {loading ? "…" : `🖨 ${t("Print")}`}
                       </button>
-                      <button className="btn-ghost btn-sm" disabled={loading} title={t("Download PDF")}
+                      <button className="btn btn-print btn-sm" disabled={loading} title={t("Download PDF")}
                         onClick={() => downloadChallan(dc.id, dc.dcNo)}>
                         ↓ PDF
                       </button>
-                      <button className="btn btn-sm" disabled={loading} title={t("Share")}
+                      <button className="btn btn-share btn-sm" disabled={loading} title={t("Share")}
                         onClick={() => shareChallan(dc.id, dc.dcNo)}>
                         ↗ {t("Share")}
                       </button>

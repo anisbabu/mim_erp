@@ -26,7 +26,14 @@ public class PurchaseDtos {
                                  String billNo, java.time.LocalDate billDate, java.time.LocalDate dueDate,
                                  BigDecimal freight, Boolean freightOnBill, String priceApprovedBy,
                                  BigDecimal vat,      // input VAT on the supplier VAT invoice (Mushak 6.3), inside the billed prices
-                                 java.time.LocalDate receiptDate) {}   // goods arrived on (back-dating); null = today
+                                 java.time.LocalDate receiptDate,      // goods arrived on (back-dating); null = today
+                                 Boolean createBill) {                  // post the supplier bill now; null = when billNo given
+        public ReceiveRequest(UUID warehouseId, List<ReceiveLine> lines, String billNo, java.time.LocalDate billDate,
+                              java.time.LocalDate dueDate, BigDecimal freight, Boolean freightOnBill, String priceApprovedBy,
+                              BigDecimal vat, java.time.LocalDate receiptDate) {
+            this(warehouseId, lines, billNo, billDate, dueDate, freight, freightOnBill, priceApprovedBy, vat, receiptDate, null);
+        }
+    }
     /** Supplier invoice details keyed after the goods were received. */
     public record BillDetails(String billNo, java.time.LocalDate billDate, java.time.LocalDate dueDate) {}
 
@@ -44,5 +51,7 @@ public class PurchaseDtos {
     /** Full details for the PO details view (header + line items + totals). */
     public record PoDetails(UUID poId, String poNo, UUID supplierId, String supplierName,
                             java.time.LocalDate orderDate, String status, String note,
-                            List<PoLineView> lines, BigDecimal totalQty, BigDecimal totalValue) {}
+                            List<PoLineView> lines, BigDecimal totalQty, BigDecimal totalValue,
+                            java.util.Map<String, Object> progress,                  // receipt / bill / payment status
+                            List<java.util.Map<String, Object>> receipts) {}          // GRNs with their bill and open amount
 }

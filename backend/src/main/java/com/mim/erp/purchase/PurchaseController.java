@@ -61,6 +61,10 @@ public class PurchaseController {
     @GetMapping("/orders")
     public List<PurchaseOrder> allOrders() { return service.allOrders(); }
 
+    /** Receipt, bill and payment status of every PO (merged into the PO list). */
+    @GetMapping("/orders/progress")
+    public java.util.Collection<java.util.Map<String, Object>> progress() { return service.progress(); }
+
     /** Full details for the PO details page. */
     @GetMapping("/orders/{poId}")
     public PurchaseDtos.PoDetails details(@PathVariable UUID poId) {

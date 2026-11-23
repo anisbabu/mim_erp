@@ -57,18 +57,18 @@ export default function ContraPage() {
 
       <div className="card p-5 mb-5" onKeyDown={(e) => { if (e.key === "Enter" && !busy) submit(); }}>
         <div className="form-grid cols-3">
-          <div className="field"><label>{t("Date")} *</label>
+          <div className="field"><label>{t("Date")} <span className="req">*</span></label>
             <DateInput className="inp" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
             <div className="h-4 leading-4" /></div>
-          <div className="field"><label>{t("From (paid out of)")} *</label>
+          <div className="field"><label>{t("From (paid out of)")} <span className="req">*</span></label>
             <select className="inp" value={from} onChange={(e) => setFrom(e.target.value)}>
               <option value="">{t("Select…")}</option>{opts}</select>
             <div className="h-4 leading-4 text-[11px] muted">{t("Credited")}</div></div>
-          <div className="field"><label>{t("To (paid into)")} *</label>
+          <div className="field"><label>{t("To (paid into)")} <span className="req">*</span></label>
             <select className="inp" value={to} onChange={(e) => setTo(e.target.value)}>
               <option value="">{t("Select…")}</option>{opts}</select>
             <div className="h-4 leading-4 text-[11px] muted">{t("Debited")}</div></div>
-          <div className="field"><label>{t("Amount")} *</label>
+          <div className="field"><label>{t("Amount")} <span className="req">*</span></label>
             <input className="inp num" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
             <div className="h-4 leading-4" /></div>
           <div className="field"><label>{t("Reference")}</label>

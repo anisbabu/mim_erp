@@ -8,6 +8,14 @@
   --brand-dark:        #173f75;
   --brand-soft:        #eaf1fa;
   --action:            #1a66c2;   /* links, focus, secondary accents */
+  /* form colours by role: titles blue, labels teal, required * red; Save green, Print blue, Share amber, Delete red */
+  --role-title:        #1d4f91;
+  --role-label:        #0f766e;
+  --role-req:          #dc2626;
+  --role-save:         #15803d;  --role-save-dark:  #166534;
+  --role-print:        #1d4f91;  --role-print-dark: #173f75;
+  --role-share:        #b45309;  --role-share-bd:   #d97706;  --role-share-soft: #fffbeb;
+  --role-danger:       #dc2626;  --role-danger-dark: #b91c1c;
   --nav-bg:            #1d4f91;
   --btn2-bg:           #e7e9ed;
   --btn2-hover:        #d8dadd;
@@ -63,6 +71,13 @@ html.dark {
   --brand-dark:        #346db8;
   --brand-soft:        #22324d;
   --action:            #7cb0ff;
+  --role-title:        #7cb0ff;
+  --role-label:        #2dd4bf;
+  --role-req:          #f87171;
+  --role-save:         #16a34a;  --role-save-dark:  #15803d;
+  --role-print:        #3f7fd0;  --role-print-dark: #346db8;
+  --role-share:        #fbbf24;  --role-share-bd:   #fbbf24;  --role-share-soft: #422006;
+  --role-danger:       #dc2626;  --role-danger-dark: #b91c1c;
   --nav-bg:            #14233b;
   --btn2-bg:           #3c3f4c;
   --btn2-hover:        #4a4e5c;
@@ -114,7 +129,7 @@ html.dark {
   .field { @apply flex flex-col gap-1 min-w-0; }
   .field > label, .lbl {
     @apply block text-[12px] font-semibold leading-4 h-4 w-full;
-    color: var(--text);
+    color: var(--role-label);
     text-align: left;
   }
 
@@ -177,13 +192,22 @@ html.dark {
   .form-grid.cols-4 { @apply grid-cols-1 sm:grid-cols-2 lg:grid-cols-4; }
 
   /* ── Buttons ────────────────────────────────────────────────────────────── */
+  /* primary action (Save / Post / Record / Create) = green */
   .btn {
     @apply inline-flex items-center justify-center h-8 border px-3 text-[13px] font-medium text-white transition-colors disabled:opacity-50;
-    background: var(--brand);
-    border-color: var(--brand);
+    background: var(--role-save);
+    border-color: var(--role-save);
     border-radius: 3px;
   }
-  .btn:hover:not(:disabled) { background: var(--brand-dark); border-color: var(--brand-dark); }
+  .btn:hover:not(:disabled) { background: var(--role-save-dark); border-color: var(--role-save-dark); }
+  /* role variants, used together with .btn: Print / Download = blue, Share = amber outline, Delete = red */
+  .btn.btn-print { background: var(--role-print); border-color: var(--role-print); }
+  .btn.btn-print:hover:not(:disabled) { background: var(--role-print-dark); border-color: var(--role-print-dark); }
+  .btn.btn-share { background: transparent; color: var(--role-share); border-color: var(--role-share-bd); }
+  .btn.btn-share:hover:not(:disabled) { background: var(--role-share-soft); border-color: var(--role-share-bd); }
+  .btn.btn-danger { background: var(--role-danger); border-color: var(--role-danger); }
+  .btn.btn-danger:hover:not(:disabled) { background: var(--role-danger-dark); border-color: var(--role-danger-dark); }
+  .req { color: var(--role-req); }
 
   .btn-ghost {
     @apply inline-flex items-center justify-center h-8 border px-3 text-[13px] font-medium transition-colors disabled:opacity-50;
@@ -221,8 +245,9 @@ html.dark {
     box-shadow: none;
   }
   .muted { color: var(--muted); }
-  .page-title { @apply text-[18px] leading-6 font-medium; color: var(--text); }
-  .section-label { @apply text-[10px] uppercase tracking-widest font-bold; color: var(--brand); border-left: 2px solid var(--brand); padding-left: 6px; }
+  .page-title { @apply text-[18px] leading-6 font-semibold; color: var(--role-title); }
+  .drawer-title { @apply text-base font-semibold; color: var(--role-title); }
+  .section-label { @apply text-[10px] uppercase tracking-widest font-bold; color: var(--role-title); border-left: 2px solid var(--role-title); padding-left: 6px; }
 
   /* ── Tables ─────────────────────────────────────────────────────────────── */
   .tbl { @apply w-full border-collapse; font-size: 13px; }

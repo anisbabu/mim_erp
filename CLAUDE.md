@@ -37,7 +37,8 @@ Default admin: `admin` / `admin123`. Old Neon DB = env `DB_URL`/`DB_USER`/`DB_PA
 - `.tbl td` is `align-middle`; override with inline `style={{ verticalAlign: 'top' }}`, not `.align-top`.
 - Hint rows under inputs: fixed `h-4 leading-4` so row height never jumps.
 - Theme tokens `--bg --surface --text --muted --border --input-bg`; dark mode via `html.dark`.
-- Odoo-style look: brand blue `#1d4f91` = `var(--brand)` / `bg-brand` (navbar, primary `.btn`); links/focus lighter blue `var(--action)` / `.text-brand`. Never hard-code either hex. `.inp` is underline-only; `.btn-ghost` is the grey secondary button; `.chip` is a pill.
+- Form colours by role (`--role-*` tokens): titles / `.section-label` blue, field labels teal, required `<span className="req">*</span>` red. `.btn` = Save/Post (green); add `.btn-print` (Print/Download, blue), `.btn-share` (amber outline), `.btn-danger` (delete/cancel posted doc, red); `.btn-ghost` = Cancel/Close (grey).
+- Odoo-style look: brand blue `#1d4f91` = `var(--brand)` / `bg-brand` (navbar); links/focus lighter blue `var(--action)` / `.text-brand`. Never hard-code either hex. `.inp` is underline-only; `.btn-ghost` is the grey secondary button; `.chip` is a pill.
 
 ## UI standard (lists and forms)
 - Every page starts with `components/PageHeader.tsx`: breadcrumb (`["Accounting","Setup"]`), title, one-line subtitle, primary actions on the right.

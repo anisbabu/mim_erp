@@ -23,6 +23,8 @@ import java.util.*;
  *   Cash refund: Dr Cash/Bank (billed value) / Cr Inventory (landed cost)
  * Any freight in the landed cost that the supplier does not refund goes to Cost of sales (5000).
  * A debit note settles the bill of its own receipt first.
+ * Before the supplier has billed the receipt, the return only lowers what is still to be billed:
+ *   Dr 2010 Goods received, not billed / Cr Inventory - and the bill is then for the goods kept.
  */
 @Service
 public class PurchaseReturnService {
@@ -38,11 +40,15 @@ public class PurchaseReturnService {
     private final LedgerService ledgers;
     private final DocNumberService docNo;
     private final CurrentUserService currentUser;
+    private final SupplierBillService supplierBills;
+    private final PoStatusService poStatus;
 
     public PurchaseReturnService(JdbcTemplate jdbc, InventoryService inventory, AccountingService accounting,
-                                 LedgerService ledgers, DocNumberService docNo, CurrentUserService currentUser) {
+                                 LedgerService ledgers, DocNumberService docNo, CurrentUserService currentUser,
+                                 SupplierBillService supplierBills, PoStatusService poStatus) {
         this.jdbc = jdbc; this.inventory = inventory; this.accounting = accounting;
         this.ledgers = ledgers; this.docNo = docNo; this.currentUser = currentUser;
+        this.supplierBills = supplierBills; this.poStatus = poStatus;
     }
 
     // ------------------------------------------------------------------ reads
@@ -132,6 +138,10 @@ public class PurchaseReturnService {
         String settlement = req.settlement() == null || req.settlement().isBlank() ? "DEBIT_NOTE" : req.settlement();
         if (!"DEBIT_NOTE".equals(settlement) && !"CASH_REFUND".equals(settlement))
             throw new ApiException("Settlement must be DEBIT_NOTE or CASH_REFUND");
+        jdbc.queryForList("select id from goods_receipt where id = ? for update", UUID.class, req.grnId());   // vs. a bill
+        boolean unbilled = !supplierBills.isBilled(req.grnId());
+        if (unbilled && "CASH_REFUND".equals(settlement))
+            throw new ApiException("Nothing is paid on this receipt yet - it is not billed. Send the goods back on a debit note instead");
 
         LocalDate returnDate = req.returnDate() == null ? LocalDate.now() : req.returnDate();
         LocalDate received = ((java.sql.Date) grn.get("receipt_date")).toLocalDate();
@@ -185,10 +195,10 @@ public class PurchaseReturnService {
 
         jdbc.update("""
             insert into purchase_return (id, return_no, debit_note_no, grn_id, supplier_id, warehouse_id, return_date, reason,
-                                         settlement, refund_account, goods_value, cost_value, vat, created_by)
-            values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                         settlement, refund_account, goods_value, cost_value, vat, created_by, against_grni)
+            values (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, returnId, returnNo, debitNo, req.grnId(), supplierId, grn.get("warehouse_id"), returnDate, req.reason().trim(),
-            settlement, refundTo, goods, cost, vatBack, u.getUsername());
+            settlement, refundTo, goods, cost, vatBack, u.getUsername(), unbilled);
         for (Object[] r : rows) {
             jdbc.update("""
                 insert into purchase_return_line (id, return_id, grn_line_id, product_id, stock_layer_id, qty, unit_price, unit_cost)
@@ -198,7 +208,8 @@ public class PurchaseReturnService {
         }
 
         // supplier (or the refund) takes the billed value; stock leaves at landed cost; unrefunded freight is a cost
-        String counter = "DEBIT_NOTE".equals(settlement) ? ledgers.supplierLedger(supplierId).getCode() : refundTo;
+        String counter = unbilled ? SupplierBillService.GRNI
+            : "DEBIT_NOTE".equals(settlement) ? ledgers.supplierLedger(supplierId).getCode() : refundTo;
         List<Leg> legs = new ArrayList<>();
         if (goods.signum() > 0) legs.add(Leg.debit(counter, goods));
         BigDecimal diff = cost.add(vatBack).subtract(goods);
@@ -209,6 +220,8 @@ public class PurchaseReturnService {
         if (!legs.isEmpty())
             accounting.post(returnDate, ("DEBIT_NOTE".equals(settlement) ? "Debit note " + debitNo : "Supplier refund")
                 + " - purchase return " + returnNo + " against " + grn.get("grn_no"), "PURCHASE_RETURN", returnId, legs);
+
+        poStatus.refresh(jdbc.queryForObject("select po_id from goods_receipt where id = ?", UUID.class, req.grnId()), null);
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("id", returnId); res.put("returnNo", returnNo); res.put("debitNoteNo", debitNo);

@@ -54,7 +54,7 @@ export default function QuickCustomer({ open, onClose, existing, onCreated }: {
         <button className="btn" onClick={save} disabled={busy}>{busy ? t("Saving…") : t("Save")}</button>
       </>}>
       <div onKeyDown={(e) => { if (e.key === "Enter" && !busy) save(); }}>
-        <div className="field"><label>{t("Name")} *</label>
+        <div className="field"><label>{t("Name")} <span className="req">*</span></label>
           <input className="inp" autoFocus value={f.name} onChange={(e) => set({ name: e.target.value })} /></div>
         <div className="field mt-3"><label>{t("Name (Bangla)")}</label>
           <input className="inp" value={f.nameBn} onChange={(e) => set({ nameBn: e.target.value })} /></div>
@@ -69,7 +69,7 @@ export default function QuickCustomer({ open, onClose, existing, onCreated }: {
           </select></div>
         {party && (
           <div className="form-grid cols-2 mt-3">
-            <div className="field"><label>{t("Credit limit")} *</label>
+            <div className="field"><label>{t("Credit limit")} <span className="req">*</span></label>
               <input className="inp num" type="number" min={0} value={f.creditLimit} onChange={(e) => set({ creditLimit: e.target.value })} /></div>
             <div className="field"><label>{t("Credit days")}</label>
               <input className="inp num" type="number" min={0} value={f.creditDays} onChange={(e) => set({ creditDays: e.target.value })} /></div>

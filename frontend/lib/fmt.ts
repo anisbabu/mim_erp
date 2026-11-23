@@ -36,4 +36,5 @@ export function downloadCsv(filename: string, rows: (string | number | null | un
   URL.revokeObjectURL(url);
 }
 
-export const today = () => new Date().toISOString().slice(0, 10);
+/** Today's date (yyyy-mm-dd) in the user's local time zone - not UTC, which is a day behind in Bangladesh before 6 am. */
+export const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };

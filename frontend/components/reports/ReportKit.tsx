@@ -79,8 +79,8 @@ export function Toolbar({ children, onPdf }: { children: ReactNode; onPdf?: () =
     <div className="no-print flex flex-wrap items-end justify-between gap-3 mb-4">
       <div className="flex flex-wrap items-end gap-3">{children}</div>
       <div className="flex gap-2">
-        {onPdf && <button className="btn btn-sm" onClick={onPdf}>{t("Download PDF")}</button>}
-        <button className="btn-ghost btn-sm" onClick={() => window.print()}>{t("Print")}</button>
+        {onPdf && <button className="btn btn-print btn-sm" onClick={onPdf}>{t("Download PDF")}</button>}
+        <button className="btn btn-print btn-sm" onClick={() => window.print()}>{t("Print")}</button>
       </div>
     </div>
   );

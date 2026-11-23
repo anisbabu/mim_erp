@@ -95,6 +95,20 @@ class PurchaseBillTest {
         """, BigDecimal.class, supplier);
     }
 
+    /** The supplier bill's item in the bill-wise ledger for a receipt. */
+    private Map<String, Object> billItem(UUID grnId) {
+        return jdbc.queryForMap("""
+            select i.doc_no, i.due_date from party_item i join supplier_bill_line bl on bl.bill_id = i.source_id
+            where i.source_type = 'SUPPLIER_BILL' and bl.grn_id = ?
+        """, grnId);
+    }
+
+    private BigDecimal grni() {
+        return jdbc.queryForObject("""
+            select coalesce(sum(jl.credit - jl.debit), 0) from journal_line jl join account a on a.id = jl.account_id where a.code = '2010'
+        """, BigDecimal.class);
+    }
+
     private BigDecimal layerCost(UUID grnId, UUID product) {
         return jdbc.queryForObject("""
             select sl.unit_cost from stock_layer sl join grn_line gl on gl.id = sl.grn_line_id
@@ -121,8 +135,7 @@ class PurchaseBillTest {
         assertThat(supplierBalance()).isEqualByComparingTo("1760");
         assertThat(layerCost(g.getId(), productA)).isEqualByComparingTo("121");   // 110 + 110/1600*160 per unit
         assertThat(layerCost(g.getId(), productB)).isEqualByComparingTo("55");
-        Map<String, Object> bill = jdbc.queryForMap(
-            "select doc_no, due_date from party_item where source_type = 'GRN' and source_id = ?", g.getId());
+        Map<String, Object> bill = billItem(g.getId());
         assertThat((String) bill.get("doc_no")).startsWith("INV-77");
         assertThat(((java.sql.Date) bill.get("due_date")).toLocalDate()).isEqualTo(billDate.plusDays(30));
     }
@@ -130,10 +143,15 @@ class PurchaseBillTest {
     @Test
     void freightPaidToCarrierInCashIsNotOwedToSupplier() {
         PurchaseOrder po = po();
-        purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse,
+        BigDecimal before = grni();
+        GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse,
             List.of(new PurchaseDtos.ReceiveLine(line(po, productA), bd("10"), null, null)),
             null, null, null, bd("100"), false, null, null, null));
+        assertThat(supplierBalance()).isEqualByComparingTo("0");           // no bill yet
+        assertThat(grni().subtract(before)).isEqualByComparingTo("1000");  // waiting in 2010
+        purchase.updateBill(g.getId(), new PurchaseDtos.BillDetails("CAR-1", TODAY, null));
         assertThat(supplierBalance()).isEqualByComparingTo("1000");
+        assertThat(grni()).isEqualByComparingTo(before);
     }
 
     @Test
@@ -142,8 +160,7 @@ class PurchaseBillTest {
         GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse,
             List.of(new PurchaseDtos.ReceiveLine(line(po, productA), bd("5"), null, null)), null, null, null, null, null, null, null, null));
         purchase.updateBill(g.getId(), new PurchaseDtos.BillDetails("SUP-INV-9", TODAY.minusDays(1), TODAY.plusDays(45)));
-        Map<String, Object> bill = jdbc.queryForMap(
-            "select doc_no, due_date from party_item where source_type = 'GRN' and source_id = ?", g.getId());
+        Map<String, Object> bill = billItem(g.getId());
         assertThat((String) bill.get("doc_no")).startsWith("SUP-INV-9");
         assertThat(((java.sql.Date) bill.get("due_date")).toLocalDate()).isEqualTo(TODAY.plusDays(45));
     }
@@ -180,6 +197,11 @@ class PurchaseBillTest {
         GoodsReceipt g = purchase.receive(po.getId(), new PurchaseDtos.ReceiveRequest(warehouse, List.of(
                 new PurchaseDtos.ReceiveLine(line(po, productB), bd("10"), null, null)), null, null, null, null, null, null, null, null));
         UUID grnLine = jdbc.queryForObject("select id from grn_line where grn_id = ?", UUID.class, g.getId());
+        // nothing billed, nothing paid: a refund makes no sense yet
+        assertThatThrownBy(() -> returns.create(new PurchaseReturnService.CreateRequest(g.getId(), "wrong colour", "CASH_REFUND",
+                TODAY, "1010", List.of(new PurchaseReturnService.Line(grnLine, bd("4"))))))
+            .isInstanceOf(ApiException.class).hasMessageContaining("not billed");
+        purchase.updateBill(g.getId(), new PurchaseDtos.BillDetails("INV-R", TODAY, null));
         Map<String, Object> r = returns.create(new PurchaseReturnService.CreateRequest(g.getId(), "wrong colour", "CASH_REFUND",
             TODAY, "1010", List.of(new PurchaseReturnService.Line(grnLine, bd("4")))));
         BigDecimal bank = jdbc.queryForObject("""

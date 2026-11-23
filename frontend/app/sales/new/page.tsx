@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
-  endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView, type CommittedRow,
+  endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView, type CommittedRow, type StockStatusRow,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
@@ -53,6 +53,7 @@ export default function NewSalePage() {
 
   useEffect(() => {
     endpoints.products().then(setProducts).catch(() => {});
+    loadStock();
     endpoints.warehouses().then(setWarehouses).catch(() => {});
     endpoints.shops().then(setShops).catch(() => {});
     endpoints.customers().then(setCustomers).catch(() => {});
@@ -119,15 +120,25 @@ export default function NewSalePage() {
   const salespersonOpts: Option[] = useMemo(
     () => salespeople.map((s) => ({ value: s.id, label: s.fullName || s.username })),
     [salespeople]);
+  // stock colour in the product list: green = free to sell, amber = on hand but all sold (awaiting pickup), red = none
+  const [stockStatus, setStockStatus] = useState<Record<string, StockStatusRow>>({});
+  function loadStock() {
+    endpoints.stockStatus().then((r) => setStockStatus(Object.fromEntries(r.map((x) => [x.productId, x])))).catch(() => {});
+  }
   const productOpts: Option[] = useMemo(
     () => products.filter((p) => p.active !== false).map((p) => {
       const supplierName = p.supplierId && supplierById[p.supplierId] ? dn(supplierById[p.supplierId]) : undefined;
       const thickness = p.thicknessLabel ?? (p.thicknessMm != null ? `${p.thicknessMm}mm` : undefined);
-      const sub = [p.sku, supplierName, thickness].filter(Boolean).join(" · ");
+      const st = stockStatus[p.id];
+      const onHand = Number(st?.onHand ?? 0), avail = Number(st?.available ?? 0);
+      const tone: Option["tone"] = avail > 0 ? "ok" : onHand > 0 ? "warn" : "bad";
+      const stockText = tone === "ok" ? `${t("In stock")} ${avail}`
+        : tone === "warn" ? `${t("All sold, awaiting pickup")} ${onHand}` : t("Out of stock");
+      const sub = [stockText, p.sku, supplierName, thickness].filter(Boolean).join(" · ");
       return { value: p.id, label: lang === "bn" && p.nameBn ? p.nameBn : p.fullName || (p.name + (p.thicknessMm ? ` (${p.thicknessMm}mm)` : "")), sublabel: sub,
-        keywords: productKeywords(p, p.supplierId ? supplierById[p.supplierId] : undefined) };
+        tone, keywords: productKeywords(p, p.supplierId ? supplierById[p.supplierId] : undefined) };
     }),
-    [products, supplierById, lang]);
+    [products, supplierById, lang, stockStatus]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // choosing a customer fills the delivery address/mobile from their record; both stay editable
   function pickCustomer(id: string, fresh?: Customer) {
@@ -198,15 +209,6 @@ export default function NewSalePage() {
     setFocusLine(null);
   }, [focusLine, lines.length]);
 
-  function bandState(l: Line): "ok" | "out" | "none" {
-    const p = productById[l.productId];
-    const price = Number(l.unitPrice);
-    if (!p || !l.unitPrice) return "none";
-    if (p.priceLower != null && price < p.priceLower) return "out";
-    if (p.priceUpper != null && price > p.priceUpper) return "out";
-    return "ok";
-  }
-
   const grandGross    = lines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
   const totalDiscount = Math.min(Number(discount) || 0, grandGross);
   const totalTransport = Number(transport) || 0;
@@ -251,8 +253,8 @@ export default function NewSalePage() {
                deliverQty: l.warehouseId ? takeOf(l) : null };
     });
     if (!allocations.length) { setMsg({ kind: "err", text: t("Add at least one line with qty.") }); return; }
-    // out-of-band price is only a warning here (red hint stays on the line); the order still saves,
-    // with a placeholder authoriser so the backend's audit column is filled
+    // no price band on a new sales order: any price saves; the placeholder authoriser keeps the
+    // backend's band / below-cost check from blocking and marks such lines in the audit column
     if (anyDiscount && !discountBy.trim()) {
       setMsg({ kind: "err", text: t("Discount requires an authoriser — enter their name.") }); return;
     }
@@ -269,6 +271,7 @@ export default function NewSalePage() {
       });
       if (demo) { endpoints.linkDemoInvoice(demo.id, res.soId).catch(() => {}); setDemo(null); }
       const margin = (res.totalValue - res.totalCost).toFixed(2);
+      loadStock();
       setMsg({ kind: "ok", text: `${t("Sale")} ${res.soNo} ${t("created")} · ${res.challanIds.length} ${t("challan(s)")} · ${t("margin")} ${margin}` });
       setDiscount(""); setTransport(""); setDeliveryAddress(""); setDeliveryMobile("");
       if (panelProductId) {
@@ -393,8 +396,6 @@ export default function NewSalePage() {
             </thead>
             <tbody>
               {lines.map((l, i) => {
-                const p = productById[l.productId];
-                const band = bandState(l);
                 const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
                 const lineStock = l.productId ? stockByProduct[l.productId] : undefined;
                 const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
@@ -404,10 +405,7 @@ export default function NewSalePage() {
                     <td className="align-top">
                       <SearchSelect options={productOpts} value={l.productId}
                         onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
-                      <div className="text-[11px] mt-1 h-4 leading-4"
-                        style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
-                        {p ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}` : ""}
-                      </div>
+                      <div className="h-4 mt-1" />
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums" style={{ width: 75, marginLeft: "auto" }}
@@ -417,12 +415,10 @@ export default function NewSalePage() {
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums"
-                        style={{ width: 96, marginLeft: "auto", borderColor: band === "out" ? "#b3261e" : undefined }}
+                        style={{ width: 96, marginLeft: "auto" }}
                         type="number" min={0} value={l.unitPrice}
                         onChange={(e) => update(i, { unitPrice: e.target.value })} />
-                      <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "#b3261e" }}>
-                        {band === "out" && "✕"}
-                      </div>
+                      <div className="h-4 mt-1" />
                     </td>
                     <td className="text-right align-top">
                       <input className="inp text-right tabular-nums" style={{ width: 105, marginLeft: "auto" }}
@@ -464,8 +460,6 @@ export default function NewSalePage() {
         {/* Mobile cards */}
         <div className="md:hidden divide-y divide-[var(--border)]">
           {lines.map((l, i) => {
-            const p = productById[l.productId];
-            const band = bandState(l);
             const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
             const lineStock = l.productId ? stockByProduct[l.productId] : undefined;
             const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
@@ -483,9 +477,6 @@ export default function NewSalePage() {
                 </div>
                 <SearchSelect options={productOpts} value={l.productId}
                   onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
-                <div className="text-[11px] -mt-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
-                  {p ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}` : ""}
-                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs muted block mb-1">{t("Qty")}</label>
@@ -495,10 +486,8 @@ export default function NewSalePage() {
                   <div>
                     <label className="text-xs muted block mb-1">{t("Unit price")}</label>
                     <input className="inp text-right tabular-nums w-full"
-                      style={{ borderColor: band === "out" ? "#b3261e" : undefined }}
                       type="number" min={0} value={l.unitPrice}
                       onChange={(e) => update(i, { unitPrice: e.target.value })} />
-                    {band === "out" && <div className="text-[11px] mt-0.5" style={{ color: "#b3261e" }}>✕ {t("out of band")}</div>}
                   </div>
                   <div>
                     <label className="text-xs muted block mb-1">{t("Gross total")}</label>
@@ -570,7 +559,7 @@ export default function NewSalePage() {
 
       {/* always shown: a price below FIFO cost is only known to the server */}
       <div className="mb-4">
-        <label className="text-xs muted">{t("Authoriser (required for out-of-band price or over-limit credit)")}</label>
+        <label className="text-xs muted">{t("Authoriser (required for over-limit credit)")}</label>
         <input className="inp mt-1" style={{ maxWidth: 320 }}
           placeholder={t("Manager / authority name")}
           value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)} />
