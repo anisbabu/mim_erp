@@ -58,6 +58,7 @@ public class SalesService {
     private final CurrentUserService currentUser;
     private final com.mim.erp.accounting.LedgerService ledgers;
     private final WarehouseRepository warehouses;
+    private final SoStatusService soStatus;   // CLOSED once delivered and paid
     private final com.mim.erp.auth.AppUserRepository users;
     private final com.mim.erp.master.ShopRepository shops;
     private final VatService vat;
@@ -69,7 +70,9 @@ public class SalesService {
                         com.mim.erp.accounting.LedgerService ledgers,
                         WarehouseRepository warehouses,
                         com.mim.erp.auth.AppUserRepository users,
-                        com.mim.erp.master.ShopRepository shops, VatService vat) {
+                        com.mim.erp.master.ShopRepository shops, VatService vat,
+                        SoStatusService soStatus) {
+        this.soStatus = soStatus;
         this.vat = vat;
         this.users = users;
         this.shops = shops;
@@ -222,6 +225,7 @@ public class SalesService {
         so.setStatus(!anyPending ? "DELIVERED" : anyDelivered ? "PARTIALLY_DELIVERED" : "PENDING");
         postSale(so, totalValue, anyPending ? deliveredValue.add(soTransport) : totalValue, deliveredVat,
             deliveredDiscount, soTransport, totalCost);
+        closeIfPaid(so);
 
         return new SalesDtos.OrderResult(so.getId(), so.getSoNo(), challanIds, totalValue, totalCost);
     }
@@ -348,7 +352,15 @@ public class SalesService {
         boolean anyPending = so.getLines().stream().anyMatch(sl -> sl.getQtyPending().signum() > 0);
         boolean allPending = so.getLines().stream().allMatch(sl -> sl.getQtyPending().compareTo(sl.getQty()) == 0);
         so.setStatus(!anyPending ? "DELIVERED" : allPending ? "PENDING" : "PARTIALLY_DELIVERED");
-        return orders.save(so);
+        return closeIfPaid(so);
+    }
+
+    /** Write the order's delivery status, then let it close if every invoice on it is already settled (e.g. cash). */
+    private SalesOrder closeIfPaid(SalesOrder so) {
+        SalesOrder saved = orders.saveAndFlush(so);
+        if (soStatus.refresh(saved.getId(), null) > 0)
+            saved.setStatus(soStatus.status(saved.getId()));   // keep the entity in step, so the flush does not undo it
+        return saved;
     }
 
     // ===================================================================
@@ -500,6 +512,7 @@ public class SalesService {
         if (customerNet.signum() < 0) legs.add(Leg.credit(customerLedger, customerNet.negate()));
         if (!legs.isEmpty())
             accounting.post(today, "Invoice (consolidated) " + so.getSoNo(), "SALES_INVOICE", so.getId(), legs);
+        closeIfPaid(so);
 
         return new SalesDtos.OrderResult(so.getId(), so.getSoNo(),
             open.stream().map(DeliveryChallan::getId).toList(), totalValue, totalCost);

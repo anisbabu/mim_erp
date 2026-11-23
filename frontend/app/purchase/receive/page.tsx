@@ -1,4 +1,5 @@
 "use client";
+import { today } from "@/lib/fmt";
 import DateInput from "@/components/DateInput";
 
 import { useEffect, useMemo, useState } from "react";
@@ -23,6 +24,7 @@ export default function ReceivePage() {
   const [received, setReceived] = useState<Record<string, boolean>>({});  // per-line received flag
   const [price, setPrice] = useState<Record<string, string>>({});        // supplier's billed unit price per line
   const [bill, setBill] = useState({ billNo: "", billDate: "", dueDate: "", freight: "", freightOnBill: true, priceApprovedBy: "", vat: "", receiptDate: "" });
+  const [billNow, setBillNow] = useState(true);   // the supplier's bill came with the goods: post it with the receipt
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -78,6 +80,7 @@ export default function ReceivePage() {
       .filter((l) => l.qtyReceived > 0);
     if (lines.length === 0) { setMsg({ kind: "err", text: t("Tick at least one line as received with a quantity.") }); return; }
     if (priceChanged && !bill.priceApprovedBy.trim()) { setMsg({ kind: "err", text: t("The billed price differs from the PO price - name who approved it.") }); return; }
+    if (billNow && !bill.billNo.trim()) { setMsg({ kind: "err", text: t("Enter the supplier's bill number, or untick 'bill came with the goods'.") }); return; }
     setBusy(true); setMsg(null);
     try {
       await endpoints.receive(poId, {
@@ -87,8 +90,11 @@ export default function ReceivePage() {
         priceApprovedBy: bill.priceApprovedBy.trim() || null,
         vat: Number(bill.vat) || 0,
         receiptDate: bill.receiptDate || undefined,
+        createBill: billNow,
       });
-      setMsg({ kind: "ok", text: t("Goods received. Stock created, PO balance updated and the supplier bill posted.") });
+      setMsg({ kind: "ok", text: billNow
+        ? t("Goods received. Stock created, PO balance updated and the supplier bill posted.")
+        : t("Goods received. Stock created and PO balance updated. Enter the supplier bill in Accounting when it arrives.") });
       const v = await endpoints.receiveView(poId); setPo(v); seed(v);
       endpoints.receipts(poId).then(setHistory);
       endpoints.allPos().then(setAllPosList).catch(() => {});
@@ -183,17 +189,24 @@ export default function ReceivePage() {
           </table>
           {!isClosed && (
             <div className="px-4 py-4 border-t border-slate-200">
-              <div className="section-label mb-3">{t("Supplier bill")}</div>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div className="section-label">{t("Supplier bill")}</div>
+                <label className="flex items-center gap-1.5 text-[13px]">
+                  <input type="checkbox" checked={billNow} onChange={(e) => setBillNow(e.target.checked)} />
+                  {t("Supplier bill came with the goods")}
+                </label>
+              </div>
               <div className="form-grid cols-4">
                 <div className="field"><label>{t("Received on")}</label>
-                  <DateInput className="inp" value={bill.receiptDate} max={new Date().toISOString().slice(0, 10)}
+                  <DateInput className="inp" value={bill.receiptDate} max={today()}
                     onChange={(e) => setBill({ ...bill, receiptDate: e.target.value })} />
                   <div className="h-4 leading-4 text-[11px] muted">{t("Blank = today; set an earlier date for late entry")}</div></div>
-                <div className="field"><label>{t("Supplier bill no.")}</label>
+                <div className="field"><label>{t("Supplier bill no.")}{billNow && <span className="req"> *</span>}</label>
                   <input className="inp" value={bill.billNo} onChange={(e) => setBill({ ...bill, billNo: e.target.value })}
-                    placeholder={t("Can be keyed later")} /></div>
+                    placeholder={billNow ? "" : t("Can be keyed later")} />
+                  <div className="h-4 leading-4 text-[11px] muted">{billNow ? t("Posted as the supplier bill") : t("Bill entered later in Accounting")}</div></div>
                 <div className="field"><label>{t("Bill date")}</label>
-                  <DateInput className="inp" value={bill.billDate} max={new Date().toISOString().slice(0, 10)}
+                  <DateInput className="inp" value={bill.billDate} max={today()}
                     onChange={(e) => setBill({ ...bill, billDate: e.target.value })} /></div>
                 <div className="field"><label>{t("Due date")}</label>
                   <DateInput className="inp" value={bill.dueDate} min={bill.billDate || undefined}
@@ -216,7 +229,7 @@ export default function ReceivePage() {
                     </select></div>
                 )}
                 {priceChanged && (
-                  <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Price change approved by")} *</label>
+                  <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Price change approved by")} <span className="req">*</span></label>
                     <input className="inp" value={bill.priceApprovedBy} onChange={(e) => setBill({ ...bill, priceApprovedBy: e.target.value })} />
                     <div className="h-4 leading-4 text-[11px]" style={{ color: "#b45309" }}>{t("A billed price differs from the PO price")}</div></div>
                 )}
@@ -224,7 +237,7 @@ export default function ReceivePage() {
               <div className="flex justify-end gap-6 text-sm mt-2">
                 <span className="muted">{t("Goods")}: <b className="num">{money(goodsValue)}</b></span>
                 {freight > 0 && <span className="muted">{t("Freight")}: <b className="num">{money(freight)}</b></span>}
-                <span>{t("Payable to supplier")}: <b className="num">{money(goodsValue + (bill.freightOnBill ? freight : 0))}</b></span>
+                <span>{billNow ? t("Payable to supplier") : t("Goods received, not billed")}: <b className="num">{money(goodsValue + (bill.freightOnBill ? freight : 0))}</b></span>
               </div>
             </div>
           )}

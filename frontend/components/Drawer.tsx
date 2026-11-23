@@ -21,7 +21,7 @@ export default function Drawer({ open, title, subtitle, onClose, footer, childre
         style={{ background: "var(--surface)", color: "var(--text)", borderLeft: "1px solid var(--border)" }}>
         <div className="px-5 py-4 flex items-start justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
           <div>
-            <div className="text-base font-semibold">{title}</div>
+            <div className="drawer-title">{title}</div>
             {subtitle && <div className="text-[12px] muted mt-0.5">{subtitle}</div>}
           </div>
           <button className="btn-ghost btn-sm" onClick={onClose} aria-label="Close">✕</button>

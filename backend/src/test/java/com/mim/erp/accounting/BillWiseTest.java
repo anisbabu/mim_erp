@@ -116,6 +116,31 @@ class BillWiseTest {
         assertThat(itemBalance("CUSTOMER", c)).isEqualByComparingTo(ledgers.customerBalance(c));
     }
 
+    /** Bills 4,000 / 4,000 / 2,000, a receipt of 6,000 with no picks: bill 1 cleared, 2,000 left on bill 2, bill 3 untouched.
+     *  "Oldest" is the bill date, even when an older bill falls due later. */
+    @Test
+    void receiptSettlesByBillDateNotDueDate() {
+        UUID c = customer(0);
+        JournalEntry b1 = invoice(c, TODAY.minusDays(30), "4000");
+        invoice(c, TODAY.minusDays(20), "4000");
+        invoice(c, TODAY.minusDays(10), "2000");
+        // bill 1 falls due last: by due date it would be settled last
+        jdbc.update("update party_item set due_date = ? where journal_id = ?", TODAY.plusDays(60), b1.getId());
+
+        cash.voucher(receipt(c, "6000", null, null));
+
+        List<Map<String, Object>> open = openBills(c);
+        assertThat(open).hasSize(2);
+        assertThat(open).extracting(m -> m.get("docDate"))
+            .containsExactlyInAnyOrder(TODAY.minusDays(20).toString(), TODAY.minusDays(10).toString());
+        Map<String, Object> bill2 = open.stream().filter(m -> TODAY.minusDays(20).toString().equals(m.get("docDate"))).findFirst().orElseThrow();
+        Map<String, Object> bill3 = open.stream().filter(m -> TODAY.minusDays(10).toString().equals(m.get("docDate"))).findFirst().orElseThrow();
+        assertThat((BigDecimal) bill2.get("open")).isEqualByComparingTo("2000");
+        assertThat((BigDecimal) bill3.get("open")).isEqualByComparingTo("2000");
+        assertThat(bill3.get("status")).isNotEqualTo("PART");
+        assertThat(itemBalance("CUSTOMER", c)).isEqualByComparingTo(ledgers.customerBalance(c));
+    }
+
     @Test
     void pickedBillsAreHonouredAndDiscountSettlesToo() {
         UUID c = customer(0);

@@ -5,6 +5,8 @@ import { useParams } from "next/navigation";
 import { endpoints, fmtDate, type PoDetails, type Product } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { ReceiveIcon } from "@/components/Icons";
+import PoProgressChips, { StatusChip } from "@/components/PoProgressChips";
+import { fmtMoney } from "@/lib/fmt";
 
 export default function PoDetailsPage() {
   const { t } = useI18n();
@@ -57,6 +59,15 @@ export default function PoDetailsPage() {
               style={{ background: data.status === "OPEN" ? "var(--chip-open-bg)" : "var(--chip-other-bg)",
                        color:      data.status === "OPEN" ? "var(--chip-open-fg)" : "var(--chip-other-fg)" }}>{t(data.status)}</span>
           </div>
+          <div><span className="muted">{t("Progress")}:</span> <PoProgressChips p={data.progress} /></div>
+          {data.progress && (
+            <div className="sm:col-span-2 flex flex-wrap gap-x-6 gap-y-1">
+              <span><span className="muted">{t("Not billed yet")}:</span> <span className="num">{fmtMoney(data.progress.unbilled, "0.00")}</span></span>
+              <span><span className="muted">{t("Billed")}:</span> <span className="num">{fmtMoney(data.progress.billed, "0.00")}</span></span>
+              <span><span className="muted">{t("Paid")}:</span> <span className="num">{fmtMoney(data.progress.paid, "0.00")}</span></span>
+              <span><span className="muted">{t("Remaining")}:</span> <span className="num font-medium">{fmtMoney(data.progress.remaining, "0.00")}</span></span>
+            </div>
+          )}
           {data.note && <div className="sm:col-span-2"><span className="muted">{t("Note")}:</span> {data.note}</div>}
         </div>
       </div>
@@ -107,7 +118,47 @@ export default function PoDetailsPage() {
         </table>
       </div>
 
-      {data.status === "OPEN" && (
+      {(data.receipts?.length ?? 0) > 0 && (
+        <div className="card table-wrap mb-4">
+          <table className="tbl">
+            <thead><tr>
+              <th style={{ textAlign: "center" }}>{t("Goods receipt")}</th>
+              <th style={{ textAlign: "center" }}>{t("Received")}</th>
+              <th style={{ textAlign: "center" }}>{t("Supplier bill")}</th>
+              <th style={{ textAlign: "center" }}>{t("Due date")}</th>
+              <th style={{ textAlign: "right" }}>{t("Bill amount")}</th>
+              <th style={{ textAlign: "right" }}>{t("Remaining")}</th>
+              <th style={{ textAlign: "center" }}>{t("Status")}</th>
+              <th />
+            </tr></thead>
+            <tbody>
+              {data.receipts!.map((r) => {
+                const unbilled = !r.bill_id && r.to_bill > 0;
+                const total = r.total ?? 0;
+                const pay = r.open_amount <= 0 ? "PAID" : r.open_amount < total ? "PARTIAL" : "UNPAID";
+                return (
+                  <tr key={r.grn_id}>
+                    <td className="font-mono text-[13px] text-center">{r.grn_no}</td>
+                    <td className="text-center">{fmtDate(r.receipt_date)}</td>
+                    <td className="font-mono text-[13px] text-center">{r.bill_id ? <>{r.supplier_invoice_no ?? "—"}<div className="muted text-[11px]">{r.bill_no}</div></> : "—"}</td>
+                    <td className="text-center">{r.due_date && r.bill_id ? fmtDate(r.due_date) : "—"}</td>
+                    <td className="num">{r.bill_id ? fmtMoney(total) : unbilled ? <span className="muted">{fmtMoney(r.to_bill)}</span> : "—"}</td>
+                    <td className="num">{r.bill_id ? fmtMoney(r.open_amount, "0.00") : "—"}</td>
+                    <td className="text-center">{unbilled ? <StatusChip kind="bill" value="NONE" /> : r.bill_id ? <StatusChip kind="pay" value={pay} /> : "—"}</td>
+                    <td className="text-right">
+                      {unbilled && <Link className="btn-ghost btn-sm" href={`/accounting/supplier-bills/new?grn=${r.grn_id}`}>{t("Enter bill")}</Link>}
+                      {r.bill_id && r.open_amount > 0 && data.supplierId &&
+                        <Link className="btn-ghost btn-sm" href={`/accounting/payments?type=SUPPLIER&party=${data.supplierId}`}>{t("Pay")}</Link>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data.status === "OPEN" && data.progress?.receiptStatus !== "DONE" && (
         <Link className="btn inline-flex items-center gap-1.5" href={`/purchase/receive?poId=${id}`}>
           <ReceiveIcon /> {t("Receive")}
         </Link>

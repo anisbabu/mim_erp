@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
 import { TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
-import { fmtMoney } from "@/lib/fmt";
+import { fmtMoney, today } from "@/lib/fmt";
 
 type Line = { accountId: string; debit: string; credit: string };
 
@@ -15,7 +15,7 @@ export default function JournalPage() {
   const { t, lang } = useI18n();
   const [ledgers, setLedgers] = useState<LedgerRow[]>([]);
   const [register, setRegister] = useState<JournalEntryView[]>([]);
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [entryDate, setEntryDate] = useState(today());
   const [narration, setNarration] = useState("");
   const [lines, setLines] = useState<Line[]>([
     { accountId: "", debit: "", credit: "" },

@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 
 const money = (n: number) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const DELIVERED = ["DELIVERED", "PARTIALLY_DELIVERED", "INVOICED"];
+const DELIVERED = ["DELIVERED", "PARTIALLY_DELIVERED", "INVOICED", "CLOSED"];
 
 export default function SalesReturnsPage() {
   const { t, dn, lang } = useI18n();
@@ -100,7 +100,7 @@ export default function SalesReturnsPage() {
           <div className="section-label mb-3">{t("New return")}</div>
           <div className="form-grid cols-4">
             <div className="field" style={{ gridColumn: "span 2" }}>
-              <label>{t("Sales order")} *</label>
+              <label>{t("Sales order")} <span className="req">*</span></label>
               <SearchSelect options={orderOpts} value={soId} onChange={setSoId} placeholder={t("Select…")} />
             </div>
             {data && (
@@ -162,11 +162,11 @@ export default function SalesReturnsPage() {
 
               <div className="form-grid cols-4 mt-4">
                 <div className="field" style={{ gridColumn: "span 2" }}>
-                  <label>{t("Reason for return")} *</label>
+                  <label>{t("Reason for return")} <span className="req">*</span></label>
                   <input className="inp" value={reason} onChange={(e) => setReason(e.target.value)} />
                 </div>
                 <div className="field">
-                  <label>{t("Return date")} *</label>
+                  <label>{t("Return date")} <span className="req">*</span></label>
                   <DateInput className="inp" value={returnDate} max={today()}
                     min={data.order.order_date ? String(data.order.order_date).slice(0, 10) : undefined}
                     onChange={(e) => setReturnDate(e.target.value)} />
@@ -202,7 +202,7 @@ export default function SalesReturnsPage() {
           {msg && (
             <div className={`note mt-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>
               {msg.text}
-              {msg.id && <button className="btn-ghost btn-sm ml-3" onClick={() => pdf(msg.id!, "credit-note")}>{t("Download PDF")}</button>}
+              {msg.id && <button className="btn btn-print btn-sm ml-3" onClick={() => pdf(msg.id!, "credit-note")}>{t("Download PDF")}</button>}
             </div>
           )}
         </div>

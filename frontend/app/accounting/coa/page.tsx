@@ -330,10 +330,10 @@ export default function ChartOfAccountsPage() {
           {NATURES.map((n) => <option key={n} value={n}>{t(n)}</option>)}
         </select>
         <div className="h-4 leading-4 text-[12px] muted">{gf.parentId ? t("Inherited from the parent group") : ""} {t("Normal balance")}: {normalBalance(gf.nature)}</div></div>
-      <div className="field"><label>{t("Code")} *</label>
+      <div className="field"><label>{t("Code")} <span className="req">*</span></label>
         <input className="inp" value={gf.code} disabled={drawer?.kind === "group" && !!drawer.id}
           onChange={(e) => setGf({ ...gf, code: e.target.value })} />{fieldErr("code")}</div>
-      <div className="field"><label>{t("Name")} *</label>
+      <div className="field"><label>{t("Name")} <span className="req">*</span></label>
         <input className="inp" value={gf.name} onChange={(e) => setGf({ ...gf, name: e.target.value })} />{fieldErr("name")}</div>
       <div className="field"><label>{t("Name (Bangla)")}</label>
         <input className="inp" value={gf.nameBn} onChange={(e) => setGf({ ...gf, nameBn: e.target.value })} /></div>
@@ -350,15 +350,15 @@ export default function ChartOfAccountsPage() {
   const lfNature = groupById[lf.groupId]?.nature;
   const ledgerDrawerBody = (
     <div className="form-grid cols-1">
-      <div className="field"><label>{t("Under group")} *</label>
+      <div className="field"><label>{t("Under group")} <span className="req">*</span></label>
         <SearchSelect options={groupOptions()} value={lf.groupId} disabled={!!editing?.party}
           onChange={(v) => { setLf((f) => ({ ...f, groupId: v })); if (!(drawer?.kind === "ledger" && drawer.id)) suggestCode(v); }} />
         {fieldErr("groupId")}
         <div className="h-4 leading-4 text-[12px] muted">{lf.groupId ? pathOf(lf.groupId) : ""}</div></div>
-      <div className="field"><label>{t("Code")} *</label>
+      <div className="field"><label>{t("Code")} <span className="req">*</span></label>
         <input className="inp" value={lf.code} disabled={drawer?.kind === "ledger" && !!drawer.id}
           onChange={(e) => { codeTouched.current = true; setLf({ ...lf, code: e.target.value }); }} />{fieldErr("code")}</div>
-      <div className="field"><label>{t("Name")} *</label>
+      <div className="field"><label>{t("Name")} <span className="req">*</span></label>
         <input className="inp" value={lf.name} onChange={(e) => setLf({ ...lf, name: e.target.value })} />{fieldErr("name")}</div>
       <div className="field"><label>{t("Name (Bangla)")}</label>
         <input className="inp" value={lf.nameBn} onChange={(e) => setLf({ ...lf, nameBn: e.target.value })} /></div>

@@ -64,7 +64,7 @@ public class StatementService {
     }
     private static Def liabDef(String code, String grp) {
         if ("L-NC".equals(grp)) return LTB;
-        if ("SC".equals(grp) || "2000".equals(code)) return TP;
+        if ("SC".equals(grp) || "2000".equals(code) || "2010".equals(code)) return TP;
         if ("2100".equals(code) || "2110".equals(code) || "2120".equals(code)) return TAXP;
         return OP;
     }
@@ -330,7 +330,7 @@ public class StatementService {
                 case "LIABILITY" -> {
                     BigDecimal cr = dr.negate();
                     if ("L-NC".equals(grp)) f.borrowings = f.borrowings.add(cr);
-                    else if ("SC".equals(grp) || "2000".equals(code)) f.dTp = f.dTp.add(cr);
+                    else if ("SC".equals(grp) || "2000".equals(code) || "2010".equals(code)) f.dTp = f.dTp.add(cr);
                     else if ("2100".equals(code) || "2110".equals(code) || "2120".equals(code)) f.dTaxp = f.dTaxp.add(cr);
                     else f.dOp = f.dOp.add(cr);
                 }

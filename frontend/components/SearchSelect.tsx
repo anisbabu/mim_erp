@@ -6,7 +6,14 @@ import { createPortal } from "react-dom";
 import { useI18n } from "@/lib/i18n";
 
 // keywords: extra hidden text to search on (e.g. supplier, colour, thickness) - not displayed
-export type Option = { value: string; label: string; sublabel?: string; keywords?: string };
+// tone: optional colour of the row - "ok" green, "warn" amber, "bad" red (e.g. stock on hand / sold out / none)
+export type Option = { value: string; label: string; sublabel?: string; keywords?: string; tone?: "ok" | "warn" | "bad" };
+
+const TONE: Record<NonNullable<Option["tone"]>, { bg: string; bar: string }> = {
+  ok:   { bg: "rgba(16, 185, 129, 0.12)", bar: "#10b981" },
+  warn: { bg: "rgba(245, 158, 11, 0.14)", bar: "#f59e0b" },
+  bad:  { bg: "rgba(239, 68, 68, 0.11)",  bar: "#ef4444" },
+};
 
 // lowercase words, split at punctuation and at letter/number boundaries: "P5126" -> p, 5126; "12mela" -> 12, mela.
 // \p{M} keeps Bangla vowel signs inside their word.
@@ -132,7 +139,9 @@ export default function SearchSelect({
     <button type="button" onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}
       className={`w-full text-left px-3 py-2 text-sm transition-colors ${
         i === hic ? "bg-brand-soft" : o.value === value ? "bg-slate-50" : "bg-white"
-      }`}>
+      }`}
+      style={o.tone ? { boxShadow: `inset 3px 0 0 ${TONE[o.tone].bar}`,
+                        ...(i === hic ? {} : { background: TONE[o.tone].bg }) } : undefined}>
       <div className="truncate">{o.label}</div>
       {o.sublabel && <div className="text-[12px] muted truncate">{o.sublabel}</div>}
     </button>

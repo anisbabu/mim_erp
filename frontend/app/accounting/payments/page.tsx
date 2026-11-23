@@ -1,6 +1,7 @@
 "use client";
+import { today } from "@/lib/fmt";
 import DateInput from "@/components/DateInput";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
@@ -10,7 +11,6 @@ import { endpoints, fmtDate, type Supplier, type Customer, type PaymentRow, type
 type Dir = "IN" | "OUT";
 const money = (n: number) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const r2 = (n: number) => Math.round(n * 100) / 100;
-const today = () => new Date().toISOString().slice(0, 10);
 
 export default function PaymentsPage() {
   const { t, dn, lang } = useI18n();
@@ -35,9 +35,21 @@ export default function PaymentsPage() {
   const [bankAcc, setBankAcc] = useState("");
   const [bankBranch, setBankBranch] = useState("");
   const [items, setItems] = useState<PartyOpenItems | null>(null);
-  const [alloc, setAlloc] = useState<Record<string, string>>({});   // billId -> amount; all empty = oldest first
+  const [alloc, setAlloc] = useState<Record<string, string>>({});   // billId -> amount; used only when picking by hand
+  const [handPick, setHandPick] = useState(false);                   // off = the server settles oldest bill first
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string; id?: string } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // ?type=SUPPLIER&party=<id> - opened from a supplier bill / customer invoice: preselect the party.
+  // The money still settles the oldest bills first; a ?bill= in old links is ignored.
+  const pending = useRef<{ party?: string } | null>(null);
+  useEffect(() => {
+    const qs = new URLSearchParams(window.location.search);
+    const party = qs.get("party");
+    if (!party) return;
+    pending.current = { party };
+    if (qs.get("type") === "SUPPLIER") setTab("OUT"); else if (qs.get("type") === "CUSTOMER") setTab("IN");
+  }, []);
 
   const isPay = tab === "OUT";
   const partyType = isPay ? "SUPPLIER" : "CUSTOMER";
@@ -52,23 +64,34 @@ export default function PaymentsPage() {
     setLoading(true);
     endpoints.paymentList(dir).then(setRows).catch(() => setRows([])).finally(() => setLoading(false));
   }
-  useEffect(() => { setRows([]); setQ(""); setPartyId(""); setMsg(null); loadList(tab); }, [tab]);
+  useEffect(() => {
+    setRows([]); setQ(""); setMsg(null); loadList(tab);
+    const want = new URLSearchParams(window.location.search).get("type") === "SUPPLIER" ? "OUT" : "IN";
+    if (pending.current?.party && tab === want) setPartyId(pending.current.party); else setPartyId("");
+  }, [tab]);
 
   function loadItems(id: string) {
-    setAlloc({});
+    setAlloc({}); setHandPick(false);
     if (!id) { setItems(null); return; }
-    endpoints.partyOpenItems(partyType, id).then(setItems).catch(() => setItems(null));
+    endpoints.partyOpenItems(partyType, id).then((it) => {
+      setItems(it);
+      if (pending.current?.party === id) pending.current = null;
+    }).catch(() => setItems(null));
   }
   useEffect(() => { loadItems(partyId); }, [partyId, tab]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const partyOpts: Option[] = useMemo(
-    () => (isPay ? suppliers : customers).map((x: any) => ({ value: x.id, label: dn(x), sublabel: x.code })),
+    () => (isPay ? suppliers : customers).map((x: any) => ({
+      value: x.id, label: dn(x), sublabel: [x.code, x.mobile].filter(Boolean).join(" · "),
+      // find the party by mobile number too (any of its numbers) and by its other-language name
+      keywords: [x.mobile, x.mobile2, x.mobile3, x.name, x.nameBn].filter(Boolean).join(" "),
+    })),
     [isPay, suppliers, customers, dn]);
 
   // what the party ledger is cleared by: cash + discount + tax deducted at source
   const settles = r2((Number(amount) || 0) + (Number(discount) || 0) + (Number(ait) || 0) + (Number(vds) || 0));
-  const picked = Object.values(alloc).some((v) => v !== "" && Number(v) > 0);
-  const allocated = r2(Object.values(alloc).reduce((s, v) => s + (Number(v) || 0), 0));
+  const picked = handPick && Object.values(alloc).some((v) => v !== "" && Number(v) > 0);
+  const allocated = picked ? r2(Object.values(alloc).reduce((s, v) => s + (Number(v) || 0), 0)) : 0;
 
   /** What each bill would get: the user's picks, else oldest-first preview. */
   const preview: Record<string, number> = useMemo(() => {
@@ -81,6 +104,24 @@ export default function PaymentsPage() {
   }, [items, alloc, picked, settles]);
   const previewTotal = r2(Object.values(preview).reduce((s, v) => s + v, 0));
   const advance = r2(settles - previewTotal);
+  const reached = items ? items.bills.filter((b) => (preview[b.id] ?? 0) > 0) : [];
+  const fullyCleared = reached.filter((b) => r2(Number(b.open) - preview[b.id]) <= 0).length;
+  const partPaid = reached.length - fullyCleared;
+  /** One line of what the money will do, e.g. "1 bill cleared · 1 part paid". */
+  function settleSummary(): string {
+    const parts: string[] = [];
+    if (fullyCleared) parts.push(`${fullyCleared} ${fullyCleared === 1 ? t("bill cleared") : t("bills cleared")}`);
+    if (partPaid) parts.push(`${partPaid} ${t("part paid")}`);
+    if (advance > 0) parts.push(`${money(advance)} ${t("on account")}`);
+    return parts.join(" · ");
+  }
+  /** Which bills the voucher settles, for the success message (worked out before saving). */
+  function settledText(): string {
+    return reached.map((b) => {
+      const left = r2(Number(b.open) - preview[b.id]);
+      return `${b.docNo ?? "—"} ${left <= 0 ? t("cleared") : `${money(preview[b.id])} ${t("paid")} (${money(left)} ${t("left")})`}`;
+    }).join(", ");
+  }
   const allocErr = picked && allocated > settles ? t("Allocated more than the voucher amount.") : null;
 
   function autoFill() {
@@ -113,6 +154,7 @@ export default function PaymentsPage() {
       const allocations = picked
         ? Object.entries(alloc).filter(([, v]) => Number(v) > 0).map(([billId, v]) => ({ billId, amount: Number(v) }))
         : undefined;
+      const done = settledText();
       const p: any = await endpoints.payment({
         direction: tab, partyType, partyId, date, amount: Number(amount),
         discount: Number(discount) || 0, ait: Number(ait) || 0, vds: Number(vds) || 0,
@@ -123,7 +165,7 @@ export default function PaymentsPage() {
         allocations,
       });
       if (p.pending) setMsg({ kind: "ok", text: `${t("Above the approval limit — sent for approval as")} ${p.requestNo}.` });
-      else setMsg({ kind: "ok", text: `${isPay ? t("Payment") : t("Receipt")} ${p.voucherNo ?? p.paymentNo} ${t("recorded.")}`, id: p.id });
+      else setMsg({ kind: "ok", text: `${isPay ? t("Payment") : t("Receipt")} ${p.voucherNo ?? p.paymentNo} ${t("recorded.")}${done ? ` ${done}.` : ""}`, id: p.id });
       setAmount(""); setDiscount(""); setAit(""); setVds(""); setNote(""); setReference(""); setBankAcc(""); setBankBranch("");
       loadItems(partyId);
       loadList(tab);
@@ -148,21 +190,21 @@ export default function PaymentsPage() {
         <div className="section-label mb-3">{isPay ? t("New payment voucher") : t("New receipt voucher")}</div>
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}>
-            <label>{isPay ? t("Supplier") : t("Customer")} *</label>
+            <label>{isPay ? t("Supplier") : t("Customer")} <span className="req">*</span></label>
             <SearchSelect options={partyOpts} value={partyId} onChange={setPartyId} placeholder={t("Select…")} />
             <div className="h-4 leading-4 text-[12px] muted">
               {items && <>{isPay ? t("Payable") : t("Receivable")}: <b>{money(items.balance)}</b>
                 {items.advanceTotal > 0 && <> · {t("Advance")}: {money(items.advanceTotal)}</>}</>}
             </div>
           </div>
-          <div className="field"><label>{t("Date")} *</label>
+          <div className="field"><label>{t("Date")} <span className="req">*</span></label>
             <DateInput className="inp" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
             <div className="h-4 leading-4" /></div>
           <div className="field"><label>{t("Method")}</label>
             <select className="inp" value={method} onChange={(e) => setMethod(e.target.value as "CASH" | "BANK")}>
               <option value="CASH">{t("Cash")}</option><option value="BANK">{t("Bank")}</option>
             </select><div className="h-4 leading-4" /></div>
-          <div className="field"><label>{t("Amount")} *</label>
+          <div className="field"><label>{t("Amount")} <span className="req">*</span></label>
             <input className="inp num" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
           <div className="field"><label>{isPay ? t("Discount received") : t("Discount allowed")}</label>
             <input className="inp num" type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} /></div>
@@ -180,7 +222,7 @@ export default function PaymentsPage() {
               <select className="inp" value={bankLedger} onChange={(e) => setBankLedger(e.target.value)}>
                 {banks.map((b) => <option key={b.id} value={b.code}>{dn(b as any)} ({b.code})</option>)}
               </select></div>
-            <div className="field"><label>{t("Bank account number")} *</label>
+            <div className="field"><label>{t("Bank account number")} <span className="req">*</span></label>
               <input className="inp" value={bankAcc} onChange={(e) => setBankAcc(e.target.value)} /></div>
             <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Bank branch")}</label>
               <input className="inp" value={bankBranch} onChange={(e) => setBankBranch(e.target.value)} /></div>
@@ -189,55 +231,74 @@ export default function PaymentsPage() {
             <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} /></div>
         </div>
 
-        {/* bill-wise allocation */}
+        {/* how the money settles: oldest bill (by bill date) first, done by the server; hand-picking only on request */}
         {items && (
           <div className="mt-5">
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <div className="section-label">{t("Settle against bills")}</div>
-              <span className="chip bg-slate-100 text-slate-600">{picked ? t("Picked bills") : t("Oldest first")}</span>
+              <div className="section-label">{t("How it will settle")}</div>
+              <span className="chip bg-slate-100 text-slate-600">{picked ? t("Picked bills") : t("Oldest bill first")}</span>
+              {settles > 0 && items.bills.length > 0 && <span className="text-[12px] muted">{settleSummary()}</span>}
               <div className="flex-1" />
-              <button className="btn-ghost" onClick={autoFill} disabled={!items.bills.length || settles <= 0}>{t("Fill oldest first")}</button>
-              <button className="btn-ghost" onClick={() => setAlloc({})} disabled={!picked}>{t("Clear")}</button>
+              {handPick && <>
+                <button className="btn-ghost" onClick={autoFill} disabled={!items.bills.length || settles <= 0}>{t("Fill oldest first")}</button>
+                <button className="btn-ghost" onClick={() => setAlloc({})} disabled={!picked}>{t("Clear")}</button>
+              </>}
+              {items.bills.length > 0 && (
+                <button className="text-brand text-[12px] underline" onClick={() => { setHandPick(!handPick); setAlloc({}); }}>
+                  {handPick ? t("Hide bill picking") : t("Pick bills by hand")}
+                </button>
+              )}
             </div>
             <div className="table-wrap">
-              <table className="tbl" style={{ minWidth: 640 }}>
+              <table className="tbl" style={{ minWidth: 680 }}>
                 <thead><tr>
-                  <th style={{ textAlign: "left" }}>{t("Bill no.")}</th>
-                  <th style={{ textAlign: "left" }}>{t("Bill date")}</th>
-                  <th style={{ textAlign: "left" }}>{t("Due date")}</th>
+                  <th style={{ textAlign: "center" }}>{t("Bill no.")}</th>
+                  <th style={{ textAlign: "center" }}>{t("Bill date")}</th>
+                  <th style={{ textAlign: "center" }}>{t("Due date")}</th>
                   <th style={{ textAlign: "right" }}>{t("Bill amount")}</th>
-                  <th style={{ textAlign: "right" }}>{t("Open")}</th>
-                  <th style={{ textAlign: "right", width: 150 }}>{t("Settle")}</th>
+                  <th style={{ textAlign: "right" }}>{t("Open now")}</th>
+                  <th style={{ textAlign: "right", width: 150 }}>{isPay ? t("This payment") : t("This receipt")}</th>
+                  <th style={{ textAlign: "right" }}>{t("Left after")}</th>
                 </tr></thead>
                 <tbody>
                   {items.bills.map((b) => {
                     const overdue = b.dueDate < date;
+                    const take = preview[b.id] ?? 0;
+                    const left = r2(Number(b.open) - take);
+                    const untouched = !handPick && take <= 0;
                     return (
-                      <tr key={b.id}>
-                        <td className="font-mono text-[13px]">{b.docNo ?? "—"}{b.sourceType === "OPENING" && <span className="chip ml-2 bg-slate-100 text-slate-500">{t("Opening")}</span>}</td>
-                        <td>{fmtDate(b.docDate)}</td>
-                        <td style={overdue ? { color: "#b91c1c" } : undefined}>{fmtDate(b.dueDate)}</td>
+                      <tr key={b.id} style={untouched ? { opacity: 0.55 } : undefined}>
+                        <td className="font-mono text-[13px] text-center">{b.docNo ?? "—"}{b.sourceType === "OPENING" && <span className="chip ml-2 bg-slate-100 text-slate-500">{t("Opening")}</span>}</td>
+                        <td className="text-center">{fmtDate(b.docDate)}</td>
+                        <td className="text-center" style={overdue ? { color: "#b91c1c" } : undefined}>{fmtDate(b.dueDate)}</td>
                         <td className="num">{money(b.amount)}</td>
                         <td className="num">{money(b.open)}</td>
+                        <td className="num font-medium">
+                          {handPick
+                            ? <input className="inp num" type="number" min={0} max={b.open} style={{ width: 130 }}
+                                value={alloc[b.id] ?? ""} onChange={(e) => setAlloc({ ...alloc, [b.id]: e.target.value })} />
+                            : take > 0 ? money(take) : "—"}
+                        </td>
                         <td className="num">
-                          <input className="inp num" type="number" min={0} max={b.open} style={{ width: 130 }}
-                            placeholder={!picked && preview[b.id] ? money(preview[b.id]) : ""}
-                            value={alloc[b.id] ?? ""}
-                            onChange={(e) => setAlloc({ ...alloc, [b.id]: e.target.value })} />
+                          {take <= 0 ? money(b.open)
+                            : left <= 0 ? <span className="chip bg-emerald-50 text-emerald-700">{t("Cleared")}</span>
+                            : money(left)}
                         </td>
                       </tr>
                     );
                   })}
                   {items.bills.length === 0 && (
-                    <tr><td colSpan={6} className="muted text-sm" style={{ padding: 14 }}>{t("No open bills. The whole amount goes on account as an advance.")}</td></tr>
+                    <tr><td colSpan={7} className="muted text-sm" style={{ padding: 14 }}>{t("No open bills. The whole amount goes on account as an advance.")}</td></tr>
                   )}
                 </tbody>
                 <tfoot><tr>
                   <td colSpan={5} className="text-right">{t("Settled against bills")}</td>
                   <td className="num font-medium">{money(previewTotal)}</td>
+                  <td />
                 </tr><tr>
                   <td colSpan={5} className="text-right">{t("Advance / on account")}</td>
                   <td className="num font-medium" style={advance < 0 ? { color: "#b91c1c" } : undefined}>{money(advance)}</td>
+                  <td />
                 </tr></tfoot>
               </table>
             </div>

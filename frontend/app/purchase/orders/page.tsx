@@ -2,7 +2,9 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { endpoints, fmtDate, type PurchaseOrder, type Supplier } from "@/lib/api";
+import { endpoints, fmtDate, type PurchaseOrder, type Supplier, type PoProgress } from "@/lib/api";
+import { fmtMoney } from "@/lib/fmt";
+import PoProgressChips from "@/components/PoProgressChips";
 import { ReceiveIcon } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 
@@ -12,6 +14,7 @@ export default function PoListPage() {
   const { t, dn } = useI18n();
   const [pos, setPos] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Record<string, Supplier>>({});
+  const [progress, setProgress] = useState<Record<string, PoProgress>>({});
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OPEN" | "CLOSED">("ALL");
   const [page, setPage] = useState(1);
@@ -19,6 +22,7 @@ export default function PoListPage() {
 
   useEffect(() => {
     endpoints.allPos().then(setPos).catch(() => {});
+    endpoints.poProgress().then((r) => setProgress(Object.fromEntries(r.map((x) => [x.poId, x])))).catch(() => {});
     endpoints.suppliers()
       .then((s) => setSuppliers(Object.fromEntries(s.map((x) => [x.id, x]))))
       .catch(() => {});
@@ -65,16 +69,21 @@ export default function PoListPage() {
             <th style={{ textAlign: "center" }}>{t("Supplier")}</th>
             <th style={{ textAlign: "center" }}>{t("Date")}</th>
             <th style={{ textAlign: "center" }}>{t("Status")}</th>
+            <th style={{ textAlign: "left" }}>{t("Progress")}</th>
+            <th style={{ textAlign: "right" }}>{t("Billed")}</th>
+            <th style={{ textAlign: "right" }}>{t("Paid")}</th>
+            <th style={{ textAlign: "right" }}>{t("Remaining")}</th>
             <th style={{ textAlign: "center" }}>{t("Receive")}</th>
           </tr></thead>
           <tbody>
             {pageItems.length === 0 && (
-              <tr><td colSpan={5} className="text-[var(--muted)]">
+              <tr><td colSpan={9} className="text-[var(--muted)]">
                 {search ? t("No matching orders.") : t("No purchase orders yet.")}
               </td></tr>
             )}
             {pageItems.map((p) => {
               const sup = suppliers[p.supplierId];
+              const pr = progress[p.id];
               return (
                 <tr key={p.id} className="cursor-pointer"
                     onClick={() => router.push(`/purchase/orders/${p.id}`)}>
@@ -93,8 +102,12 @@ export default function PoListPage() {
                       {t(p.status)}
                     </span>
                   </td>
+                  <td><PoProgressChips p={pr} /></td>
+                  <td className="num">{pr && pr.billed > 0 ? fmtMoney(pr.billed) : "—"}</td>
+                  <td className="num">{pr && pr.paid > 0 ? fmtMoney(pr.paid) : "—"}</td>
+                  <td className="num">{pr && pr.remaining > 0 ? fmtMoney(pr.remaining) : "—"}</td>
                   <td className="text-center">
-                    {p.status === "OPEN" && (
+                    {p.status === "OPEN" && pr?.receiptStatus !== "DONE" && (
                       <Link className="btn-icon btn-icon-edit" title={t("Receive")}
                         href={`/purchase/receive?poId=${p.id}`}
                         onClick={(e) => e.stopPropagation()}>

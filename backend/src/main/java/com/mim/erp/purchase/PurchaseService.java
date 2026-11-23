@@ -31,13 +31,19 @@ public class PurchaseService {
     private final LedgerService ledgers;
     private final DocNumberService docNo;
     private final BillService bills;
+    private final SupplierBillService supplierBills;
+    private final PoStatusService poStatus;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public PurchaseService(PurchaseOrderRepository pos, PoLineRepository poLines,
                            GoodsReceiptRepository grns, ProductRepository products,
                            SupplierRepository suppliers,
                            InventoryService inventory, AccountingService accounting,
-                           LedgerService ledgers, DocNumberService docNo, BillService bills) {
-        this.bills = bills;
+                           LedgerService ledgers, DocNumberService docNo, BillService bills,
+                           SupplierBillService supplierBills, PoStatusService poStatus,
+                           org.springframework.jdbc.core.JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+        this.bills = bills; this.supplierBills = supplierBills; this.poStatus = poStatus;
         this.pos = pos; this.poLines = poLines; this.grns = grns;
         this.products = products; this.suppliers = suppliers;
         this.inventory = inventory;
@@ -87,9 +93,10 @@ public class PurchaseService {
      *  - billed price defaults to the PO price; a different price needs an approver (logged on the GRN)
      *  - freight is added to the stock cost (landed cost), shared across lines by value
      *  - each received line reduces the PO-line balance and creates a FIFO layer at landed cost
-     *  - PO auto-closes when every line balance reaches zero
-     *  - posts Dr Inventory / Cr Supplier (and Cr Cash for freight paid to a carrier)
-     *  - the supplier bill is due on dueDate, else bill date (or receipt date) + supplier credit days
+     *  - posts Dr Inventory / Cr 2010 Goods received, not billed (and Cr Cash for freight paid to a carrier)
+     *  - with the supplier's bill no. (or createBill) the supplier bill is posted too, moving the value
+     *    from 2010 to the supplier; it is due on dueDate, else bill date (or receipt date) + credit days
+     *  - the PO closes only once everything is received, billed and paid (PoStatusService)
      */
     @Transactional
     public GoodsReceipt receive(UUID poId, PurchaseDtos.ReceiveRequest req) {
@@ -194,13 +201,8 @@ public class PurchaseService {
                 saved.getReceiptDate(), "GRN", saved.getId());
         }
 
-        // auto-close PO if fully received
-        boolean allZero = po.getLines().stream()
-            .allMatch(l -> l.getQtyBalance().signum() == 0);
-        if (allZero) po.setStatus("CLOSED");
-
-        // accounting: Dr Inventory (goods ex VAT + freight), Dr Input VAT / Cr the supplier for the bill,
-        // Cr Cash for carrier freight.
+        // accounting: Dr Inventory (goods ex VAT + freight), Dr Input VAT / Cr 2010 for what the supplier
+        // will bill, Cr Cash for carrier freight.
         // Free-only receipts with no freight carry zero value, so no journal entry is posted.
         BigDecimal payable = totalValue.add(saved.isFreightOnBill() ? freight : BigDecimal.ZERO);
         BigDecimal stock = totalValue.subtract(inputVat).add(freight);
@@ -209,13 +211,22 @@ public class PurchaseService {
             if (stock.signum() > 0) legs.add(Leg.debit("1200", stock));          // Inventory
             if (inputVat.signum() > 0) legs.add(Leg.debit(com.mim.erp.accounting.VatService.INPUT_VAT, inputVat));
             if (payable.signum() > 0)
-                legs.add(Leg.credit(ledgers.supplierLedger(po.getSupplierId()).getCode(), payable));
+                legs.add(Leg.credit(SupplierBillService.GRNI, payable));
             if (!saved.isFreightOnBill() && freight.signum() > 0)
                 legs.add(Leg.credit("1000", freight));                             // carrier paid in cash
             accounting.post(saved.getReceiptDate(), "Goods receipt " + saved.getGrnNo()
                 + (saved.getBillNo() == null ? "" : " - bill " + saved.getBillNo()), "GRN", saved.getId(), legs);
         }
 
+        // the supplier's bill came with the goods: post it now (blank flag = when a bill no. is given)
+        boolean billNow = req.createBill() != null ? req.createBill() : saved.getBillNo() != null;
+        if (billNow && payable.signum() > 0) {
+            if (saved.getBillNo() == null) throw new ApiException("Enter the supplier's bill number, or untick 'bill came with the goods'");
+            supplierBills.create(new SupplierBillService.CreateRequest(saved.getBillNo(),
+                saved.getBillDate() != null ? saved.getBillDate() : saved.getReceiptDate(), saved.getDueDate(), null,
+                List.of(new SupplierBillService.Line(saved.getId(), null))));
+        }
+        poStatus.refresh(poId, null);
         return saved;
     }
 
@@ -242,7 +253,14 @@ public class PurchaseService {
         if (b.billNo() == null || b.billNo().isBlank()) throw new ApiException("Enter the supplier's bill number");
         applyBill(grn, po.getSupplierId(), b.billNo(), b.billDate(), b.dueDate());
         GoodsReceipt saved = grns.saveAndFlush(grn);
-        bills.retagGrn(saved.getId());
+        if (!supplierBills.isBilled(saved.getId())) {          // keying the bill now posts it
+            supplierBills.create(new SupplierBillService.CreateRequest(saved.getBillNo(),
+                saved.getBillDate() != null ? saved.getBillDate() : saved.getReceiptDate(), saved.getDueDate(), null,
+                List.of(new SupplierBillService.Line(saved.getId(), null))));
+        } else {
+            bills.retagGrn(saved.getId());                     // receipts billed on the GRN before V79
+            supplierBills.retag(saved.getId(), saved.getBillNo(), saved.getDueDate());
+        }
         return saved;
     }
 
@@ -275,7 +293,15 @@ public class PurchaseService {
             null, po.getStatus(), lines);
     }
 
-    public List<PurchaseOrder> openOrders() { return pos.findByStatusOrderByPoNoDesc("OPEN"); }
+    /** POs with something still to receive (an OPEN PO may be fully received but not yet billed or paid). */
+    @Transactional(readOnly = true)
+    public List<PurchaseOrder> openOrders() {
+        return pos.findByStatusOrderByPoNoDesc("OPEN").stream()
+            .filter(po -> po.getLines().stream().anyMatch(l -> l.getQtyBalance().signum() > 0)).toList();
+    }
+
+    /** Receipt / bill / payment progress of every PO, for the PO list. */
+    public java.util.Collection<java.util.Map<String, Object>> progress() { return poStatus.progress(null).values(); }
     /** Newest POs first for the list view. */
     public List<PurchaseOrder> allOrders()  { return pos.findAllByOrderByStatusDescPoNoDesc(); }
 
@@ -302,6 +328,20 @@ public class PurchaseService {
         }).toList();
         return new PurchaseDtos.PoDetails(po.getId(), po.getPoNo(), po.getSupplierId(),
             supplierName, po.getOrderDate(), po.getStatus(), po.getNote(),
-            lines, totalQty[0], totalValue[0]);
+            lines, totalQty[0], totalValue[0],
+            poStatus.progress(List.of(po.getId())).get(po.getId()), receiptsWithBills(po.getId()));
+    }
+
+    /** The PO's receipts, each with its supplier bill and what is paid on it. */
+    private List<java.util.Map<String, Object>> receiptsWithBills(UUID poId) {
+        return jdbc.queryForList("""
+            select g.id as grn_id, g.grn_no, g.receipt_date, gb.to_bill, b.id as bill_id, b.bill_no, b.supplier_invoice_no,
+                   b.due_date, b.total, coalesce(o.open_amount, 0) as open_amount
+            from goods_receipt g join grn_billing gb on gb.grn_id = g.id
+            left join supplier_bill b on b.id = gb.bill_id
+            left join supplier_bill_open o on o.bill_id = b.id
+            where g.po_id = ?
+            order by g.receipt_date, g.grn_no
+        """, poId);
     }
 }

@@ -95,6 +95,16 @@ public class ControlService {
             "INFO", "Total payable = supplier ledgers + the general payable account.",
             Map.of("supplierLedgers", apParty, "unallocated", apCtl, "total", apParty.add(apCtl))));
 
+        BigDecimal grniLedger = ledgerClosing("2010").negate();
+        BigDecimal unbilled = bd(jdbc.queryForObject(
+            "select coalesce(sum(to_bill), 0) from grn_billing where bill_id is null and to_bill > 0", BigDecimal.class));
+        BigDecimal grniDiff = grniLedger.subtract(unbilled);
+        boolean grniOk = grniDiff.abs().compareTo(BigDecimal.ONE) < 0;
+        out.add(check("GRNI", "Goods received, not billed (2010) agrees to the receipts still to be billed",
+            grniOk ? "OK" : "FAIL",
+            grniOk ? "Every unbilled receipt is in 2010 and nothing else is." : "2010 and the unbilled receipts differ by " + grniDiff.abs() + ".",
+            Map.of("ledger", grniLedger, "unbilledReceipts", unbilled, "difference", grniDiff)));
+
         Integer uncleared = jdbc.queryForObject(
             "select count(*) from journal_line jl join account a on a.id = jl.account_id "
           + "join account_group g on g.id = a.group_id "

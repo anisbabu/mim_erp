@@ -10,8 +10,9 @@ import java.util.UUID;
 public class SalesController {
 
     private final SalesService service;
+    private final SoStatusService soStatus;
 
-    public SalesController(SalesService service) { this.service = service; }
+    public SalesController(SalesService service, SoStatusService soStatus) { this.service = service; this.soStatus = soStatus; }
 
     /** Workflow 1 (SO_FIRST): create order, system splits into per-warehouse challans. */
     @PostMapping("/orders")
@@ -33,6 +34,10 @@ public class SalesController {
 
     @GetMapping("/orders")
     public java.util.List<SalesOrder> orders() { return service.allOrders(); }
+
+    /** Delivery and payment status of every order (merged into the orders list). */
+    @GetMapping("/orders/progress")
+    public java.util.Collection<java.util.Map<String, Object>> progress() { return soStatus.progress(null).values(); }
 
     /** Line items of one order — the orders list has no other way to see them (SalesOrder.lines is @JsonIgnore). */
     @GetMapping("/orders/{soId}/lines")

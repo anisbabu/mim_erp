@@ -94,7 +94,7 @@ export default function PurchaseReturnsPage() {
           <div className="section-label mb-3">{t("New return")}</div>
           <div className="form-grid cols-4">
             <div className="field" style={{ gridColumn: "span 2" }}>
-              <label>{t("Goods receipt")} *</label>
+              <label>{t("Goods receipt")} <span className="req">*</span></label>
               <SearchSelect options={grnOpts} value={grnId} onChange={setGrnId} placeholder={t("Select…")} />
             </div>
             {data && (
@@ -153,11 +153,11 @@ export default function PurchaseReturnsPage() {
 
               <div className="form-grid cols-4 mt-4">
                 <div className="field" style={{ gridColumn: "span 2" }}>
-                  <label>{t("Reason for return")} *</label>
+                  <label>{t("Reason for return")} <span className="req">*</span></label>
                   <input className="inp" value={reason} onChange={(e) => setReason(e.target.value)} />
                 </div>
                 <div className="field">
-                  <label>{t("Return date")} *</label>
+                  <label>{t("Return date")} <span className="req">*</span></label>
                   <DateInput className="inp" value={returnDate} max={today()}
                     min={String(data.receipt.receipt_date).slice(0, 10)} onChange={(e) => setReturnDate(e.target.value)} />
                 </div>
