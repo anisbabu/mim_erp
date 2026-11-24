@@ -6,6 +6,7 @@ import { endpoints, fmtDate, type ChecksReport, type TaxSummary } from "@/lib/ap
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import { ReportTitle, StatusChip, Toolbar, readSaved, savePdf, useSaved } from "./ReportKit";
+import TopMessage from "@/components/TopMessage";
 
 export function TaxReport() {
   const { t, lang } = useI18n();
@@ -42,7 +43,7 @@ export function TaxReport() {
         <div className="field"><label>{t("To")}</label>
           <DateInput className="inp" value={to} onChange={(e) => setTo(e.target.value)} /></div>
       </Toolbar>
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
       <div className="report-sheet">
         <ReportTitle name={t("VAT and AIT summary")} period={`${fmtDate(from)} – ${fmtDate(to)}`} sub={t("Amounts in BDT")} />
         {tax && (
@@ -75,7 +76,7 @@ export function ChecksReport() {
       <Toolbar onPdf={rep ? () => savePdf(() => endpoints.reportPdfQuery("reports/checks", "", lang), `control-checks${lang === "bn" ? "-bn" : ""}.pdf`, setErr) : undefined}>
         <button className="btn-ghost btn-sm" onClick={load}>{t("Run checks again")}</button>
       </Toolbar>
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
       <div className="report-sheet">
         <ReportTitle name={t("Accounting control checks")} period={rep ? `${t("As at")} ${fmtDate(rep.asOf)}` : ""} />
         {!rep && !err && <p className="muted text-sm">{t("Loading…")}</p>}

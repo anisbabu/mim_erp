@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { endpoints, type UserView, type Shop, type Role } from "@/lib/api";
 import { EditIcon } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
+import { Pencil, UserPlus } from "lucide-react";
 
 export default function UsersPage() {
   const { t, dn } = useI18n();
@@ -137,7 +139,7 @@ export default function UsersPage() {
 
       {/* create form */}
       <div className="border border-line rounded-xl bg-white p-4 mb-6">
-        <p className="text-xs font-medium text-[#6b6960] uppercase tracking-wide mb-3">{t("New user")}</p>
+        <div className="section-label tone-ok mb-4"><UserPlus size={16} />{t("New user")}</div>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-[#6b6960]">{t("Username")}</label>
@@ -195,18 +197,16 @@ export default function UsersPage() {
 
         <div className="mt-4 flex items-center gap-3">
           <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Creating…") : t("Create user")}</button>
-          {msg && (
-            <span className="text-sm" style={{ color: msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>{msg.text}</span>
-          )}
+          <TopMessage msg={msg} />
         </div>
       </div>
 
       {/* edit panel */}
       {editUser && (
         <div className="border border-brand rounded-xl bg-white p-4 mb-6">
-          <p className="text-xs font-medium text-[#6b6960] uppercase tracking-wide mb-3">
-            {t("Editing")} <span className="font-mono text-[#1c1b19]">{editUser.username}</span>
-          </p>
+          <div className="section-label tone-warn mb-4"><Pencil size={16} />
+            {t("Editing")} <span className="font-mono normal-case">{editUser.username}</span>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-[#6b6960]">{t("Username")}</label>
@@ -274,9 +274,7 @@ export default function UsersPage() {
           <div className="mt-4 flex items-center gap-3">
             <button className="btn" onClick={saveEdit} disabled={editBusy}>{editBusy ? t("Saving…") : t("Save")}</button>
             <button className="btn-ghost" onClick={cancelEdit}>{t("Cancel")}</button>
-            {editMsg && (
-              <span className="text-sm" style={{ color: editMsg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>{editMsg.text}</span>
-            )}
+            <TopMessage msg={editMsg} />
           </div>
         </div>
       )}

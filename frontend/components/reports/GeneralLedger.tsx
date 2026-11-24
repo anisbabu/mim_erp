@@ -7,6 +7,7 @@ import { fmtDrCr, fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { ReportTitle, Toolbar, readSaved, savePdf, useSaved } from "./ReportKit";
+import TopMessage from "@/components/TopMessage";
 
 export default function GeneralLedgerReport() {
   const { t, lang } = useI18n();
@@ -45,7 +46,7 @@ export default function GeneralLedgerReport() {
         <div className="field"><label>{t("To")}</label>
           <DateInput className="inp" value={to} onChange={(e) => setTo(e.target.value)} /></div>
       </Toolbar>
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
       {!accountId && <p className="muted text-sm">{t("Pick a ledger to see its account statement.")}</p>}
 
       {gl && (

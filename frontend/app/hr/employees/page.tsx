@@ -6,6 +6,8 @@ import { endpoints, type Employee, type Shop } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import TopMessage from "@/components/TopMessage";
+import { Wallet } from "lucide-react";
 
 const EMPTY: Partial<Employee> = {
   salaryType: "MONTHLY", basicSalary: 0, houseRent: 0, medical: 0,
@@ -95,7 +97,7 @@ export default function EmployeesPage() {
         </div>
 
         {/* salary profile */}
-        <div className="text-[11px] uppercase tracking-wide text-[#8b929b] mt-5 mb-2">{t("Salary profile")}</div>
+        <div className="section-label tone-info mt-5 mb-3"><Wallet size={16} />{t("Salary profile")}</div>
         <div className="form-grid cols-4">
           <div className="field"><label>{t("Salary type")}</label>
             <select className="inp" value={f.salaryType} onChange={(e) => setF({ ...f, salaryType: e.target.value as "MONTHLY" | "DAILY" })}>
@@ -120,16 +122,16 @@ export default function EmployeesPage() {
         <div className="mt-4 flex items-center gap-2">
           <button className="btn" onClick={save}>{editId ? t("Update") : t("Add")}</button>
           {editId && <button className="btn-ghost" onClick={reset}>{t("Cancel")}</button>}
-          {msg && <span className="text-sm ml-1" style={{ color: msg.kind === "ok" ? "#2f6f5e" : "#b3261e" }}>{msg.text}</span>}
+          <TopMessage msg={msg} />
         </div>
       </div>
 
       <div className="mb-3 flex items-center gap-3 flex-wrap">
         <input className="inp" style={{ maxWidth: 320 }} placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
-        {([["ALL", t("All"), rows.length], ["ACTIVE", t("Active"), activeCount], ["INACTIVE", t("Inactive"), rows.length - activeCount]] as const).map(([k, label, n]) => (
-          <button key={k} type="button" className="chip" onClick={() => setStatus(k)}
-            style={status === k ? { background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" } : undefined}>
-            {label} ({n})
+        {([["ALL", t("All"), rows.length, "tone-all"], ["ACTIVE", t("Active"), activeCount, "tone-ok"],
+           ["INACTIVE", t("Inactive"), rows.length - activeCount, "tone-bad"]] as const).map(([k, label, n, tone]) => (
+          <button key={k} type="button" className={`filter-btn ${tone}${status === k ? " on" : ""}`} onClick={() => setStatus(k)}>
+            {label} <span className="n">{n}</span>
           </button>
         ))}
       </div>
@@ -149,7 +151,9 @@ export default function EmployeesPage() {
                 <td>{shopName(e.shopId)}</td>
                 <td className="text-xs">{e.salaryType === "MONTHLY" ? t("Monthly") : t("Daily wage")}</td>
                 <td className="num">{Number(e.grossSalary ?? 0).toFixed(2)}</td>
-                <td><span className="chip" style={e.active ? undefined : { opacity: 0.6 }}>{e.active ? t("Active") : t("Inactive")}</span></td>
+                <td><span className="chip" style={{ fontWeight: 600, color: e.active ? "var(--role-save)" : "var(--role-danger)",
+                  background: `color-mix(in srgb, ${e.active ? "var(--role-save)" : "var(--role-danger)"} 12%, transparent)` }}>
+                  {e.active ? t("Active") : t("Inactive")}</span></td>
                 <td className="text-right whitespace-nowrap">
                   <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => edit(e)}><EditIcon /></button>
                   <button className="btn-icon btn-icon-del" title="Delete" onClick={() => remove(e.id)}><TrashIcon /></button>

@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { endpoints, fmtDate, type Customer, type Supplier, type GeneralLedger, type PartyOpenItems, type PartyItem } from "@/lib/api";
 import { fmtDrCr, fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
 
 type PT = "CUSTOMER" | "SUPPLIER";
 
@@ -111,7 +112,7 @@ export default function PartyStatementPage() {
         <div className="field"><label>{t("To")}</label>
           <DateInput className="inp" value={to} onChange={(e) => setTo(e.target.value)} /></div>
       </Toolbar>
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
       {!partyId && <p className="muted text-sm">{t("Pick a customer or supplier to see their statement.")}</p>}
       {partyId && accountId === "" && <p className="muted text-sm">{t("Nothing has been posted to this party yet.")}</p>}
 

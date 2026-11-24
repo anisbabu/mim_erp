@@ -7,6 +7,7 @@ import { EditIcon, TrashIcon } from "@/components/Icons";
 import Drawer from "@/components/Drawer";
 import PageHeader from "@/components/PageHeader";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import TopMessage from "@/components/TopMessage";
 
 type Nature = AccountGroup["nature"];
 const NATURES: Nature[] = ["ASSET", "LIABILITY", "EQUITY", "INCOME", "EXPENSE"];
@@ -342,7 +343,7 @@ export default function ChartOfAccountsPage() {
       {drawer?.kind === "group" && drawer.id && !editing?.system && (
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={gf.active}
           onChange={(e) => setGf({ ...gf, active: e.target.checked })} />{t("Active")}</label>)}
-      {errors.form && <div className="note note-err">{errors.form}</div>}
+      <TopMessage err={errors.form} />
     </div>
   );
 
@@ -375,7 +376,7 @@ export default function ChartOfAccountsPage() {
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={lf.active}
           onChange={(e) => setLf({ ...lf, active: e.target.checked })} />{t("Active")}</label>)}
       {editing?.party && <div className="note">{t("This ledger belongs to a customer or supplier and is managed automatically.")}</div>}
-      {errors.form && <div className="note note-err">{errors.form}</div>}
+      <TopMessage err={errors.form} />
     </div>
   );
 
@@ -391,13 +392,14 @@ export default function ChartOfAccountsPage() {
           <button className="btn" onClick={() => openNewLedger()}>+ {t("New ledger")}</button>
         </>} />
 
-      {msg && <div className={`note mb-3 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+      <TopMessage msg={msg} />
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <input className="inp" style={{ maxWidth: 280 }} placeholder={t("Search code or name…")} value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="flex flex-wrap gap-1.5">
           {(["ALL", ...NATURES] as const).map((n) => (
-            <button key={n} className={natureFilter === n ? "btn btn-sm" : "btn-ghost btn-sm"} onClick={() => setNatureFilter(n)}>
+            <button key={n} onClick={() => setNatureFilter(n)}
+              className={`filter-btn ${({ ALL: "tone-all", ASSET: "tone-info", LIABILITY: "tone-warn", EQUITY: "tone-teal", INCOME: "tone-ok", EXPENSE: "tone-bad" } as Record<string, string>)[n] ?? "tone-all"}${natureFilter === n ? " on" : ""}`}>
               {n === "ALL" ? t("All") : t(n)}
             </button>
           ))}

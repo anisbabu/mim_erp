@@ -84,6 +84,19 @@ class PurchaseBillTest {
             new PurchaseDtos.CreatePoLine(productB, bd("10"), bd("50"), false))));
     }
 
+    /** The purchase date can be set back (paper PO entered later), never in the future; blank = today. */
+    @Test
+    void purchaseDateCanBeBackdatedButNotFuture() {
+        var lines = List.of(new PurchaseDtos.CreatePoLine(productA, bd("1"), bd("100"), false));
+        LocalDate back = LocalDate.now().minusDays(5);
+        assertThat(purchase.createPo(new PurchaseDtos.CreatePoRequest(supplier, null, null, lines, back)).getOrderDate())
+            .isEqualTo(back);
+        assertThat(purchase.createPo(new PurchaseDtos.CreatePoRequest(supplier, null, null, lines)).getOrderDate())
+            .isEqualTo(LocalDate.now());
+        assertThatThrownBy(() -> purchase.createPo(new PurchaseDtos.CreatePoRequest(supplier, null, null, lines,
+            LocalDate.now().plusDays(1)))).isInstanceOf(ApiException.class).hasMessageContaining("future");
+    }
+
     private UUID line(PurchaseOrder po, UUID product) {
         return po.getLines().stream().filter(l -> l.getProductId().equals(product)).findFirst().orElseThrow().getId();
     }

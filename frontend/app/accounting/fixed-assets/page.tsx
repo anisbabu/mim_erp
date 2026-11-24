@@ -7,6 +7,8 @@ import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import TopMessage from "@/components/TopMessage";
+import { PackageMinus, PackagePlus } from "lucide-react";
 
 const blank = { name: "", category: "", purchaseDate: today(), cost: "", residualValue: "0", usefulLifeMonths: "60", paidFromAccountId: "" };
 
@@ -62,7 +64,7 @@ export default function FixedAssetsPage() {
             </button>
           </div>} />
 
-      {msg && <div className={`note mb-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+      <TopMessage msg={msg} />
 
       <div className="card table-wrap mb-6">
         <table className="rpt" style={{ minWidth: 900 }}>
@@ -100,7 +102,7 @@ export default function FixedAssetsPage() {
 
       {disp && (
         <div className="card p-5 mb-6">
-          <div className="section-label mb-3">{t("Dispose of asset")}</div>
+          <div className="section-label tone-bad mb-3"><PackageMinus size={16} />{t("Dispose of asset")}</div>
           <div className="form-grid cols-2 mb-3">
             <div className="field"><label>{t("Date")}</label>
               <DateInput className="inp" value={disp.date} onChange={(e) => setDisp({ ...disp, date: e.target.value })} /></div>
@@ -121,7 +123,7 @@ export default function FixedAssetsPage() {
       )}
 
       <div className="card p-5">
-        <div className="section-label mb-3">{t("Register a new asset")}</div>
+        <div className="section-label tone-ok mb-3"><PackagePlus size={16} />{t("Register a new asset")}</div>
         <div className="form-grid cols-2 gap-x-4 gap-y-4">
           <div className="field"><label>{t("Asset name")}</label>
             <input className="inp" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>

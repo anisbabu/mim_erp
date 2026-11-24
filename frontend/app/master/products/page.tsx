@@ -4,6 +4,7 @@ import { endpoints, type Product, type ProductGroup, type Supplier } from "@/lib
 import SearchSelect from "@/components/SearchSelect";
 import { useI18n } from "@/lib/i18n";
 import { CopyIcon, EditIcon, TrashIcon } from "@/components/Icons";
+import TopMessage from "@/components/TopMessage";
 
 const CATEGORIES  = ["MDF", "PLY", "MELAMINE", "HPL", "ACRYLIC SHEET", "FORMICA", "PVC", "EDGING","PLAIN BOARD", "LOOSE VENEER", "VENEER", "ELEGANT","WPC"];
 const THICKNESSES = [6, 12, 16.3, 18, 19, 25];
@@ -226,7 +227,7 @@ function GroupField({ groups, value, onChange, onCreated }: {
             <button type="button" className="btn btn-sm" disabled={busy} onClick={add}>{t("Add")}</button>
             <button type="button" className="btn-ghost btn-sm" onClick={close}>{t("Cancel")}</button>
           </div>
-          <div className="text-[11px] h-4 leading-4" style={{ color: "#b3261e" }}>{err}</div>
+          <TopMessage err={err} />
         </>
       )}
     </div>
@@ -520,7 +521,7 @@ export default function ProductsPage() {
         <div className="mt-4 flex items-center gap-2">
           <button className="btn" onClick={save}>{editId ? t("Update") : t("Add")}</button>
           {(editId || copyOf) && <button className="btn-ghost" onClick={reset}>{t("Cancel")}</button>}
-          {msg && <span className="text-sm ml-1" style={{ color: msg.kind === "ok" ? "#2f6f5e" : "#b3261e" }}>{msg.text}</span>}
+          <TopMessage msg={msg} />
         </div>
       </div>
 

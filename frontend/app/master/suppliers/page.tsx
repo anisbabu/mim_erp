@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Supplier, type SupplierGroup } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
+import TopMessage from "@/components/TopMessage";
+import { FilePlus2, FolderPlus, Pencil } from "lucide-react";
 
 function Pager({ page, totalPages, onChange, t }: { page: number; totalPages: number; onChange: (p: number) => void; t: (s: string) => string }) {
   if (totalPages <= 1) return null;
@@ -102,7 +104,7 @@ export default function SuppliersPage() {
       <h1 className="page-title mb-5">{t("Suppliers")}</h1>
       <div className="card p-5 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <div className="section-label">{editId ? t("Edit supplier") : t("New supplier")}</div>
+          <div className={`section-label ${editId ? "tone-warn" : "tone-ok"}`}>{editId ? <Pencil size={16} /> : <FilePlus2 size={16} />}{editId ? t("Edit supplier") : t("New supplier")}</div>
           <div className="flex items-center gap-2">
             <button className="btn" onClick={save}>{editId ? t("Update") : t("Add")}</button>
             {editId && <button className="btn-ghost" onClick={reset}>{t("Cancel")}</button>}
@@ -133,7 +135,7 @@ export default function SuppliersPage() {
           <div className="field"><label>{t("Address")}</label>
             <input className="inp" value={f.address ?? ""} onChange={(e) => setF({ ...f, address: e.target.value })} /></div>
         </div>
-        {msg && <div className="mt-3 text-sm" style={{ color: msg.kind === "ok" ? "#2f6f5e" : "#b3261e" }}>{msg.text}</div>}
+        <TopMessage msg={msg} />
       </div>
       <div className="card table-wrap mb-6">
         <table className="tbl">
@@ -156,7 +158,7 @@ export default function SuppliersPage() {
 
       <div className="card p-5 mt-8 mb-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-          <div className="section-label">{editGroupId ? t("Edit group") : t("New group")}</div>
+          <div className={`section-label ${editGroupId ? "tone-warn" : "tone-ok"}`}>{editGroupId ? <Pencil size={16} /> : <FolderPlus size={16} />}{editGroupId ? t("Edit group") : t("New group")}</div>
           <div className="flex items-center gap-2">
             <button className="btn" onClick={addGroup}>{editGroupId ? t("Update") : t("Add")}</button>
             {editGroupId && <button className="btn-ghost" onClick={resetGroup}>{t("Cancel")}</button>}

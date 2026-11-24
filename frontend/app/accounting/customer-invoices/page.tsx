@@ -6,6 +6,7 @@ import { StatusChip } from "@/components/PoProgressChips";
 import { endpoints, fmtDate, type CustomerInvoiceRow } from "@/lib/api";
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
 
 type Filter = "ALL" | "UNPAID" | "PARTIAL" | "PAID" | "OVERDUE";
 
@@ -14,6 +15,8 @@ type Filter = "ALL" | "UNPAID" | "PARTIAL" | "PAID" | "OVERDUE";
  * opening balance shows what is received and what remains; Receive opens a receipt voucher against it.
  * A sales order closes once everything is delivered and all its invoices are paid.
  */
+const FILTER_TONE: Record<string, string> = { ALL: "tone-all", UNPAID: "tone-warn", PARTIAL: "tone-info", PAID: "tone-ok", OVERDUE: "tone-bad" };
+
 export default function CustomerInvoicesPage() {
   const { t, lang } = useI18n();
   const [rows, setRows] = useState<CustomerInvoiceRow[]>([]);
@@ -57,11 +60,11 @@ export default function CustomerInvoicesPage() {
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <input className="inp" style={{ maxWidth: 260 }} placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
         {chips.map((c) => (
-          <button key={c.key} className={filter === c.key ? "btn" : "btn-ghost"} onClick={() => setFilter(c.key)}>{t(c.label)}</button>
+          <button key={c.key} className={`filter-btn ${FILTER_TONE[c.key]}${filter === c.key ? " on" : ""}`} onClick={() => setFilter(c.key)}>{t(c.label)}</button>
         ))}
         <span className="ml-auto text-[13px] muted">{t("Total owed")}: <b className="tabular-nums" style={{ color: "var(--text)" }}>{fmtMoney(owed)}</b></span>
       </div>
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
 
       <div className="card table-wrap">
         <table className="tbl" style={{ minWidth: 1000 }}>

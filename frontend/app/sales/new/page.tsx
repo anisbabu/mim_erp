@@ -6,10 +6,13 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
+import { Store } from "lucide-react";
 import QuickCustomer from "@/components/QuickCustomer";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { productKeywords } from "@/lib/productSearch";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
 
 type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 /** Quantity delivered at order time: all of it from the chosen warehouse, nothing without one —
@@ -231,11 +234,27 @@ export default function NewSalePage() {
     });
   }, [lines, committedByProduct, stockByProduct, productById, lang]);
 
+  /** First thing missing, in form order: shop, customer, salesperson, then line by line product -> qty -> price, then discount authoriser. */
+  const problem = useMemo((): Problem => {
+    if (!shopId) return { key: "shop", text: t("Select a shop.") };
+    if (!customerId) return { key: "customer", text: t("Select a customer.") };
+    if (needsSalesperson && !salespersonId) return { key: "salesperson", text: t("Select a salesperson.") };
+    const used = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.productId || l.qty || l.unitPrice);
+    const check = used.length ? used : [{ l: lines[0], i: 0 }];
+    for (const { l, i } of check) {
+      const row = lines.length > 1 ? ` (${t("line")} ${i + 1})` : "";
+      if (!l.productId) return { key: `product-${i}`, text: t("Select a product.") + row };
+      if (!(Number(l.qty) > 0)) return { key: `qty-${i}`, text: t("Enter the quantity.") + row };
+      if (!(Number(l.unitPrice) > 0)) return { key: `price-${i}`, text: t("Enter the unit price.") + row };
+    }
+    if (anyDiscount && !discountBy.trim()) return { key: "discountBy", text: t("Discount requires an authoriser — enter their name.") };
+    return null;
+  }, [shopId, customerId, needsSalesperson, salespersonId, lines, anyDiscount, discountBy, t]);
+  const check = useStepCheck(problem);
+
   async function submit() {
     setMsg(null);
-    if (!shopId)      { setMsg({ kind: "err", text: t("Select a shop.") }); return; }
-    if (!customerId)  { setMsg({ kind: "err", text: t("Select a customer.") }); return; }
-    if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: t("Select a salesperson.") }); return; }
+    if (check.stop()) return;
     const validLines = lines.filter((l) => l.productId && Number(l.qty) > 0);
     const sumGross = validLines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
     let assigned = 0;
@@ -252,12 +271,8 @@ export default function NewSalePage() {
                unitPrice: Number(l.unitPrice), discountAmt: lineDisc,
                deliverQty: l.warehouseId ? takeOf(l) : null };
     });
-    if (!allocations.length) { setMsg({ kind: "err", text: t("Add at least one line with qty.") }); return; }
     // no price band on a new sales order: any price saves; the placeholder authoriser keeps the
     // backend's band / below-cost check from blocking and marks such lines in the audit column
-    if (anyDiscount && !discountBy.trim()) {
-      setMsg({ kind: "err", text: t("Discount requires an authoriser — enter their name.") }); return;
-    }
     setBusy(true);
     try {
       const res: any = await endpoints.createOrder({
@@ -290,6 +305,17 @@ export default function NewSalePage() {
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="page-title">{t("Sales invoice")}</h1>
           <a href="/sales/demo-invoice" className="btn-ghost btn-sm">{t("Demo invoice")}</a>
+          {/* the shop this sale is for: first thing on the form, always visible */}
+          <div className={`shop-bar ${shopId ? "is-set" : "is-missing"}${check.flagged === "shop" ? " is-error" : ""}`}>
+            <Store size={18} />
+            <span className="shop-bar-label">{t("Shop")} <span className="req">*</span></span>
+            {activeShopId
+              ? <b>{shops.find((x) => x.id === activeShopId) ? dn(shops.find((x) => x.id === activeShopId)!) : "…"}</b>
+              : <select className="shop-bar-select" value={localShopId} onChange={(e) => { setLocalShopId(e.target.value); setMsg(null); }}>
+                  <option value="">{t("Select shop…")}</option>
+                  {shops.map((x) => <option key={x.id} value={x.id}>{dn(x)}</option>)}
+                </select>}
+          </div>
         </div>
         {panelProductId && (
           <div className="card overflow-hidden" style={{ minWidth: 200 }}>
@@ -337,17 +363,8 @@ export default function NewSalePage() {
 
       {/* Header fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-        {!activeShopId && (
-          <div className="field">
-            <label>{t("Shop")}</label>
-            <select className="inp inp-shop" value={localShopId} onChange={(e) => setLocalShopId(e.target.value)}>
-              <option value="">{t("Select shop…")}</option>
-              {shops.map((s) => <option key={s.id} value={s.id}>{dn(s)}</option>)}
-            </select>
-          </div>
-        )}
-        <div className="field">
-          <label className="flex items-center justify-between">{t("Customer")}
+        <div className={`field ${check.bad("customer")}`}>
+          <label className="flex items-center justify-between"><span>{t("Customer")} <span className="req">*</span></span>
             <button type="button" className="text-[12px] font-medium" style={{ color: "var(--brand)" }} onClick={() => setNewCust(true)}>+ {t("New customer")}</button></label>
           <SearchSelect options={customerOpts} value={customerId}
             onChange={pickCustomer} placeholder={t("Search name or mobile…")} />
@@ -363,8 +380,8 @@ export default function NewSalePage() {
             placeholder={t("Delivery mobile")} />
         </div>
         {needsSalesperson && (
-          <div className="field">
-            <label>{t("Salesperson")}</label>
+          <div className={`field ${check.bad("salesperson")}`}>
+            <label>{t("Salesperson")} <span className="req">*</span></label>
             <SearchSelect options={salespersonOpts} value={salespersonId}
               onChange={setSalespersonId} placeholder={t("Search…")} />
           </div>
@@ -403,18 +420,18 @@ export default function NewSalePage() {
                 return (
                   <tr key={i} data-line={i} onKeyDown={(e) => lineEnter(e, i)}>
                     <td className="align-top">
-                      <SearchSelect options={productOpts} value={l.productId}
-                        onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
+                      <div className={check.bad(`product-${i}`)}><SearchSelect options={productOpts} value={l.productId}
+                        onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} /></div>
                       <div className="h-4 mt-1" />
                     </td>
                     <td className="text-right align-top">
-                      <input className="inp text-right tabular-nums" style={{ width: 75, marginLeft: "auto" }}
+                      <input className={`inp text-right tabular-nums ${check.bad(`qty-${i}`)}`} style={{ width: 75, marginLeft: "auto" }}
                         type="number" min={0} value={l.qty}
                         onChange={(e) => update(i, { qty: e.target.value })} />
                       <div className="h-4 mt-1" />
                     </td>
                     <td className="text-right align-top">
-                      <input className="inp text-right tabular-nums"
+                      <input className={`inp text-right tabular-nums ${check.bad(`price-${i}`)}`}
                         style={{ width: 96, marginLeft: "auto" }}
                         type="number" min={0} value={l.unitPrice}
                         onChange={(e) => update(i, { unitPrice: e.target.value })} />
@@ -475,17 +492,17 @@ export default function NewSalePage() {
                     </button>
                   )}
                 </div>
-                <SearchSelect options={productOpts} value={l.productId}
-                  onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
+                <div className={check.bad(`product-${i}`)}><SearchSelect options={productOpts} value={l.productId}
+                  onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs muted block mb-1">{t("Qty")}</label>
-                    <input className="inp text-right tabular-nums w-full" type="number" min={0}
+                    <input className={`inp text-right tabular-nums w-full ${check.bad(`qty-${i}`)}`} type="number" min={0}
                       value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} />
                   </div>
                   <div>
                     <label className="text-xs muted block mb-1">{t("Unit price")}</label>
-                    <input className="inp text-right tabular-nums w-full"
+                    <input className={`inp text-right tabular-nums w-full ${check.bad(`price-${i}`)}`}
                       type="number" min={0} value={l.unitPrice}
                       onChange={(e) => update(i, { unitPrice: e.target.value })} />
                   </div>
@@ -547,7 +564,7 @@ export default function NewSalePage() {
       {anyDiscount && (
         <div className="mb-4">
           <label className="text-xs muted">{t("Discount authorised by")} <span className="text-[#9a2b22]">*</span></label>
-          <select className="inp mt-1" style={{ maxWidth: 320, borderColor: !discountBy ? "#b4690e" : undefined }}
+          <select className={`inp mt-1 ${check.bad("discountBy")}`} style={{ maxWidth: 320 }}
             value={discountBy} onChange={(e) => setDiscountBy(e.target.value)}>
             <option value="">{t("Select authoriser…")}</option>
             {authorisers.map((u) => (
@@ -581,11 +598,7 @@ export default function NewSalePage() {
         <button className="btn w-full sm:w-auto shrink-0" onClick={submit} disabled={busy}>
           {busy ? t("Creating…") : t("Create invoice & deliver")}
         </button>
-        {msg && (
-          <div className="text-sm" style={{ color: msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>
-            {msg.text}
-          </div>
-        )}
+        <TopMessage msg={check.msg ?? msg} />
       </div>
     </div>
   );

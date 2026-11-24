@@ -19,10 +19,15 @@ public class AppUser {
     private String mobile;
     private String role;            // SALESPERSON | MANAGER | ACCOUNTANT | ADMIN
     private boolean active = true;
+    /** ADMIN who may also read the activity log. Set only by migration / SQL, never through the API. */
+    @Column(name = "super_admin")
+    private boolean superAdmin = false;
 
     /** Shops this user is assigned to. Empty for ADMIN/ACCOUNTANT (company-wide). */
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_shop", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "shop_id")
     private Set<UUID> shopIds = new HashSet<>();
+
+    public boolean isSuperAdmin() { return superAdmin; }
 }

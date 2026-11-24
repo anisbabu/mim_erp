@@ -247,6 +247,11 @@ export type PickupView = { dcId: string; dcNo: string; date: string; warehouseNa
 export type WarehouseStock = { warehouseId: string; qty: number; unitCost?: number | null };
 export type StockRow = { productId: string; warehouseId: string; qty: number; value: number };
 export type SupplierStockRow = { supplierId: string | null; productId: string; qty: number; value: number };
+/** Stock per supplier + product + warehouse (supplier = PO supplier for received stock, else the product's). */
+export type DetailStockRow = { supplierId: string | null; productId: string; warehouseId: string; qty: number; value: number };
+/** A table exactly as shown, sent to the server to print as PDF. align: L | R | C. */
+export type PdfTable = { title: string; subtitle?: string; columns: { label: string; align: "L" | "R" | "C"; weight?: number }[];
+  rows: string[][]; total?: string[] };
 export type StockStatusRow = { productId: string; onHand: number; committed: number; available: number; onOrder: number; value: number };
 export type CommittedRow = { soId: string; soNo: string; orderDate: string; customerId: string; customerName: string; qtyPending: number };
 export type StockSummaryRow = {
@@ -336,7 +341,7 @@ export type ChequeEvent = {
 };
 
 export type Role = "SALESPERSON" | "MANAGER" | "ACCOUNTANT" | "ADMIN";
-export type Me = { token?: string; username: string; fullName?: string; role: Role; shopIds: string[] };
+export type Me = { token?: string; username: string; fullName?: string; role: Role; shopIds: string[]; superAdmin?: boolean };
 export type DemoInvoiceRow = { id: string; code: string; demo_date: string; customer_name?: string; customer_mobile?: string; salesperson?: string; total: number; so_id?: string | null; so_no?: string | null; created_at: string; doc_type?: "DEMO" | "QUOTATION" };
 export type DemoInvoiceSaved = { id: string; code: string; demoDate: string; request: { customerId?: string; customerName?: string; customerMobile?: string; customerAddress?: string; salesperson?: string; salespersonBn?: string; note?: string; docType?: "DEMO" | "QUOTATION"; lines:{ productId?: string; name: string; unit?: string; qty: number; unitPrice: number; discount: number }[] } };
 export type AuditAction = "create" | "update" | "delete" | "restore" | "role_change" | "login" | "logout" | "login_failed";
@@ -355,7 +360,7 @@ function auditQuery(f: AuditFilter): string {
   Object.entries(f).forEach(([k, v]) => { if (v && v.trim()) p.set(k, v.trim()); });
   return p.toString();
 }
-export type UserView = { id: string; username: string; fullName?: string; fullNameBn?: string; mobile?: string; role: Role; active: boolean; shopIds: string[] };
+export type UserView = { id: string; username: string; fullName?: string; fullNameBn?: string; mobile?: string; role: Role; active: boolean; shopIds: string[]; superAdmin?: boolean };
 
 /** Fetch a PDF from the API with the login token. */
 async function pdfBlob(path: string): Promise<Blob> {
@@ -442,6 +447,17 @@ export const endpoints = {
   committed:        (productId: string) => api.get<CommittedRow[]>(`/api/inventory/committed?productId=${productId}`),
   stockSummary:     (from: string, to: string, warehouseId?: string) =>
     api.get<StockSummaryRow[]>(`/api/inventory/stock-summary?from=${from}&to=${to}${warehouseId ? `&warehouseId=${warehouseId}` : ""}`),
+  stockDetail:      () => api.get<DetailStockRow[]>("/api/inventory/overview/detail"),
+  stockTablePdf: async (table: PdfTable, lang: "en" | "bn" = "en"): Promise<Blob> => {
+    const token = loadToken();
+    const res = await fetch(`${BASE}/api/inventory/stock-report/table?lang=${lang}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify(table),
+    });
+    if (!res.ok) throw new Error("Failed to generate stock report");
+    return res.blob();
+  },
   stockReportPdf: async (lang: "en" | "bn" = "en"): Promise<Blob> => {
     const token = loadToken();
     const res = await fetch(`${BASE}/api/inventory/stock-report?lang=${lang}`, {
@@ -543,6 +559,15 @@ export const endpoints = {
     }
     return res.blob();
   },
+  // "Share" on challan/token/invoice — sends the PDF straight to the customer's WhatsApp (Meta Cloud API), no OS share sheet.
+  shareOrderTokenWhatsApp: (soId: string, lang: "en" | "bn", dcIds?: string[]) =>
+    api.post<{ sentTo: string }>(`/api/sales/orders/${soId}/whatsapp/token?lang=${lang}${dcIds?.length ? "&dc=" + dcIds.join(",") : ""}`, {}),
+  shareOrderChallanWhatsApp: (soId: string, lang: "en" | "bn", dcIds?: string[]) =>
+    api.post<{ sentTo: string }>(`/api/sales/orders/${soId}/whatsapp/challan?lang=${lang}${dcIds?.length ? "&dc=" + dcIds.join(",") : ""}`, {}),
+  shareOrderInvoiceWhatsApp: (soId: string, lang: "en" | "bn") =>
+    api.post<{ sentTo: string }>(`/api/sales/orders/${soId}/whatsapp/invoice?lang=${lang}`, {}),
+  shareChallanWhatsApp: (dcId: string, lang: "en" | "bn") =>
+    api.post<{ sentTo: string }>(`/api/sales/challans/${dcId}/whatsapp?lang=${lang}`, {}),
 
   // accounting
   accounts:     () => api.get<Account[]>("/api/accounting/accounts"),

@@ -8,8 +8,16 @@ import java.util.UUID;
 public class PurchaseDtos {
 
     public record CreatePoLine(UUID productId, BigDecimal qty, BigDecimal unitPrice, boolean freeProduct) {}
-    /** Optional manual poNo — when blank/omitted the server auto-generates one. */
-    public record CreatePoRequest(UUID supplierId, String note, String manualPoNo, List<CreatePoLine> lines) {}
+    /** Optional manual poNo — when blank/omitted the server auto-generates one.
+     *  orderDate: the purchase date; blank = today, never in the future. */
+    public record CreatePoRequest(UUID supplierId, String note, String manualPoNo, List<CreatePoLine> lines,
+                                  java.time.LocalDate orderDate) {
+        @com.fasterxml.jackson.annotation.JsonCreator
+        public CreatePoRequest {}
+        public CreatePoRequest(UUID supplierId, String note, String manualPoNo, List<CreatePoLine> lines) {
+            this(supplierId, note, manualPoNo, lines, null);
+        }
+    }
 
     /** One line on the receive screen: receive qty editable, defaults to balance.
      *  receivedProductId is optional — defaults to the ordered product, but can be a

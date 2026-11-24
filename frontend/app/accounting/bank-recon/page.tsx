@@ -6,6 +6,8 @@ import { endpoints, fmtDate, type BankAccountRow, type BankHistoryRow, type Bank
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
+import TopMessage from "@/components/TopMessage";
+import { History } from "lucide-react";
 
 export default function BankReconPage() {
   const { t, lang } = useI18n();
@@ -74,7 +76,7 @@ export default function BankReconPage() {
         </div>
       </div>
 
-      {msg && <div className={`note mb-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+      <TopMessage msg={msg} />
 
       {open && calc && (
         <>
@@ -123,7 +125,7 @@ export default function BankReconPage() {
 
       {hist.length > 0 && (
         <>
-          <div className="section-label mb-3">{t("Previous reconciliations")}</div>
+          <div className="section-label tone-teal mb-3"><History size={16} />{t("Previous reconciliations")}</div>
           <div className="card table-wrap">
             <table className="rpt" style={{ minWidth: 600 }}>
               <colgroup><col style={{ width: 110 }} /><col style={{ width: 150 }} /><col style={{ width: 150 }} /><col style={{ width: 80 }} /><col /><col style={{ width: 120 }} /></colgroup>

@@ -11,8 +11,13 @@ public class SalesController {
 
     private final SalesService service;
     private final SoStatusService soStatus;
+    private final WhatsAppShareService whatsappShare;
 
-    public SalesController(SalesService service, SoStatusService soStatus) { this.service = service; this.soStatus = soStatus; }
+    public SalesController(SalesService service, SoStatusService soStatus, WhatsAppShareService whatsappShare) {
+        this.service = service;
+        this.soStatus = soStatus;
+        this.whatsappShare = whatsappShare;
+    }
 
     /** Workflow 1 (SO_FIRST): create order, system splits into per-warehouse challans. */
     @PostMapping("/orders")
@@ -121,4 +126,33 @@ public class SalesController {
     }
 
     private static String sfx(String lang) { return PdfKit.isBn(lang) ? "-bn" : ""; }
+
+    public record WhatsAppSendResult(String sentTo) {}
+
+    /** Share button — sends the dispatch token straight to the customer's WhatsApp (no OS share sheet). */
+    @PostMapping("/orders/{soId}/whatsapp/token")
+    public WhatsAppSendResult shareToken(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang,
+                                         @RequestParam(required = false) java.util.List<UUID> dc,
+                                         @RequestParam(required = false) String to) {
+        return new WhatsAppSendResult(whatsappShare.shareOrderDoc(soId, WhatsAppShareService.DocKind.TOKEN, dc, lang, to));
+    }
+
+    @PostMapping("/orders/{soId}/whatsapp/challan")
+    public WhatsAppSendResult shareOrderChallanWhatsApp(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang,
+                                                        @RequestParam(required = false) java.util.List<UUID> dc,
+                                                        @RequestParam(required = false) String to) {
+        return new WhatsAppSendResult(whatsappShare.shareOrderDoc(soId, WhatsAppShareService.DocKind.CHALLAN, dc, lang, to));
+    }
+
+    @PostMapping("/orders/{soId}/whatsapp/invoice")
+    public WhatsAppSendResult shareInvoiceWhatsApp(@PathVariable UUID soId, @RequestParam(defaultValue = "en") String lang,
+                                                   @RequestParam(required = false) String to) {
+        return new WhatsAppSendResult(whatsappShare.shareOrderDoc(soId, WhatsAppShareService.DocKind.INVOICE, null, lang, to));
+    }
+
+    @PostMapping("/challans/{dcId}/whatsapp")
+    public WhatsAppSendResult shareChallanWhatsApp(@PathVariable UUID dcId, @RequestParam(defaultValue = "en") String lang,
+                                                   @RequestParam(required = false) String to) {
+        return new WhatsAppSendResult(whatsappShare.shareChallanDoc(dcId, lang, to));
+    }
 }

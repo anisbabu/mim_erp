@@ -6,6 +6,8 @@ import { endpoints, fmtDate, type FinancialYear, type LedgerRow, type OpeningBal
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
 import { useAuth } from "@/lib/auth";
+import TopMessage from "@/components/TopMessage";
+import { CalendarPlus, Scale } from "lucide-react";
 
 export default function FinancialYearPage() {
   const { t, lang } = useI18n();
@@ -109,7 +111,7 @@ export default function FinancialYearPage() {
           </tbody>
         </table>
         <div className="border-t border-slate-200 p-4">
-          <div className="section-label mb-3">{t("Financial year")} — {t("Add")}</div>
+          <div className="section-label tone-ok mb-3"><CalendarPlus size={16} />{t("Financial year")} — {t("Add")}</div>
           <div className="form-grid items-start gap-x-4 gap-y-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
             <div className="field"><label>{t("Name")}</label>
               <input className="inp" placeholder="2026-2027" value={nf.name} onChange={(e) => setNf({ ...nf, name: e.target.value })} /></div>
@@ -129,7 +131,7 @@ export default function FinancialYearPage() {
 
       {/* opening balances */}
       <div className="flex items-center justify-between mb-3">
-        <div className="section-label">{t("Opening balances")}</div>
+        <div className="section-label tone-info"><Scale size={16} />{t("Opening balances")}</div>
         <select className="inp btn-sm" style={{ height: 36, width: "auto", paddingRight: 30 }}
           value={activeYear} onChange={(e) => setActiveYear(e.target.value)}>
           {years.map((y) => <option key={y.id} value={y.id}>{y.name}</option>)}
@@ -140,7 +142,7 @@ export default function FinancialYearPage() {
         <input className="inp" placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
-      {msg && <div className={`note mb-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+      <TopMessage msg={msg} />
 
       <div className="card table-wrap">
         <table className="tbl">

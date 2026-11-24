@@ -4,6 +4,7 @@ import { useState } from "react";
 import Drawer from "@/components/Drawer";
 import { endpoints, type Customer } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
 
 /** Next free CUS-#### code, from the codes already loaded. */
 function nextCode(existing: Customer[]): string {
@@ -75,7 +76,7 @@ export default function QuickCustomer({ open, onClose, existing, onCreated }: {
               <input className="inp num" type="number" min={0} value={f.creditDays} onChange={(e) => set({ creditDays: e.target.value })} /></div>
           </div>
         )}
-        <div className="h-4 leading-4 text-[12px] mt-3" style={{ color: "#b3261e" }}>{err}</div>
+        <TopMessage err={err} />
         <div className="text-[12px] muted mt-2">{t("Code")}: <span className="font-mono">{nextCode(existing)}</span></div>
       </div>
     </Drawer>

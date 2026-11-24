@@ -43,6 +43,20 @@ public class AuditController {
 
     public AuditController(JdbcTemplate jdbc, ObjectMapper json) { this.jdbc = jdbc; this.json = json; }
 
+    /**
+     * Runs before every handler here: the activity log is for the super admin only. Read from the DB,
+     * not the token, so taking the flag away works at once. Other ADMINs get 403.
+     */
+    @ModelAttribute
+    void superAdminOnly() {
+        var a = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean ok = a != null && a.getPrincipal() instanceof com.mim.erp.auth.AuthPrincipal p
+            && Boolean.TRUE.equals(jdbc.query("SELECT super_admin FROM app_user WHERE id = ?",
+                   rs -> rs.next() ? rs.getBoolean(1) : null, p.userId()));
+        if (!ok) throw new org.springframework.web.server.ResponseStatusException(
+            org.springframework.http.HttpStatus.FORBIDDEN, "The activity log is for the super admin only");
+    }
+
     /** One page, newest first. {@code user} is a user id, or "system" for jobs and unknown sign-ins. */
     @GetMapping
     public Map<String, Object> list(@RequestParam(defaultValue = "0") int page,

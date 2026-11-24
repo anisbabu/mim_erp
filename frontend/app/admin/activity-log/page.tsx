@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
 import Drawer from "@/components/Drawer";
+import TopMessage from "@/components/TopMessage";
 
 const PAGE_SIZE = 50;
 const EMPTY: AuditFilter = { user: "", module: "", action: "", from: "", to: "", recordId: "", q: "" };
@@ -59,11 +60,11 @@ function changes(r: AuditEntry): { field: string; from?: string; to?: string }[]
   return keys.map((k) => (n ? { field: k, to: short(row[k]) } : { field: k, from: short(row[k]) }));
 }
 
-/** Admin-only, read-only view of the audit log. The API answers 403 to every other role. */
+/** Super-admin-only, read-only view of the audit log. The API answers 403 to everyone else. */
 export default function ActivityLogPage() {
   const { t } = useI18n();
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = user?.role === "ADMIN" && !!user?.superAdmin;
 
   const [filter, setFilter] = useState<AuditFilter>(EMPTY);
   const [applied, setApplied] = useState<AuditFilter>(EMPTY);
@@ -124,7 +125,7 @@ export default function ActivityLogPage() {
         <PageHeader crumbs={["Administration"]} title={t("Activity Log")} />
         <div className="card p-8 text-center">
           <div className="text-lg font-medium mb-1">{t("Access denied (403)")}</div>
-          <div className="text-sm muted">{t("Only an administrator can view the activity log.")}</div>
+          <div className="text-sm muted">{t("Only the super admin can view the activity log.")}</div>
         </div>
       </div>
     );
@@ -187,7 +188,7 @@ export default function ActivityLogPage() {
         {filtered && <button className="btn-ghost" onClick={() => setFilter(EMPTY)}>{t("Clear")}</button>}
       </div>
 
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
 
       <div className="card table-wrap">
         <table className="tbl">

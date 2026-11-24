@@ -12,6 +12,8 @@ import ChequeMaturityBoard, {
   type MaturityPick, isOpenCheque, isoDay, daysUntil, urgency,
   STATUS_CHIP, STATUS_LABEL, EVENT_CHIP, EVENT_LABEL,
 } from "@/components/ChequeMaturityBoard";
+import TopMessage from "@/components/TopMessage";
+import { CalendarClock } from "lucide-react";
 
 type Action = "edit" | "date" | "hold" | "resume" | "cash" | "post" | "bounce" | "resubmit" | "cancel";
 
@@ -39,6 +41,7 @@ const ACTIONS_FOR: Record<ChequeStatus, Action[]> = {
   CANCELLED: [],
 };
 const STATUS_FILTERS: (ChequeStatus | "ALL")[] = ["ALL", "PENDING", "HOLD", "CASHED", "POSTED", "BOUNCED", "CANCELLED"];
+const CHEQUE_TONE: Record<string, string> = { ALL: "tone-all", PENDING: "tone-warn", HOLD: "tone-info", CASHED: "tone-ok", POSTED: "tone-teal", BOUNCED: "tone-bad", CANCELLED: "tone-bad" };
 const BOUNCE_REASON_LABEL: Record<BounceReason, string> = {
   INSUFFICIENT_FUNDS: "Insufficient funds", SIGNATURE_MISMATCH: "Signature mismatch", OTHER: "Other",
 };
@@ -336,12 +339,12 @@ export default function ChequesPage() {
         </div>
         <div className="mt-4 flex items-center gap-2">
           <button className="btn" onClick={submit} disabled={busy || !!dup}>{busy ? t("Recording…") : t("Record cheque")}</button>
-          {msg && <span className={`note ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</span>}
+          <TopMessage msg={msg} />
         </div>
       </div>
 
       <div className="flex items-baseline justify-between mb-2">
-        <div className="section-label">{t("Maturity — next 7 days")}</div>
+        <div className="section-label tone-warn"><CalendarClock size={16} />{t("Maturity — next 7 days")}</div>
         {pick && <button className="btn-ghost text-xs" onClick={() => setPick(null)}>{t("Show all dates")}</button>}
       </div>
       <div className="mb-5"><ChequeMaturityBoard cheques={cheques} selected={pick} onSelect={setPick} /></div>
@@ -349,11 +352,9 @@ export default function ChequesPage() {
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {STATUS_FILTERS.map((s) => (
           <button key={s} onClick={() => setStatusFilter(s)}
-            className={`chip !px-2.5 !py-1 cursor-pointer ${s === "ALL" ? "" : STATUS_CHIP[s]}`}
-            style={{ boxShadow: statusFilter === s ? "0 0 0 2px var(--brand)" : undefined,
-                     ...(s === "ALL" ? { background: "var(--chip-other-bg)", color: "var(--chip-other-fg)" } : {}) }}>
+            className={`filter-btn ${CHEQUE_TONE[s] ?? "tone-all"}${statusFilter === s ? " on" : ""}`}>
             {s === "ALL" ? t("All") : t(STATUS_LABEL[s])}
-            <span className="ml-1 opacity-70">{s === "ALL" ? cheques.length : cheques.filter((c) => c.status === s).length}</span>
+            <span className="n">{s === "ALL" ? cheques.length : cheques.filter((c) => c.status === s).length}</span>
           </button>
         ))}
         <input className="inp ml-auto" style={{ maxWidth: 260 }} placeholder={t("Search customer, mobile, cheque…")}

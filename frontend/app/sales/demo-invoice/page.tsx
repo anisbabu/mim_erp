@@ -8,6 +8,8 @@ import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { savePdf } from "@/components/reports/ReportKit";
 import { useAuth } from "@/lib/auth";
 import { endpoints, fmtDate, type Customer, type DemoInvoiceRow, type Product, type UserView } from "@/lib/api";
+import TopMessage from "@/components/TopMessage";
+import { History, Printer, UserRound } from "lucide-react";
 
 type Row = { pid: string; custom: boolean; name: string; unit: string; qty: string; price: string; disc: string };
 const blank = (): Row => ({ pid: "", custom: false, name: "", unit: "", qty: "1", price: "", disc: "" });
@@ -156,7 +158,7 @@ export default function DemoInvoicePage() {
             </label>
           ))}
         </div>
-        <div className="section-label mb-3">{t("Customer")}</div>
+        <div className="section-label tone-ok mb-3"><UserRound size={16} />{t("Customer")}</div>
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}>
             <label className="flex items-center justify-between">{t("Pick an existing customer (optional)")}
@@ -232,12 +234,12 @@ export default function DemoInvoicePage() {
       <div className="card p-5">
         <div className="field"><label>{t("Note (optional)")}</label>
           <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} /></div>
-        {err && <div className="note note-err mt-4">{err}</div>}
-        {okMsg && <div className="note note-ok mt-4">{okMsg}</div>}
+        <TopMessage err={err} />
+        <TopMessage ok={okMsg} />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mt-8 mb-3">
-        <div className="section-label">{t("Saved demo invoices")}</div>
+        <div className="section-label tone-teal"><History size={16} />{t("Saved demo invoices")}</div>
         <div className="flex-1" />
         <input className="inp" style={{ maxWidth: 260 }} placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
@@ -262,7 +264,7 @@ export default function DemoInvoicePage() {
                 <td className="num font-medium">{money(Number(r.total))}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
                   <button className="btn-ghost btn-sm" onClick={() => openSaved(r.id)}>{t("Open")}</button>{" "}
-                  <button className="btn-ghost btn-sm" onClick={() => pdfOf(r)}>{t("PDF")}</button>{" "}
+                  <button className="btn btn-print btn-sm" onClick={() => pdfOf(r)}><Printer size={13} className="mr-1" />{t("PDF")}</button>{" "}
                   {r.so_no
                     ? <span className="chip bg-slate-100 text-slate-600">{r.so_no}</span>
                     : <button className="btn-ghost btn-sm" onClick={() => router.push(`/sales/new?demo=${r.id}`)}>{t("Submit to sales")}</button>}

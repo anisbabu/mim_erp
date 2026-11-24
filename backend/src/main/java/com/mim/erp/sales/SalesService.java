@@ -791,7 +791,7 @@ public class SalesService {
         try {
             return renderSlips(bn, List.of(new SlipPage((doc, writer, kit) -> {
 
-            doc.add(kit.title(kit.l("DELIVERY CHALLAN"), 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
+            doc.add(kit.title(kit.l("TOKEN"), 13, Color.BLACK, Element.ALIGN_CENTER, 0, 6));
 
             // meta
             doc.add(slipMeta(kit, bn, new String[][]{

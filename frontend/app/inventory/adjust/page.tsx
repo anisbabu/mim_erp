@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { endpoints, type Product, type Warehouse } from "@/lib/api";
 import SearchSelect from "@/components/SearchSelect";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
 
 export default function AdjustPage() {
   const { t, lang, dn } = useI18n();
@@ -41,12 +43,18 @@ export default function AdjustPage() {
 
   const isTransfer = type === "TRANSFER";
 
+  // first thing missing, in form order: product, warehouse, destination (transfer), qty
+  const problem: Problem =
+    !productId ? { key: "product", text: t("Select a product.") }
+    : !fromWarehouseId ? { key: "from", text: t("Select the warehouse.") }
+    : isTransfer && !toWarehouseId ? { key: "to", text: t("Choose a destination warehouse.") }
+    : !(Number(qty) > 0) ? { key: "qty", text: t("Enter the quantity.") }
+    : null;
+  const check = useStepCheck(problem);
+
   async function submit() {
     setMsg(null);
-    if (!productId || !fromWarehouseId || !(Number(qty) > 0)) {
-      setMsg({ kind: "err", text: t("Product, source warehouse and quantity are required.") }); return;
-    }
-    if (isTransfer && !toWarehouseId) { setMsg({ kind: "err", text: t("Choose a destination warehouse.") }); return; }
+    if (check.stop()) return;
     setBusy(true);
     try {
       const a: any = await endpoints.adjust({
@@ -77,7 +85,7 @@ export default function AdjustPage() {
       <div className="space-y-4">
         <div>
           <label className="text-xs text-[#6b6960]">{t("Product")}</label>
-          <div className="mt-1">
+          <div className={`mt-1 ${check.bad("product")}`}>
             <SearchSelect
               value={productId}
               onChange={setProductId}
@@ -98,7 +106,7 @@ export default function AdjustPage() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-xs text-[#6b6960]">{isTransfer ? t("From warehouse") : t("Warehouse")}</label>
-            <select className="inp mt-1" value={fromWarehouseId} onChange={(e) => { setFromWarehouseId(e.target.value); setToWarehouseId(""); }}>
+            <select className={`inp mt-1 ${check.bad("from")}`} value={fromWarehouseId} onChange={(e) => { setFromWarehouseId(e.target.value); setToWarehouseId(""); }}>
               <option value="">{t("Select…")}</option>
               {warehouses.map((w) => <option key={w.id} value={w.id}>{dn(w)}</option>)}
             </select>
@@ -111,7 +119,7 @@ export default function AdjustPage() {
           {isTransfer && (
             <div>
               <label className="text-xs text-[#6b6960]">{t("To warehouse")}</label>
-              <select className="inp mt-1" value={toWarehouseId} onChange={(e) => setToWarehouseId(e.target.value)}>
+              <select className={`inp mt-1 ${check.bad("to")}`} value={toWarehouseId} onChange={(e) => setToWarehouseId(e.target.value)}>
                 <option value="">{t("Select…")}</option>
                 {warehouses.filter((w) => w.id !== fromWarehouseId).map((w) => <option key={w.id} value={w.id}>{dn(w)}</option>)}
               </select>
@@ -125,7 +133,7 @@ export default function AdjustPage() {
         </div>
         <div>
           <label className="text-xs text-[#6b6960]">{t("Quantity")}</label>
-          <input className="inp mt-1 text-right tabular-nums" type="number" min={0} value={qty} onChange={(e) => setQty(e.target.value)} />
+          <input className={`inp mt-1 text-right tabular-nums ${check.bad("qty")}`} type="number" min={0} value={qty} onChange={(e) => setQty(e.target.value)} />
         </div>
         <div>
           <label className="text-xs text-[#6b6960]">{t("Reason")}</label>
@@ -133,12 +141,7 @@ export default function AdjustPage() {
         </div>
         <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Posting…") : t("Post adjustment")}</button>
       </div>
-      {msg && (
-        <div className="mt-4 text-sm rounded-lg px-4 py-3"
-             style={{ background: msg.kind === "ok" ? "#e6efe9" : "#fbeceb", color: msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>
-          {msg.text}
-        </div>
-      )}
+      <TopMessage msg={check.msg ?? msg} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
 import { endpoints, type Shop, type Account } from "@/lib/api";
+import TopMessage from "@/components/TopMessage";
 
 export default function PettyCashPage() {
   const { t, dn } = useI18n();
@@ -62,12 +63,7 @@ export default function PettyCashPage() {
         </div>
         <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Posting…") : t("Post voucher")}</button>
       </div>
-      {msg && (
-        <div className="mt-4 text-sm rounded-lg px-4 py-3"
-             style={{ background: msg.kind === "ok" ? "#e6efe9" : "#fbeceb", color: msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>
-          {msg.text}
-        </div>
-      )}
+      <TopMessage msg={msg} />
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { TrashIcon } from "@/components/Icons";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
 
 type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
 
@@ -37,9 +39,18 @@ export default function ChallanPage() {
     endpoints.customers().then(setCustomers).catch(() => {});
     endpoints.suppliers().then(setSuppliers).catch(() => {});
     endpoints.users()
-      .then((u) => setSalespeople(u.filter((x) => x.active && x.role === "SALESPERSON")))
+      // admins and managers sell too; only accountants are left out
+      .then((u) => setSalespeople(u.filter((x) => x.active && x.role !== "ACCOUNTANT")
+        .sort((p, q) => (p.fullName || p.username).localeCompare(q.fullName || q.username))))
       .catch(() => {});
   }, []);
+
+  // a manager/admin is usually the seller: preselect themselves (still changeable)
+  useEffect(() => {
+    if (!user || user.role === "SALESPERSON" || salespersonId) return;
+    const me = salespeople.find((x) => x.username === user.username);
+    if (me) setSalespersonId(me.id);
+  }, [salespeople, user, salespersonId]);
 
   const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
   const productById   = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
@@ -98,11 +109,26 @@ export default function ChallanPage() {
 
   const shopId = activeShopId || localShopId;
 
+  // first thing missing, in form order: shop, customer, salesperson, then per line product -> warehouse -> qty
+  const problem: Problem = (() => {
+    if (!shopId) return { key: "shop", text: t("Select a shop.") };
+    if (!customerId) return { key: "customer", text: t("Select a customer.") };
+    if (needsSalesperson && !salespersonId) return { key: "salesperson", text: t("Select a salesperson.") };
+    const used = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.productId || l.warehouseId || l.qty);
+    const rows = used.length ? used : [{ l: lines[0], i: 0 }];
+    for (const { l, i } of rows) {
+      const row = lines.length > 1 ? ` (${t("line")} ${i + 1})` : "";
+      if (!l.productId) return { key: `product-${i}`, text: t("Select a product.") + row };
+      if (!l.warehouseId) return { key: `wh-${i}`, text: t("Select the warehouse.") + row };
+      if (!(Number(l.qty) > 0)) return { key: `qty-${i}`, text: t("Enter the quantity.") + row };
+    }
+    return null;
+  })();
+  const check = useStepCheck(problem);
+
   async function submit() {
     setMsg(null);
-    if (!shopId)      { setMsg({ kind: "err", text: t("Select a shop.") }); return; }
-    if (!customerId)  { setMsg({ kind: "err", text: t("Select a customer.") }); return; }
-    if (needsSalesperson && !salespersonId) { setMsg({ kind: "err", text: t("Select a salesperson.") }); return; }
+    if (check.stop()) return;
     const allocations = lines
       .filter((l) => l.productId && l.warehouseId && Number(l.qty) > 0)
       .map((l) => ({ productId: l.productId, warehouseId: l.warehouseId, qty: Number(l.qty), unitPrice: Number(l.unitPrice), discountAmt: 0 }));
@@ -175,22 +201,22 @@ export default function ChallanPage() {
       {/* Header fields */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
         {!activeShopId && (
-          <div className="field">
-            <label>{t("Shop")}</label>
+          <div className={`field ${check.bad("shop")}`}>
+            <label>{t("Shop")} <span className="req">*</span></label>
             <select className="inp inp-shop mt-1" value={localShopId} onChange={(e) => setLocalShopId(e.target.value)}>
               <option value="">{t("Select shop…")}</option>
               {shops.map((s) => <option key={s.id} value={s.id}>{dn(s)}</option>)}
             </select>
           </div>
         )}
-        <div className="field">
-          <label>{t("Customer")}</label>
+        <div className={`field ${check.bad("customer")}`}>
+          <label>{t("Customer")} <span className="req">*</span></label>
           <SearchSelect options={customerOpts} value={customerId}
             onChange={setCustomerId} placeholder={t("Search name or mobile…")} />
         </div>
         {needsSalesperson && (
-          <div className="field">
-            <label>{t("Salesperson")}</label>
+          <div className={`field ${check.bad("salesperson")}`}>
+            <label>{t("Salesperson")} <span className="req">*</span></label>
             <SearchSelect options={salespersonOpts} value={salespersonId}
               onChange={setSalespersonId} placeholder={t("Search…")} />
           </div>
@@ -225,8 +251,8 @@ export default function ChallanPage() {
                 return (
                   <tr key={i}>
                     <td className="align-top">
-                      <SearchSelect options={productOpts} value={l.productId}
-                        onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
+                      <div className={check.bad(`product-${i}`)}><SearchSelect options={productOpts} value={l.productId}
+                        onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} /></div>
                       <div className="text-[11px] mt-1 h-4 leading-4"
                         style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                         {hasBand
@@ -235,7 +261,7 @@ export default function ChallanPage() {
                       </div>
                     </td>
                     <td className="align-top">
-                      <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
+                      <select className={`inp ${check.bad(`wh-${i}`)}`} value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
                         <option value="">{t("Select…")}</option>
                         {stockedWarehouses.map((w) => (
                           <option key={w.id} value={w.id}>
@@ -249,7 +275,7 @@ export default function ChallanPage() {
                       </div>
                     </td>
                     <td className="text-right align-top">
-                      <input className="inp text-right tabular-nums" style={{ width: 80, marginLeft: "auto" }}
+                      <input className={`inp text-right tabular-nums ${check.bad(`qty-${i}`)}`} style={{ width: 80, marginLeft: "auto" }}
                         type="number" min={0} value={l.qty}
                         onChange={(e) => update(i, { qty: e.target.value })} />
                       <div className="h-4 mt-1" />
@@ -302,8 +328,8 @@ export default function ChallanPage() {
                     </button>
                   )}
                 </div>
-                <SearchSelect options={productOpts} value={l.productId}
-                  onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} />
+                <div className={check.bad(`product-${i}`)}><SearchSelect options={productOpts} value={l.productId}
+                  onChange={(v) => selectProduct(i, v)} placeholder={t("Search name, code, supplier, mm…")} /></div>
                 <div className="text-[11px] -mt-1" style={{ color: band === "out" ? "#b3261e" : "var(--muted)" }}>
                   {hasBand
                     ? `${t("band")} ${p.priceLower ?? "—"}–${p.priceUpper ?? "—"}${band === "out" ? ` · ${t("out of band")}` : ""}`
@@ -311,7 +337,7 @@ export default function ChallanPage() {
                 </div>
                 <div className="field">
                   <label className="text-xs muted block mb-1">{t("Warehouse")}</label>
-                  <select className="inp" value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
+                  <select className={`inp ${check.bad(`wh-${i}`)}`} value={l.warehouseId} onChange={(e) => update(i, { warehouseId: e.target.value })}>
                     <option value="">{t("Select…")}</option>
                     {stockedWarehouses.map((w) => (
                       <option key={w.id} value={w.id}>
@@ -327,7 +353,7 @@ export default function ChallanPage() {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="text-xs muted block mb-1">{t("Qty")}</label>
-                    <input className="inp text-right tabular-nums w-full" type="number" min={0}
+                    <input className={`inp text-right tabular-nums w-full ${check.bad(`qty-${i}`)}`} type="number" min={0}
                       value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} />
                   </div>
                   <div>
@@ -376,11 +402,7 @@ export default function ChallanPage() {
         <button className="btn w-full sm:w-auto shrink-0" onClick={submit} disabled={busy}>
           {busy ? t("Issuing…") : t("Issue challan")}
         </button>
-        {msg && (
-          <div className="text-sm" style={{ color: msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>
-            {msg.text}
-          </div>
-        )}
+        <TopMessage msg={check.msg ?? msg} />
       </div>
     </div>
   );

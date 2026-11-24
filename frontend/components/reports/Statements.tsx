@@ -5,6 +5,7 @@ import { endpoints, fmtDate, type EquityStatement, type Statement } from "@/lib/
 import { fmtMoney } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import { ClosedBanner, ReportTitle, Toolbar, YearSelect, savePdf, useYears } from "./ReportKit";
+import TopMessage from "@/components/TopMessage";
 
 export type StatementKind = "financial-position" | "profit-or-loss" | "changes-in-equity" | "cash-flows";
 
@@ -48,7 +49,7 @@ export default function Statements({ kind }: { kind: StatementKind }) {
         <YearSelect years={years} value={yearId} onChange={setYearId} />
       </Toolbar>
       <ClosedBanner status={(stmt?.yearStatus ?? eq?.yearStatus) as string | undefined} />
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
 
       <div className="report-sheet">
         {!stmt && !eq && !err && <p className="muted text-sm">{t("Loading…")}</p>}

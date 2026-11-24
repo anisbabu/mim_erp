@@ -5,6 +5,10 @@ import { useI18n } from "@/lib/i18n";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { productKeywords } from "@/lib/productSearch";
 import { TrashIcon } from "@/components/Icons";
+import DateInput from "@/components/DateInput";
+import { today } from "@/lib/fmt";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
 
 type Line = { productId: string; qty: string; unitPrice: string; free: boolean };
 
@@ -15,6 +19,7 @@ export default function NewPoPage() {
   const [supplierId, setSupplierId] = useState("");
   const [note, setNote]   = useState("");
   const [poNo, setPoNo]   = useState("");
+  const [orderDate, setOrderDate] = useState(today());   // purchase date; earlier dates allowed, not future
   const [lines, setLines] = useState<Line[]>([{ productId: "", qty: "", unitPrice: "", free: false }]);
   const [msg, setMsg]     = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy]   = useState(false);
@@ -45,24 +50,46 @@ export default function NewPoPage() {
   const totalQty   = lines.reduce((s, l) => s + (Number(l.qty) || 0), 0);
   const totalValue = lines.reduce((s, l) => s + (l.free ? 0 : (Number(l.qty) * Number(l.unitPrice) || 0)), 0);
 
+  /**
+   * First thing missing, in the order of the form: supplier, purchase date, then line by line
+   * product -> qty -> unit price. A line left completely empty is skipped (unless it is the only one).
+   */
+  const problem = useMemo((): Problem => {
+    if (!supplierId) return { key: "supplier", text: t("Select a supplier.") };
+    if (!orderDate) return { key: "date", text: t("Enter the purchase date.") };
+    if (orderDate > today()) return { key: "date", text: t("The purchase date can't be in the future") };
+    const used = lines.map((l, i) => ({ l, i })).filter(({ l }) => l.productId || l.qty || l.unitPrice);
+    const check = used.length ? used : [{ l: lines[0], i: 0 }];
+    for (const { l, i } of check) {
+      const row = check.length > 1 || lines.length > 1 ? ` (${t("line")} ${i + 1})` : "";
+      if (!l.productId) return { key: `product-${i}`, text: t("Select a product.") + row };
+      if (!(Number(l.qty) > 0)) return { key: `qty-${i}`, text: t("Enter the quantity.") + row };
+      if (!l.free && !(Number(l.unitPrice) > 0)) return { key: `price-${i}`, text: t("Enter the unit price (or tick Free).") + row };
+    }
+    return null;
+  }, [supplierId, orderDate, lines, t]);
+
+  const check = useStepCheck(problem);
+  const bad = check.bad;
+
   async function submit() {
     setMsg(null);
-    if (!supplierId) { setMsg({ kind: "err", text: "Select a supplier." }); return; }
+    if (check.stop()) return;
 
     const payload = {
       supplierId, note,
       manualPoNo: poNo.trim() || undefined,
+      orderDate: orderDate || undefined,
       lines: lines.filter((l) => l.productId && Number(l.qty) > 0).map((l) => ({
         productId: l.productId, qty: Number(l.qty),
         unitPrice: l.free ? 0 : Number(l.unitPrice), freeProduct: l.free,
       })),
     };
-    if (payload.lines.length === 0) { setMsg({ kind: "err", text: "Add at least one line with quantity." }); return; }
     setBusy(true);
     try {
       const po: any = await endpoints.createPo(payload);
       setMsg({ kind: "ok", text: `${t("New purchase order")} ${po.poNo} ✓` });
-      setLines([{ productId: "", qty: "", unitPrice: "", free: false }]); setNote(""); setPoNo("");
+      setLines([{ productId: "", qty: "", unitPrice: "", free: false }]); setNote(""); setPoNo(""); check.reset();
     } catch (e: any) { setMsg({ kind: "err", text: e.message }); } finally { setBusy(false); }
   }
 
@@ -70,11 +97,13 @@ export default function NewPoPage() {
     <div>
       <h1 className="page-title mb-5">{t("New purchase order")}</h1>
 
-      <div className="form-grid cols-3 mb-5">
+      <div className="form-grid cols-4 mb-5">
         <div className="field"><label>{t("PO no")}</label>
           <input className="inp" value={poNo} onChange={(e) => setPoNo(e.target.value)}
             placeholder={t("Manual / Auto-generated")} /></div>
-        <div className="field"><label>{t("Supplier")}</label>
+        <div className="field"><label>{t("Purchase date")} <span className="req">*</span></label>
+          <DateInput className={`inp ${bad("date")}`} max={today()} value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></div>
+        <div className={`field ${bad("supplier")}`}><label>{t("Supplier")} <span className="req">*</span></label>
           <SearchSelect options={supplierOpts} value={supplierId}
             onChange={(v) => {
               setSupplierId(v);
@@ -100,8 +129,9 @@ export default function NewPoPage() {
               return (
                 <tr key={i}>
                   <td className="align-top">
-                    <SearchSelect options={productOpts} value={l.productId}
-                      onChange={(v) => update(i, { productId: v })} placeholder={t("Search…")} />
+                    <div className={bad(`product-${i}`)}>
+                      <SearchSelect options={productOpts} value={l.productId}
+                        onChange={(v) => update(i, { productId: v })} placeholder={t("Search…")} /></div>
                     <div className="h-4 mt-1" />
                   </td>
                   <td className="text-center align-top pt-2">
@@ -110,12 +140,12 @@ export default function NewPoPage() {
                     <div className="h-4 mt-1" />
                   </td>
                   <td className="text-right align-top">
-                    <input className="inp num" style={{ width: 80, marginLeft: "auto" }} type="number" min={0}
+                    <input className={`inp num ${bad(`qty-${i}`)}`} style={{ width: 80, marginLeft: "auto" }} type="number" min={0}
                       value={l.qty} onChange={(e) => update(i, { qty: e.target.value })} />
                     <div className="h-4 mt-1" />
                   </td>
                   <td className="text-right align-top">
-                    <input className="inp num" style={{ width: 100, marginLeft: "auto" }}
+                    <input className={`inp num ${bad(`price-${i}`)}`} style={{ width: 100, marginLeft: "auto" }}
                       type="number" min={0}
                       value={l.free ? "" : l.unitPrice} disabled={l.free}
                       onChange={(e) => update(i, { unitPrice: e.target.value })}
@@ -149,13 +179,13 @@ export default function NewPoPage() {
             </tr>
           </tfoot>
         </table>
-        <div className="px-4 py-3 border-t border-line">
+        <div className="px-4 py-3 border-t border-line flex justify-end">
           <button className="btn-ghost btn-sm" onClick={addLine}>+ {t("Add")}</button>
         </div>
       </div>
 
       <button className="btn" onClick={submit} disabled={busy}>{busy ? "…" : t("Save")}</button>
-      {msg && <div className={`note mt-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+      <TopMessage msg={check.msg ?? msg} />
     </div>
   );
 }

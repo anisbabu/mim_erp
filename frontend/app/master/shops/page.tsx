@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { endpoints, type Shop } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
+import TopMessage from "@/components/TopMessage";
 
 export default function ShopsPage() {
   const { t, dn } = useI18n();
@@ -70,7 +71,7 @@ export default function ShopsPage() {
         <div className="mt-4 flex items-center gap-2">
           <button className="btn" onClick={save}>{editId ? t("Update") : t("Add")}</button>
           {editId && <button className="btn-ghost" onClick={reset}>{t("Cancel")}</button>}
-          {msg && <span className="text-sm ml-1" style={{ color: msg.kind === "ok" ? "#2f6f5e" : "#b3261e" }}>{msg.text}</span>}
+          <TopMessage msg={msg} />
         </div>
       </div>
 

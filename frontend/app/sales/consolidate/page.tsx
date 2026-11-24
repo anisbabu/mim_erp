@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { endpoints, type DeliveryChallan, type Customer, type ChallanLineView, type UserView, type Warehouse } from "@/lib/api";
+import TopMessage from "@/components/TopMessage";
 
 type LineEdit = { unitPrice: string };
 
@@ -278,13 +279,7 @@ export default function ConsolidatePage() {
         </>
       )}
 
-      {msg && (
-        <div className="mt-2 text-sm rounded-lg px-4 py-3"
-          style={{ background: msg.kind === "ok" ? "#e6efe9" : "#fbeceb",
-                   color:      msg.kind === "ok" ? "#1d5e4f" : "#9a2b22" }}>
-          {msg.text}
-        </div>
-      )}
+      <TopMessage msg={msg} />
     </div>
   );
 }

@@ -40,7 +40,7 @@ public class AuthController {
         }
         audit.login(u);
         return new AuthDtos.LoginResponse(jwt.issue(u), u.getUsername(),
-            u.getFullName(), u.getRole(), u.getShopIds());
+            u.getFullName(), u.getRole(), u.getShopIds(), u.isSuperAdmin());
     }
 
     /**
@@ -58,6 +58,6 @@ public class AuthController {
     public AuthDtos.LoginResponse me() {
         AppUser u = currentUser.me();
         return new AuthDtos.LoginResponse(null, u.getUsername(),
-            u.getFullName(), u.getRole(), u.getShopIds());
+            u.getFullName(), u.getRole(), u.getShopIds(), u.isSuperAdmin());
     }
 }

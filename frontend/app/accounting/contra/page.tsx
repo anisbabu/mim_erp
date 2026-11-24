@@ -5,6 +5,9 @@ import PageHeader from "@/components/PageHeader";
 import { endpoints, fmtDate, type ContraRow, type MoneyLedger } from "@/lib/api";
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
+import { ScrollText, History, Printer } from "lucide-react";
 
 /** Contra voucher: cash deposited to bank, cash withdrawn, bank to bank. */
 export default function ContraPage() {
@@ -32,11 +35,18 @@ export default function ContraPage() {
     load();
   }, []);
 
+  // first thing missing, in form order: from, to (different), amount
+  const problem: Problem =
+    !from ? { key: "from", text: t("Select the ledger it is paid out of.") }
+    : !to ? { key: "to", text: t("Select the ledger it is paid into.") }
+    : from === to ? { key: "to", text: t("From and To must be different ledgers.") }
+    : !(Number(amount) > 0) ? { key: "amount", text: t("Amount must be positive.") }
+    : null;
+  const check = useStepCheck(problem);
+
   async function submit() {
     setMsg(null);
-    if (!from || !to) { setMsg({ kind: "err", text: t("Pick both ledgers.") }); return; }
-    if (from === to) { setMsg({ kind: "err", text: t("From and To must be different ledgers.") }); return; }
-    if (!(Number(amount) > 0)) { setMsg({ kind: "err", text: t("Amount must be positive.") }); return; }
+    if (check.stop()) return;
     setBusy(true);
     try {
       const r: any = await endpoints.contra({ date, fromAccount: from, toAccount: to, amount: Number(amount),
@@ -61,15 +71,15 @@ export default function ContraPage() {
             <DateInput className="inp" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
             <div className="h-4 leading-4" /></div>
           <div className="field"><label>{t("From (paid out of)")} <span className="req">*</span></label>
-            <select className="inp" value={from} onChange={(e) => setFrom(e.target.value)}>
+            <select className={`inp ${check.bad("from")}`} value={from} onChange={(e) => setFrom(e.target.value)}>
               <option value="">{t("Select…")}</option>{opts}</select>
             <div className="h-4 leading-4 text-[11px] muted">{t("Credited")}</div></div>
           <div className="field"><label>{t("To (paid into)")} <span className="req">*</span></label>
-            <select className="inp" value={to} onChange={(e) => setTo(e.target.value)}>
+            <select className={`inp ${check.bad("to")}`} value={to} onChange={(e) => setTo(e.target.value)}>
               <option value="">{t("Select…")}</option>{opts}</select>
             <div className="h-4 leading-4 text-[11px] muted">{t("Debited")}</div></div>
           <div className="field"><label>{t("Amount")} <span className="req">*</span></label>
-            <input className="inp num" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input className={`inp num ${check.bad("amount")}`} type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} />
             <div className="h-4 leading-4" /></div>
           <div className="field"><label>{t("Reference")}</label>
             <input className="inp" placeholder={t("Deposit slip / cheque no.")} value={reference} onChange={(e) => setReference(e.target.value)} />
@@ -80,11 +90,12 @@ export default function ContraPage() {
         </div>
         <div className="mt-3 flex items-center gap-3">
           <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Recording…") : t("Record contra")}</button>
-          <span className="text-[12px] muted">{t("Dr To ledger · Cr From ledger")}</span>
+          <span className="acct-trace"><ScrollText size={13} />{t("Dr To ledger · Cr From ledger")}</span>
         </div>
-        {msg && <div className={`note mt-3 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+        <TopMessage msg={check.msg ?? msg} />
       </div>
 
+      <div className="section-label tone-teal mb-3"><History size={16} />{t("Past contra vouchers")}</div>
       <div className="card table-wrap">
         <table className="tbl" style={{ minWidth: 820 }}>
           <thead><tr>
@@ -107,8 +118,10 @@ export default function ContraPage() {
                 <td className="muted">{r.reference ?? ""}{r.note ? <div className="text-[12px]">{r.note}</div> : null}</td>
                 <td className="num font-medium">{fmtMoney(r.amount)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  <button className="btn-ghost text-xs" onClick={() => printCv(r.id, "en")}>PDF</button>
-                  <button className="btn-ghost text-xs ml-1" onClick={() => printCv(r.id, "bn")}>বাংলা</button></td>
+                  <span className="inline-flex gap-1">
+                    <button className="btn btn-print btn-sm" onClick={() => printCv(r.id, "en")}><Printer size={13} className="mr-1" />PDF</button>
+                    <button className="btn btn-print btn-sm" onClick={() => printCv(r.id, "bn")}>বাংলা</button>
+                  </span></td>
               </tr>
             ))}
             {rows.length === 0 && <tr><td colSpan={7} className="muted">{t("No contra vouchers yet.")}</td></tr>}

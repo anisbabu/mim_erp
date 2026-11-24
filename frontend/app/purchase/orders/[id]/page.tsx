@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { ReceiveIcon } from "@/components/Icons";
 import PoProgressChips, { StatusChip } from "@/components/PoProgressChips";
 import { fmtMoney } from "@/lib/fmt";
+import TopMessage from "@/components/TopMessage";
 
 export default function PoDetailsPage() {
   const { t } = useI18n();
@@ -33,7 +34,7 @@ export default function PoDetailsPage() {
   if (loading) return <div className="muted">{t("Loading…")}</div>;
   if (err) return (
     <div>
-      <div className="note note-err mb-4">{err}</div>
+      <TopMessage err={err} />
       <Link className="btn-ghost btn-sm" href="/purchase/orders">{t("← Back")}</Link>
     </div>
   );
