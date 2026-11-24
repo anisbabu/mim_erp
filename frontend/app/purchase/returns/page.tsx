@@ -8,6 +8,9 @@ import { today } from "@/lib/fmt";
 import {
   endpoints, fmtDate, type Account, type GrnRow, type PurchaseReturnable, type PurchaseReturnRow,
 } from "@/lib/api";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
+import { History, Printer, ScrollText, Undo2 } from "lucide-react";
 
 const money = (n: number) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -55,13 +58,19 @@ export default function PurchaseReturnsPage() {
   const lines = data?.lines ?? [];
   const goods = lines.reduce((s, l) => s + (Number(qty[l.grn_line_id]) || 0) * l.unit_price, 0);
 
+  // first thing missing: a return qty, then the reason
+  const problem: Problem = !data ? null
+    : !lines.some((l) => Number(qty[l.grn_line_id]) > 0) ? { key: `qty-${(lines.find((l) => l.qty_available > 0) ?? lines[0])?.grn_line_id}`, text: t("Enter a return quantity for at least one line.") }
+    : !reason.trim() ? { key: "reason", text: t("Give the reason for the return.") }
+    : null;
+  const check = useStepCheck(problem);
+
   async function submit() {
     if (!data) return;
     setMsg(null);
+    if (check.stop()) return;
     const picked = lines.filter((l) => Number(qty[l.grn_line_id]) > 0)
       .map((l) => ({ grnLineId: l.grn_line_id, qty: Number(qty[l.grn_line_id]) }));
-    if (picked.length === 0) { setMsg({ kind: "err", text: t("Enter a return quantity for at least one line.") }); return; }
-    if (!reason.trim()) { setMsg({ kind: "err", text: t("Give the reason for the return.") }); return; }
     setBusy(true);
     try {
       const r = await endpoints.createPurchaseReturn({
@@ -91,7 +100,7 @@ export default function PurchaseReturnsPage() {
 
       {open && (
         <div className="card p-5 mb-6">
-          <div className="section-label mb-3">{t("New return")}</div>
+          <div className="section-label tone-warn mb-3"><Undo2 size={16} />{t("New return")}</div>
           <div className="form-grid cols-4">
             <div className="field" style={{ gridColumn: "span 2" }}>
               <label>{t("Goods receipt")} <span className="req">*</span></label>
@@ -135,7 +144,7 @@ export default function PurchaseReturnsPage() {
                           <td className="num">{l.qty_in_stock}</td>
                           <td className="num">{l.qty_available}</td>
                           <td className="num">{money(l.unit_price)}</td>
-                          <td><input className="inp num" type="number" min={0} max={l.qty_available}
+                          <td><input className={`inp num ${check.bad(`qty-${l.grn_line_id}`)}`} type="number" min={0} max={l.qty_available}
                             disabled={l.qty_available <= 0} value={qty[l.grn_line_id] ?? ""}
                             style={bad ? { borderColor: "#b91c1c" } : undefined}
                             onChange={(e) => setQty({ ...qty, [l.grn_line_id]: e.target.value })} /></td>
@@ -154,7 +163,7 @@ export default function PurchaseReturnsPage() {
               <div className="form-grid cols-4 mt-4">
                 <div className="field" style={{ gridColumn: "span 2" }}>
                   <label>{t("Reason for return")} <span className="req">*</span></label>
-                  <input className="inp" value={reason} onChange={(e) => setReason(e.target.value)} />
+                  <input className={`inp ${check.bad("reason")}`} value={reason} onChange={(e) => setReason(e.target.value)} />
                 </div>
                 <div className="field">
                   <label>{t("Return date")} <span className="req">*</span></label>
@@ -180,18 +189,18 @@ export default function PurchaseReturnsPage() {
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Recording…") : t("Record return")}</button>
-                <span className="text-[12px] muted">
-                  {settlement === "DEBIT_NOTE" ? t("Dr Supplier ledger · Cr Inventory") : t("Dr Cash/Bank · Cr Inventory")}
+                <span className="acct-trace">
+                  <ScrollText size={13} className="inline -mt-0.5 mr-1" />{settlement === "DEBIT_NOTE" ? t("Dr Supplier ledger · Cr Inventory") : t("Dr Cash/Bank · Cr Inventory")}
                 </span>
               </div>
             </>
           )}
-          {msg && <div className={`note mt-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+          <TopMessage msg={check.msg ?? msg} />
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="section-label">{t("Past returns")}</div>
+        <div className="section-label tone-teal"><History size={16} />{t("Past returns")}</div>
         <div className="flex-1" />
         <input className="inp" style={{ maxWidth: 260 }} placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
@@ -221,8 +230,10 @@ export default function PurchaseReturnsPage() {
                 <td className="muted">{r.reason}</td>
                 <td className="num font-medium">{money(r.goods_value)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  <button className="btn-ghost text-xs" onClick={() => printNote(r.id, "en")}>PDF</button>
-                  <button className="btn-ghost text-xs ml-1" onClick={() => printNote(r.id, "bn")}>বাংলা</button></td>
+                  <span className="inline-flex gap-1">
+                    <button className="btn btn-print btn-sm" onClick={() => printNote(r.id, "en")}><Printer size={13} className="mr-1" />PDF</button>
+                    <button className="btn btn-print btn-sm" onClick={() => printNote(r.id, "bn")}>বাংলা</button>
+                  </span></td>
               </tr>
             ))}
             {shown.length === 0 && <tr><td colSpan={8} className="muted text-sm" style={{ padding: 20 }}>{t("No returns yet.")}</td></tr>}

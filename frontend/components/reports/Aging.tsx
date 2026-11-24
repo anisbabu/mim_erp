@@ -6,6 +6,7 @@ import { endpoints, fmtDate, type AgingReport } from "@/lib/api";
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import { ReportTitle, Toolbar, savePdf, useSaved } from "./ReportKit";
+import TopMessage from "@/components/TopMessage";
 
 export default function Aging({ type }: { type: "CUSTOMER" | "SUPPLIER" }) {
   const { t, lang } = useI18n();
@@ -29,7 +30,7 @@ export default function Aging({ type }: { type: "CUSTOMER" | "SUPPLIER" }) {
         <div className="field"><label>{t("As at")}</label>
           <DateInput className="inp" value={asOf} onChange={(e) => setAsOf(e.target.value)} /></div>
       </Toolbar>
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
       <div className="report-sheet">
         <ReportTitle name={title} period={`${t("As at")} ${fmtDate(asOf)}`} sub={t("Amounts in BDT. Aged bill-wise from each bill's due date; unapplied = advances not yet set against a bill.")} />
         {!rep && !err && <p className="muted text-sm">{t("Loading…")}</p>}

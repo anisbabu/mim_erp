@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { endpoints, type Customer } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EditIcon, TrashIcon } from "@/components/Icons";
+import TopMessage from "@/components/TopMessage";
+import { Truck } from "lucide-react";
 
 export default function CustomersPage() {
   const { t, dn } = useI18n();
@@ -81,7 +83,7 @@ export default function CustomersPage() {
             <input className="inp num" type="number" value={f.creditDays ?? ""} onChange={(e) => setF({ ...f, creditDays: Number(e.target.value) })} /></div>}
         </div>
 
-        <div className="text-[11px] uppercase tracking-wide text-[#8b929b] mt-5 mb-2">{t("Delivery details (for driver)")}</div>
+        <div className="section-label tone-teal mt-5 mb-3"><Truck size={16} />{t("Delivery details (for driver)")}</div>
         <div className="form-grid cols-2">
           <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Delivery address")}</label>
             <input className="inp" value={f.deliveryAddress ?? ""} onChange={(e) => setF({ ...f, deliveryAddress: e.target.value })} /></div>
@@ -99,7 +101,7 @@ export default function CustomersPage() {
         <div className="mt-4 flex items-center gap-2">
           <button className="btn" onClick={save}>{editId ? t("Update") : t("Add")}</button>
           {editId && <button className="btn-ghost" onClick={reset}>{t("Cancel")}</button>}
-          {msg && <span className="text-sm ml-1" style={{ color: msg.kind === "ok" ? "#2f6f5e" : "#b3261e" }}>{msg.text}</span>}
+          <TopMessage msg={msg} />
         </div>
       </div>
       <div className="mb-3" style={{ maxWidth: 320 }}>

@@ -57,6 +57,13 @@ mim:
     api-version: ${WHATSAPP_API_VERSION:v21.0}
     template-en: ${WHATSAPP_TEMPLATE_EN:cheque_maturity_reminder_en}
     template-bn: ${WHATSAPP_TEMPLATE_BN:cheque_maturity_reminder_bn}
+    # "Share" button on challan/token/invoice — approved template with a dynamic Document header
+    template-doc-en: ${WHATSAPP_TEMPLATE_DOC_EN:business_document_en}
+    template-doc-bn: ${WHATSAPP_TEMPLATE_DOC_BN:business_document_bn}
+    # must be reachable from the internet (HTTPS) — Meta's servers fetch the PDF from here
+    public-base-url: ${PUBLIC_BASE_URL:http://localhost:8082}
+    # signs the short-lived public PDF links above; override in production
+    link-secret: ${WHATSAPP_LINK_SECRET:${JWT_SECRET:mim-erp-dev-secret-key-change-me-in-production-0123456789}}
   bootstrap:
     # initial admin created on first run if no admin exists
     admin-username: ${ADMIN_USERNAME:admin}

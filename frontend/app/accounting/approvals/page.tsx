@@ -5,6 +5,7 @@ import { endpoints, fmtDate, type VoucherRequestRow } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { fmtMoney } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
 
 type Status = "PENDING" | "APPROVED" | "REJECTED" | "ALL";
 
@@ -75,12 +76,13 @@ export default function ApprovalsPage() {
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {(["PENDING", "APPROVED", "REJECTED", "ALL"] as Status[]).map((s) => (
-          <button key={s} className={status === s ? "btn" : "btn-ghost"} onClick={() => setStatus(s)}>
+          <button key={s} onClick={() => setStatus(s)}
+            className={`filter-btn ${({ PENDING: "tone-warn", APPROVED: "tone-ok", REJECTED: "tone-bad", ALL: "tone-all" } as const)[s]}${status === s ? " on" : ""}`}>
             {t(({ PENDING: "Pending", APPROVED: "Approved", REJECTED: "Rejected", ALL: "All" } as const)[s])}</button>
         ))}
         <span className="text-[12px] muted ml-2">{t("Admins' own vouchers post directly. The maker can't approve their own voucher.")}</span>
       </div>
-      {msg && <div className={`note mb-3 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+      <TopMessage msg={msg} />
 
       <div className="card table-wrap">
         <table className="tbl" style={{ minWidth: 980 }}>

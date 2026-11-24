@@ -8,6 +8,9 @@ import { endpoints, fmtDate, type PoView, type Warehouse, type Product, type Rec
 import { useI18n } from "@/lib/i18n";
 import { ReceiveIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
+import { History, ReceiptText } from "lucide-react";
 
 export default function ReceivePage() {
   const { t, dn } = useI18n();
@@ -68,8 +71,18 @@ export default function ReceivePage() {
     setRecv((r) => ({ ...r, [id]: on ? String(bal) : "0" }));
   };
 
+  // first thing missing, in form order: warehouse, a ticked line with qty, price approver, bill no.
+  const anyLine = (po?.lines ?? []).some((l) => received[l.poLineId] && Number(recv[l.poLineId] || 0) > 0);
+  const problem: Problem =
+    !warehouseId ? { key: "warehouse", text: t("Select a warehouse to receive into.") }
+    : !anyLine ? { key: "lines", text: t("Tick at least one line as received with a quantity.") }
+    : priceChanged && !bill.priceApprovedBy.trim() ? { key: "approver", text: t("The billed price differs from the PO price - name who approved it.") }
+    : billNow && !bill.billNo.trim() ? { key: "billNo", text: t("Enter the supplier's bill number, or untick 'bill came with the goods'.") }
+    : null;
+  const check = useStepCheck(problem);
+
   async function submit() {
-    if (!warehouseId) { setMsg({ kind: "err", text: "Select a warehouse to receive into." }); return; }
+    if (check.stop()) return;
     // only checked ("received") lines with qty > 0 are sent; unchecked = not received
     const lines = (po?.lines ?? [])
       .filter((l) => received[l.poLineId])
@@ -117,8 +130,8 @@ export default function ReceivePage() {
             onChange={setPoId}
             placeholder={t("Search…")}
           /></div>
-        <div className="field"><label>{t("Warehouse")}</label>
-          <select className="inp" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} disabled={isClosed}>
+        <div className="field"><label>{t("Warehouse")} <span className="req">*</span></label>
+          <select className={`inp ${check.bad("warehouse")}`} value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} disabled={isClosed}>
             <option value="">—</option>
             {warehouses.map((w) => <option key={w.id} value={w.id}>{dn(w)}</option>)}
           </select></div>
@@ -190,7 +203,7 @@ export default function ReceivePage() {
           {!isClosed && (
             <div className="px-4 py-4 border-t border-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <div className="section-label">{t("Supplier bill")}</div>
+                <div className="section-label tone-warn"><ReceiptText size={16} />{t("Supplier bill")}</div>
                 <label className="flex items-center gap-1.5 text-[13px]">
                   <input type="checkbox" checked={billNow} onChange={(e) => setBillNow(e.target.checked)} />
                   {t("Supplier bill came with the goods")}
@@ -202,7 +215,7 @@ export default function ReceivePage() {
                     onChange={(e) => setBill({ ...bill, receiptDate: e.target.value })} />
                   <div className="h-4 leading-4 text-[11px] muted">{t("Blank = today; set an earlier date for late entry")}</div></div>
                 <div className="field"><label>{t("Supplier bill no.")}{billNow && <span className="req"> *</span>}</label>
-                  <input className="inp" value={bill.billNo} onChange={(e) => setBill({ ...bill, billNo: e.target.value })}
+                  <input className={`inp ${check.bad("billNo")}`} value={bill.billNo} onChange={(e) => setBill({ ...bill, billNo: e.target.value })}
                     placeholder={billNow ? "" : t("Can be keyed later")} />
                   <div className="h-4 leading-4 text-[11px] muted">{billNow ? t("Posted as the supplier bill") : t("Bill entered later in Accounting")}</div></div>
                 <div className="field"><label>{t("Bill date")}</label>
@@ -230,7 +243,7 @@ export default function ReceivePage() {
                 )}
                 {priceChanged && (
                   <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Price change approved by")} <span className="req">*</span></label>
-                    <input className="inp" value={bill.priceApprovedBy} onChange={(e) => setBill({ ...bill, priceApprovedBy: e.target.value })} />
+                    <input className={`inp ${check.bad("approver")}`} value={bill.priceApprovedBy} onChange={(e) => setBill({ ...bill, priceApprovedBy: e.target.value })} />
                     <div className="h-4 leading-4 text-[11px]" style={{ color: "#b45309" }}>{t("A billed price differs from the PO price")}</div></div>
                 )}
               </div>
@@ -252,11 +265,11 @@ export default function ReceivePage() {
         </div>
       )}
 
-      {msg && <div className={`note mb-6 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+      <TopMessage msg={check.msg ?? msg} />
 
       {po && (
         <>
-          <div className="section-label mb-3">{t("Receipt history")}</div>
+          <div className="section-label tone-teal mb-3"><History size={16} />{t("Receipt history")}</div>
           <div className="card table-wrap">
             <table className="tbl">
               <thead><tr><th>{t("Date")}</th><th>GRN</th><th>{t("Product")}</th><th>{t("Warehouse")}</th><th className="text-right">{t("Qty")}</th></tr></thead>

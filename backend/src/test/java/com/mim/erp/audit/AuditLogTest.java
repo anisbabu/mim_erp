@@ -50,6 +50,8 @@ class AuditLogTest {
 
     @BeforeAll
     void signInAsAdmin() {
+        // the activity log is for the super admin only; make the bootstrap admin one for these tests
+        jdbc.update("update app_user set super_admin = true where username = 'admin'");
         adminToken = login("admin", "admin123");
     }
 
@@ -314,6 +316,25 @@ class AuditLogTest {
         String anyId = "00000000-0000-0000-0000-000000000000";
         assertThat(status(HttpMethod.PUT, "/api/master/warehouses/" + anyId, accountant, Map.of("code", "X", "name", "X"))).isEqualTo(403);
         assertThat(status(HttpMethod.DELETE, "/api/master/products/" + anyId, accountant, null)).isEqualTo(403);
+    }
+
+    @Test
+    void plainAdminIsRefusedAndCannotTouchTheSuperAdmin() {
+        call(HttpMethod.POST, "/api/users", adminToken, Map.of("username", "plainadmin", "password", "Plain-123",
+            "fullName", "Plain Admin", "role", "ADMIN", "shopIds", List.of()), 200);
+        String plain = login("plainadmin", "Plain-123");
+
+        for (String path : List.of("/api/audit-log", "/api/audit-log/1", "/api/audit-log/facets", "/api/audit-log/export"))
+            assertThat(status(HttpMethod.GET, path, plain, null)).as("plain ADMIN GET " + path).isEqualTo(403);
+        assertThat(post("/api/auth/login", null, Map.of("username", "plainadmin", "password", "Plain-123"), 200)
+            .get("superAdmin").asBoolean()).isFalse();
+        assertThat(call(HttpMethod.GET, "/api/auth/me", adminToken, null, 200).get("superAdmin").asBoolean()).isTrue();
+
+        // a plain admin can't reset the super admin's password (that would hand over the log)
+        String superId = jdbc.queryForObject("select id::text from app_user where username = 'admin'", String.class);
+        assertThat(status(HttpMethod.PUT, "/api/users/" + superId, plain,
+            Map.of("role", "ADMIN", "password", "Taken-123", "shopIds", List.of()))).isGreaterThanOrEqualTo(400);
+        login("admin", "admin123");   // password unchanged
     }
 
     @Test

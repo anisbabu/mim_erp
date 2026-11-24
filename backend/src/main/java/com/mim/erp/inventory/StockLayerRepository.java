@@ -113,6 +113,32 @@ public interface StockLayerRepository extends JpaRepository<StockLayer, UUID> {
     """, nativeQuery = true)
     List<SupplierStockRow> stockBySupplier();
 
+    /**
+     * Stock on hand per supplier + product + warehouse, for the stock page filters (any combination).
+     * Supplier as in {@link #stockBySupplier}: the PO's supplier for received stock, else the product's own.
+     */
+    @Query(value = """
+        SELECT COALESCE(po.supplier_id, p.supplier_id) AS supplierId, sl.product_id AS productId,
+               sl.warehouse_id AS warehouseId,
+               SUM(sl.qty_remaining) AS qty, SUM(sl.qty_remaining * sl.unit_cost) AS value
+        FROM stock_layer sl
+        JOIN product p ON p.id = sl.product_id
+        LEFT JOIN grn_line gl ON gl.id = sl.grn_line_id
+        LEFT JOIN goods_receipt gr ON gr.id = gl.grn_id
+        LEFT JOIN purchase_order po ON po.id = gr.po_id
+        WHERE sl.qty_remaining > 0
+        GROUP BY COALESCE(po.supplier_id, p.supplier_id), sl.product_id, sl.warehouse_id
+    """, nativeQuery = true)
+    List<DetailStockRow> stockDetail();
+
+    interface DetailStockRow {
+        UUID getSupplierId();
+        UUID getProductId();
+        UUID getWarehouseId();
+        BigDecimal getQty();
+        BigDecimal getValue();
+    }
+
     interface SupplierStockRow {
         UUID getSupplierId();
         UUID getProductId();

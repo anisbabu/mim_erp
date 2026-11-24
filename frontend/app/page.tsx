@@ -14,7 +14,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const showCheques = !!user && user.role !== "SALESPERSON";
   // home screen: one tile per app the role can open (the dashboard itself is not a tile)
-  const apps = user ? appsFor(user.role).filter((a) => a.href !== "/") : [];
+  const apps = user ? appsFor(user.role, !!user.superAdmin).filter((a) => a.href !== "/") : [];
   return (
     <div>
       <div className="o-home mt-4 mb-8">

@@ -13,6 +13,7 @@
   --role-label:        #0f766e;
   --role-req:          #dc2626;
   --role-save:         #15803d;  --role-save-dark:  #166534;
+  --role-info:         #7c3aed;
   --role-print:        #1d4f91;  --role-print-dark: #173f75;
   --role-share:        #b45309;  --role-share-bd:   #d97706;  --role-share-soft: #fffbeb;
   --role-danger:       #dc2626;  --role-danger-dark: #b91c1c;
@@ -26,6 +27,9 @@
   --border:            #dee2e6;
   --border-soft:       #eef0f2;
   --input-border:      #c9ccd2;
+  --inp-line:          #8d96a5;   /* underline of form inputs: strong enough to spot every field */
+  --inp-fill:          #f4f6f9;   /* light box behind each input */
+  --inp-fill-focus:    #eaf1fa;
   --input-bg:          #ffffff;
   --input-disabled-bg: #f9fafb;
   --placeholder:       #9ca3af;
@@ -75,6 +79,7 @@ html.dark {
   --role-label:        #2dd4bf;
   --role-req:          #f87171;
   --role-save:         #16a34a;  --role-save-dark:  #15803d;
+  --role-info:         #a78bfa;
   --role-print:        #3f7fd0;  --role-print-dark: #346db8;
   --role-share:        #fbbf24;  --role-share-bd:   #fbbf24;  --role-share-soft: #422006;
   --role-danger:       #dc2626;  --role-danger-dark: #b91c1c;
@@ -88,6 +93,9 @@ html.dark {
   --border:            #3c3f4c;
   --border-soft:       #323543;
   --input-border:      #555a6b;
+  --inp-line:          #7d8597;
+  --inp-fill:          #232835;
+  --inp-fill-focus:    #22324d;
   --input-bg:          #262a36;
   --input-disabled-bg: #2e3240;
   --placeholder:       #7b8190;
@@ -128,26 +136,32 @@ html.dark {
   /* ── Field / label ──────────────────────────────────────────────────────── */
   .field { @apply flex flex-col gap-1 min-w-0; }
   .field > label, .lbl {
-    @apply block text-[12px] font-semibold leading-4 h-4 w-full;
+    @apply block text-[12px] font-bold leading-4 h-4 w-full;
     color: var(--role-label);
     text-align: left;
   }
 
   /* ── Inputs ─────────────────────────────────────────────────────────────── */
+  /* every input is a light box with a strong underline; what is typed is bold */
   .inp {
-    @apply w-full h-8 box-border px-1.5 text-[13px] transition-colors;
-    background: transparent;
+    @apply w-full h-8 box-border px-2 text-[13px] font-semibold transition-colors;
+    background: var(--inp-fill);
     color: var(--text);
     border: 0;
-    border-bottom: 1px solid var(--input-border);
-    border-radius: 0;
+    border-bottom: 2px solid var(--inp-line);
+    border-radius: 3px 3px 0 0;
   }
-  .inp:hover:not(:disabled):not([readonly]) { border-bottom-color: var(--muted); }
-  .inp::placeholder { color: var(--placeholder); font-size: 12px; }
+  .inp:hover:not(:disabled):not([readonly]) { border-bottom-color: var(--text); }
+  .inp::placeholder { color: var(--placeholder); font-size: 12px; font-weight: 400; }
   .inp:focus {
     outline: none;
-    box-shadow: 0 1px 0 0 var(--action);
+    background: var(--inp-fill-focus);
     border-bottom-color: var(--action);
+  }
+  /* the field a failed Save stopped on (red until filled) */
+  .inp.is-invalid, .is-invalid .inp {
+    border-bottom-color: var(--role-danger) !important;
+    background: color-mix(in srgb, var(--role-danger) 9%, var(--inp-fill));
   }
   textarea.inp { @apply h-auto min-h-[64px] py-1.5 leading-relaxed; border: 1px solid var(--input-border); border-radius: 3px; }
   .inp:disabled, .inp[readonly] {
@@ -208,6 +222,23 @@ html.dark {
   .btn.btn-danger { background: var(--role-danger); border-color: var(--role-danger); }
   .btn.btn-danger:hover:not(:disabled) { background: var(--role-danger-dark); border-color: var(--role-danger-dark); }
   .req { color: var(--role-req); }
+  /* status filter buttons (All / Active / Inactive …): coloured outline, filled when selected.
+     tone: .tone-all blue, .tone-ok green, .tone-bad red. */
+  .filter-btn {
+    @apply inline-flex items-center gap-1.5 h-8 px-4 text-[14px] font-semibold rounded-full border-2 transition-colors;
+    --tone: var(--role-print);
+    color: var(--tone); border-color: var(--tone);
+    background: color-mix(in srgb, var(--tone) 8%, transparent);
+  }
+  .filter-btn:hover { background: color-mix(in srgb, var(--tone) 16%, transparent); }
+  .filter-btn.on { background: var(--tone); color: #fff; }
+  .filter-btn .n { @apply text-[12px] font-bold px-1.5 rounded-full leading-5; background: color-mix(in srgb, var(--tone) 15%, transparent); }
+  .filter-btn.on .n { background: rgba(255,255,255,.25); }
+  .filter-btn.tone-ok  { --tone: var(--role-save); }
+  .filter-btn.tone-bad { --tone: var(--role-danger); }
+  .filter-btn.tone-warn { --tone: var(--role-share); }
+  .filter-btn.tone-info { --tone: var(--role-info); }
+  .filter-btn.tone-teal { --tone: var(--role-label); }
 
   .btn-ghost {
     @apply inline-flex items-center justify-center h-8 border px-3 text-[13px] font-medium transition-colors disabled:opacity-50;
@@ -247,7 +278,28 @@ html.dark {
   .muted { color: var(--muted); }
   .page-title { @apply text-[18px] leading-6 font-semibold; color: var(--role-title); }
   .drawer-title { @apply text-base font-semibold; color: var(--role-title); }
-  .section-label { @apply text-[10px] uppercase tracking-widest font-bold; color: var(--role-title); border-left: 2px solid var(--role-title); padding-left: 6px; }
+  /* section heading: a tinted chip with a coloured left bar; tone via .tone-ok / -warn / -info / -teal / -bad (default blue) */
+  .section-label {
+    @apply inline-flex items-center gap-2 text-[12px] uppercase tracking-wider font-bold rounded-md py-1.5 pl-2.5 pr-3.5;
+    --tone: var(--role-title);
+    color: var(--tone);
+    background: color-mix(in srgb, var(--tone) 10%, var(--surface));
+    border-left: 4px solid var(--tone);
+  }
+  .section-label svg { flex-shrink: 0; }
+  /* the Dr/Cr posting trace next to a Save button (e.g. accounting/payments) */
+  .acct-trace {
+    @apply inline-flex items-center gap-1.5 text-[12.5px] font-mono rounded-md pl-2 pr-3 py-1.5;
+    color: var(--role-info);
+    background: color-mix(in srgb, var(--role-info) 10%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--role-info) 28%, transparent);
+  }
+  .acct-trace svg { flex-shrink: 0; opacity: .8; }
+  .section-label.tone-ok   { --tone: var(--role-save); }
+  .section-label.tone-warn { --tone: var(--role-share); }
+  .section-label.tone-info { --tone: var(--role-info); }
+  .section-label.tone-teal { --tone: var(--role-label); }
+  .section-label.tone-bad  { --tone: var(--role-danger); }
 
   /* ── Tables ─────────────────────────────────────────────────────────────── */
   .tbl { @apply w-full border-collapse; font-size: 13px; }
@@ -276,6 +328,35 @@ html.dark {
 
   /* ── Feedback ───────────────────────────────────────────────────────────── */
   .note { @apply text-[13px] rounded px-3 py-2; }
+  /* form message bar: fixed under the navbar, always in view (components/TopMessage.tsx) */
+  .top-msg {
+    @apply fixed left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2.5 rounded-md text-[14px] font-semibold shadow-lg;
+    top: 54px; z-index: 70; width: min(860px, calc(100vw - 32px));
+    border-left: 5px solid var(--tone); color: var(--tone);
+    background: color-mix(in srgb, var(--tone) 12%, var(--surface));
+    animation: top-msg-in .18s ease-out;
+  }
+  .top-msg.is-ok  { --tone: var(--role-save); }
+  .top-msg.is-err { --tone: var(--role-danger); }
+  .top-msg-close { @apply shrink-0 rounded p-1 opacity-70 hover:opacity-100; }
+  @keyframes top-msg-in { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  /* shop picker at the top of a transaction form: amber until chosen, green once set, red after a failed save */
+  .shop-bar {
+    @apply inline-flex items-center gap-2 h-9 pl-3 pr-1 rounded-md border-2 text-[14px];
+    --tone: var(--role-share);
+    color: var(--tone); border-color: var(--tone);
+    background: color-mix(in srgb, var(--tone) 10%, var(--surface));
+  }
+  .shop-bar.is-set   { --tone: var(--role-save); }
+  .shop-bar.is-error { --tone: var(--role-danger); animation: shop-pulse 1s ease-in-out 2; }
+  .shop-bar b { @apply pr-2; color: var(--text); }
+  .shop-bar-label { @apply font-bold whitespace-nowrap; }
+  .shop-bar-select {
+    @apply h-7 pl-2 pr-6 rounded text-[14px] font-semibold border-0 cursor-pointer;
+    background-color: var(--surface); color: var(--text); min-width: 180px;
+  }
+  .shop-bar-select:focus { outline: 2px solid var(--tone); outline-offset: 1px; }
+  @keyframes shop-pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 30%, transparent); } }
   .note-ok { background: var(--note-ok-bg); color: var(--note-ok-fg); }
   .note-err { background: var(--note-err-bg); color: var(--note-err-fg); }
 

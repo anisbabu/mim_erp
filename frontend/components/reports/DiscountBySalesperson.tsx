@@ -6,6 +6,7 @@ import { endpoints, fmtDate, type DiscountBySalesperson } from "@/lib/api";
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import { ReportTitle, Toolbar, readSaved, useSaved } from "./ReportKit";
+import TopMessage from "@/components/TopMessage";
 
 /** Trade discount (Sales Discount 4010) given in a period, per salesperson, net of returns. */
 export function DiscountBySalespersonReport() {
@@ -36,7 +37,7 @@ export function DiscountBySalespersonReport() {
         <div className="field"><label>{t("To")}</label>
           <DateInput className="inp" value={to} onChange={(e) => setTo(e.target.value)} /></div>
       </Toolbar>
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
       <div className="report-sheet">
         <ReportTitle name={t("Discount by salesperson")} period={`${fmtDate(from)} – ${fmtDate(to)}`} sub={t("Amounts in BDT")} />
         {rep && (

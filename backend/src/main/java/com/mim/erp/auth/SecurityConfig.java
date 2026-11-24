@@ -32,6 +32,8 @@ public class SecurityConfig {
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
                 .requestMatchers("/api/auth/login").permitAll()
+                // fetched by Meta's WhatsApp servers (no login session); the signed token is the access control
+                .requestMatchers("/public/wa/**").permitAll()
                 // activity log — admin only, and read only (the controller has no write endpoint)
                 .requestMatchers("/api/audit-log/**").hasRole("ADMIN")
                 // user administration — reads open to any authenticated role (e.g. authoriser

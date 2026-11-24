@@ -44,18 +44,42 @@ public class WhatsAppClient {
 
     /** Sends an approved template with positional body parameters. Throws ApiException on failure. */
     public void sendTemplate(String to, String template, String langCode, List<String> params) {
-        if (!configured()) throw new ApiException("WhatsApp is not configured");
         if (template == null || template.isBlank()) throw new ApiException("WhatsApp template name is not set");
+        var parameters = params.stream().map(p -> Map.of("type", "text", "text", p)).toList();
+        postMessage(Map.of(
+            "messaging_product", "whatsapp",
+            "to", to,
+            "type", "template",
+            "template", Map.of(
+                "name", template,
+                "language", Map.of("code", langCode),
+                "components", List.of(Map.of("type", "body", "parameters", parameters)))));
+    }
+
+    /**
+     * Sends an approved template whose header is a dynamic Document, so one click delivers the PDF
+     * itself into the chat (not just a link). {@code documentUrl} must be a public URL WhatsApp's
+     * servers can fetch without a login session — see {@link DocLinkSigner}.
+     */
+    public void sendDocumentTemplate(String to, String template, String langCode, String documentUrl, String filename, List<String> bodyParams) {
+        if (template == null || template.isBlank()) throw new ApiException("WhatsApp template name is not set");
+        var bodyParameters = bodyParams.stream().map(p -> Map.of("type", "text", "text", p)).toList();
+        var headerParameter = Map.of("type", "document", "document", Map.of("link", documentUrl, "filename", filename));
+        postMessage(Map.of(
+            "messaging_product", "whatsapp",
+            "to", to,
+            "type", "template",
+            "template", Map.of(
+                "name", template,
+                "language", Map.of("code", langCode),
+                "components", List.of(
+                    Map.of("type", "header", "parameters", List.of(headerParameter)),
+                    Map.of("type", "body", "parameters", bodyParameters)))));
+    }
+
+    private void postMessage(Map<String, Object> body) {
+        if (!configured()) throw new ApiException("WhatsApp is not configured");
         try {
-            var parameters = params.stream().map(p -> Map.of("type", "text", "text", p)).toList();
-            var body = Map.of(
-                "messaging_product", "whatsapp",
-                "to", to,
-                "type", "template",
-                "template", Map.of(
-                    "name", template,
-                    "language", Map.of("code", langCode),
-                    "components", List.of(Map.of("type", "body", "parameters", parameters))));
             var req = HttpRequest.newBuilder(URI.create(
                     "https://graph.facebook.com/" + apiVersion + "/" + phoneId + "/messages"))
                 .timeout(Duration.ofSeconds(20))

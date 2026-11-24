@@ -60,6 +60,8 @@ public class UserService {
     public AppUser update(UUID id, String username, String password, String fullName, String fullNameBn, String mobile, String role, Set<UUID> shopIds, Boolean active) {
         AppUser u = users.findById(id)
             .orElseThrow(() -> new ApiException("User not found"));
+        if (u.isSuperAdmin() && !actingIsSuperAdmin())
+            throw new ApiException("Only the super admin can change this account");
 
         if (username != null && !username.isBlank() && !username.equals(u.getUsername())) {
             if (users.findByUsername(username).isPresent())
@@ -91,6 +93,13 @@ public class UserService {
         u.setShopIds(shops);
         if (active != null) u.setActive(active);
         return users.save(u);
+    }
+
+    /** True when the signed-in user is a super admin (checked in the DB, not the token). */
+    private boolean actingIsSuperAdmin() {
+        var a = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (a == null || !(a.getPrincipal() instanceof AuthPrincipal p)) return false;
+        return users.findById(p.userId()).map(AppUser::isSuperAdmin).orElse(false);
     }
 
     public List<AppUser> list() { return users.findAllByOrderByUsername(); }

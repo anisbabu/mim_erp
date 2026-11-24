@@ -66,7 +66,10 @@ public class PurchaseService {
             po.setPoNo(manual);
         }
         po.setSupplierId(req.supplierId());
-        po.setOrderDate(LocalDate.now());
+        LocalDate orderDate = req.orderDate() != null ? req.orderDate() : LocalDate.now();
+        if (orderDate.isAfter(LocalDate.now()))
+            throw new ApiException("The purchase date can't be in the future");
+        po.setOrderDate(orderDate);
         po.setNote(req.note());
 
         int n = 1;

@@ -7,6 +7,9 @@ import { useI18n } from "@/lib/i18n";
 import PageHeader from "@/components/PageHeader";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { endpoints, fmtDate, type Supplier, type Customer, type PaymentRow, type PartyOpenItems, type Account } from "@/lib/api";
+import TopMessage from "@/components/TopMessage";
+import { FilePlus2, ListChecks, History, Printer, ScrollText, Hand, ArrowDownNarrowWide, Eraser } from "lucide-react";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
 
 type Dir = "IN" | "OUT";
 const money = (n: number) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -45,10 +48,9 @@ export default function PaymentsPage() {
   const pending = useRef<{ party?: string } | null>(null);
   useEffect(() => {
     const qs = new URLSearchParams(window.location.search);
-    const party = qs.get("party");
-    if (!party) return;
-    pending.current = { party };
     if (qs.get("type") === "SUPPLIER") setTab("OUT"); else if (qs.get("type") === "CUSTOMER") setTab("IN");
+    const party = qs.get("party");
+    if (party) pending.current = { party };
   }, []);
 
   const isPay = tab === "OUT";
@@ -89,6 +91,7 @@ export default function PaymentsPage() {
     [isPay, suppliers, customers, dn]);
 
   // what the party ledger is cleared by: cash + discount + tax deducted at source
+  useEffect(() => { if (isPay) { setDiscount(""); setAit(""); setVds(""); } }, [isPay]);
   const settles = r2((Number(amount) || 0) + (Number(discount) || 0) + (Number(ait) || 0) + (Number(vds) || 0));
   const picked = handPick && Object.values(alloc).some((v) => v !== "" && Number(v) > 0);
   const allocated = picked ? r2(Object.values(alloc).reduce((s, v) => s + (Number(v) || 0), 0)) : 0;
@@ -144,11 +147,18 @@ export default function PaymentsPage() {
     catch (e: any) { setMsg({ kind: "err", text: e.message }); }
   }
 
+  // first thing missing, in form order: party, amount, bank account (bank), allocation
+  const problem: Problem =
+    !partyId ? { key: "party", text: isPay ? t("Select a supplier.") : t("Select a customer.") }
+    : !(Number(amount) > 0) ? { key: "amount", text: t("Enter the amount.") }
+    : method === "BANK" && !bankAcc.trim() ? { key: "bankAcc", text: t("Enter the bank account number.") }
+    : allocErr ? { key: "alloc", text: allocErr }
+    : null;
+  const check = useStepCheck(problem);
+
   async function submit() {
     setMsg(null);
-    if (!partyId || !(Number(amount) > 0)) { setMsg({ kind: "err", text: t("Select a party and enter an amount.") }); return; }
-    if (method === "BANK" && !bankAcc.trim()) { setMsg({ kind: "err", text: t("Enter the bank account number.") }); return; }
-    if (allocErr) { setMsg({ kind: "err", text: allocErr }); return; }
+    if (check.stop()) return;
     setBusy(true);
     try {
       const allocations = picked
@@ -181,17 +191,17 @@ export default function PaymentsPage() {
         actions={<Link className="btn-ghost" href="/accounting/party-statement">{t("Party statement")}</Link>} />
 
       <div className="flex flex-wrap gap-2 mb-4">
-        <button className={tab === "IN" ? "btn" : "btn-ghost"} onClick={() => setTab("IN")}>{t("Receive from customer")}</button>
-        <button className={tab === "OUT" ? "btn" : "btn-ghost"} onClick={() => setTab("OUT")}>{t("Pay supplier")}</button>
+        <button className={`filter-btn tone-ok${tab === "IN" ? " on" : ""}`} onClick={() => setTab("IN")}>{t("Receive from customer")}</button>
+        <button className={`filter-btn tone-warn${tab === "OUT" ? " on" : ""}`} onClick={() => setTab("OUT")}>{t("Pay supplier")}</button>
       </div>
 
       {/* entry */}
       <div className="card p-5 mb-6">
-        <div className="section-label mb-3">{isPay ? t("New payment voucher") : t("New receipt voucher")}</div>
+        <div className={`section-label mb-4 ${isPay ? "tone-warn" : "tone-ok"}`}><FilePlus2 size={16} />{isPay ? t("New payment voucher") : t("New receipt voucher")}</div>
         <div className="form-grid cols-4">
           <div className="field" style={{ gridColumn: "span 2" }}>
             <label>{isPay ? t("Supplier") : t("Customer")} <span className="req">*</span></label>
-            <SearchSelect options={partyOpts} value={partyId} onChange={setPartyId} placeholder={t("Select…")} />
+            <div className={check.bad("party")}><SearchSelect options={partyOpts} value={partyId} onChange={setPartyId} placeholder={t("Select…")} /></div>
             <div className="h-4 leading-4 text-[12px] muted">
               {items && <>{isPay ? t("Payable") : t("Receivable")}: <b>{money(items.balance)}</b>
                 {items.advanceTotal > 0 && <> · {t("Advance")}: {money(items.advanceTotal)}</>}</>}
@@ -205,15 +215,18 @@ export default function PaymentsPage() {
               <option value="CASH">{t("Cash")}</option><option value="BANK">{t("Bank")}</option>
             </select><div className="h-4 leading-4" /></div>
           <div className="field"><label>{t("Amount")} <span className="req">*</span></label>
-            <input className="inp num" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-          <div className="field"><label>{isPay ? t("Discount received") : t("Discount allowed")}</label>
+            <input className={`inp num ${check.bad("amount")}`} type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
+          {/* supplier payments: no discount received / AIT / VAT deducted at source (removed on request) */}
+          {!isPay && <>
+          <div className="field"><label>{t("Discount allowed")}</label>
             <input className="inp num" type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} /></div>
-          <div className="field"><label>{isPay ? t("AIT deducted at source") : t("AIT deducted by customer")}</label>
+          <div className="field"><label>{t("AIT deducted by customer")}</label>
             <input className="inp num" type="number" min={0} value={ait} onChange={(e) => setAit(e.target.value)} />
-            <div className="h-4 leading-4 text-[11px] muted">{isPay ? t("Owed to NBR (2120)") : t("Advance tax credit (1460)")}</div></div>
-          <div className="field"><label>{isPay ? t("VAT deducted at source") : t("VAT deducted by customer")}</label>
+            <div className="h-4 leading-4 text-[11px] muted">{t("Advance tax credit (1460)")}</div></div>
+          <div className="field"><label>{t("VAT deducted by customer")}</label>
             <input className="inp num" type="number" min={0} value={vds} onChange={(e) => setVds(e.target.value)} />
-            <div className="h-4 leading-4 text-[11px] muted">{isPay ? t("Owed to NBR (2110)") : t("Credit against our VAT (1470)")}</div></div>
+            <div className="h-4 leading-4 text-[11px] muted">{t("Credit against our VAT (1470)")}</div></div>
+          </>}
           <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Reference")}</label>
             <input className="inp" placeholder={isPay ? t("Supplier bill / money receipt no.") : t("Money receipt no.")}
               value={reference} onChange={(e) => setReference(e.target.value)} /></div>
@@ -223,7 +236,7 @@ export default function PaymentsPage() {
                 {banks.map((b) => <option key={b.id} value={b.code}>{dn(b as any)} ({b.code})</option>)}
               </select></div>
             <div className="field"><label>{t("Bank account number")} <span className="req">*</span></label>
-              <input className="inp" value={bankAcc} onChange={(e) => setBankAcc(e.target.value)} /></div>
+              <input className={`inp ${check.bad("bankAcc")}`} value={bankAcc} onChange={(e) => setBankAcc(e.target.value)} /></div>
             <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Bank branch")}</label>
               <input className="inp" value={bankBranch} onChange={(e) => setBankBranch(e.target.value)} /></div>
           </>)}
@@ -235,17 +248,22 @@ export default function PaymentsPage() {
         {items && (
           <div className="mt-5">
             <div className="flex flex-wrap items-center gap-2 mb-2">
-              <div className="section-label">{t("How it will settle")}</div>
-              <span className="chip bg-slate-100 text-slate-600">{picked ? t("Picked bills") : t("Oldest bill first")}</span>
+              <div className="section-label tone-info"><ListChecks size={16} />{t("How it will settle")}</div>
+              <span className={`filter-btn btn-sm ${picked ? "tone-warn" : "tone-ok"} on`} style={{ cursor: "default" }}>
+                {picked ? <Hand size={13} /> : <ArrowDownNarrowWide size={13} />}{picked ? t("Picked bills") : t("Oldest bill first")}
+              </span>
               {settles > 0 && items.bills.length > 0 && <span className="text-[12px] muted">{settleSummary()}</span>}
               <div className="flex-1" />
               {handPick && <>
-                <button className="btn-ghost" onClick={autoFill} disabled={!items.bills.length || settles <= 0}>{t("Fill oldest first")}</button>
-                <button className="btn-ghost" onClick={() => setAlloc({})} disabled={!picked}>{t("Clear")}</button>
+                <button className="btn-ghost btn-sm" onClick={autoFill} disabled={!items.bills.length || settles <= 0}>
+                  <ArrowDownNarrowWide size={14} className="mr-1" />{t("Fill oldest first")}</button>
+                <button className="btn-ghost btn-sm" onClick={() => setAlloc({})} disabled={!picked}>
+                  <Eraser size={14} className="mr-1" />{t("Clear")}</button>
               </>}
               {items.bills.length > 0 && (
-                <button className="text-brand text-[12px] underline" onClick={() => { setHandPick(!handPick); setAlloc({}); }}>
-                  {handPick ? t("Hide bill picking") : t("Pick bills by hand")}
+                <button className={`filter-btn btn-sm ${handPick ? "tone-warn on" : "tone-info"}`}
+                  onClick={() => { setHandPick(!handPick); setAlloc({}); }}>
+                  <Hand size={13} />{handPick ? t("Hide bill picking") : t("Pick bills by hand")}
                 </button>
               )}
             </div>
@@ -307,25 +325,24 @@ export default function PaymentsPage() {
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button className="btn" onClick={submit} disabled={busy || !!allocErr}>
+          <button className="btn" onClick={submit} disabled={busy}>
             {busy ? t("Recording…") : isPay ? t("Record payment") : t("Record receipt")}
           </button>
-          <span className="text-[12px] muted">
-            {isPay ? t("Dr Supplier ledger · Cr Cash / Bank (+ Cr Discount Received, AIT / VDS payable)") : t("Dr Cash / Bank (+ Dr Discount Allowed, AIT / VDS credit) · Cr Customer ledger")}
+          <span className="acct-trace">
+            <ScrollText size={13} />
+            {isPay ? t("Dr Supplier ledger · Cr Cash / Bank") : t("Dr Cash / Bank (+ Dr Discount Allowed, AIT / VDS credit) · Cr Customer ledger")}
           </span>
         </div>
-        {msg && (
-          <div className={`note mt-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>
-            {msg.text}
-            {msg.id && <> <button className="text-brand underline ml-2" onClick={() => printVoucher(msg.id!, "en")}>{t("Print voucher")}</button>
-              <button className="text-brand underline ml-2" onClick={() => printVoucher(msg.id!, "bn")}>বাংলা</button></>}
-          </div>
-        )}
+        <TopMessage msg={check.msg ?? msg}>
+          {msg?.id && <span className="flex gap-1.5 shrink-0">
+            <button className="btn btn-print btn-sm" onClick={() => printVoucher(msg.id!, "en")}>{t("Print voucher")}</button>
+            <button className="btn btn-print btn-sm" onClick={() => printVoucher(msg.id!, "bn")}>বাংলা</button></span>}
+        </TopMessage>
       </div>
 
       {/* history */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="section-label">{isPay ? t("Past payments") : t("Past receipts")}</div>
+        <div className="section-label tone-teal"><History size={16} />{isPay ? t("Past payments") : t("Past receipts")}</div>
         <div className="flex-1" />
         <input className="inp" style={{ maxWidth: 260 }} placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
@@ -356,8 +373,10 @@ export default function PaymentsPage() {
                       {t("Tax at source")} {money(Number(r.ait || 0) + Number(r.vds || 0))}</div>)}</td>
                 <td className="num font-medium">{money(r.amount)}</td>
                 <td style={{ whiteSpace: "nowrap" }}>
-                  <button className="text-brand text-[13px]" onClick={() => printVoucher(r.id, "en")}>{t("Print")}</button>
-                  <button className="text-brand text-[13px] ml-2" onClick={() => printVoucher(r.id, "bn")}>বাংলা</button>
+                  <span className="inline-flex gap-1">
+                    <button className="btn btn-print btn-sm" onClick={() => printVoucher(r.id, "en")}><Printer size={13} className="mr-1" />{t("Print")}</button>
+                    <button className="btn btn-print btn-sm" onClick={() => printVoucher(r.id, "bn")}>বাংলা</button>
+                  </span>
                 </td>
               </tr>
             ))}

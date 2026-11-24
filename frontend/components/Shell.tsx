@@ -9,12 +9,12 @@ import { useI18n } from "@/lib/i18n";
 import { endpoints, type Role, type Shop } from "@/lib/api";
 import {
   ArrowLeftRight, Banknote, BarChart3, BookOpen, Boxes, Building2, CalendarRange, ChevronDown, Contact,
-  ClipboardList, FileText, History, Landmark, LayoutDashboard, LayoutGrid, ListTree, LogOut, Menu, Moon, Package, PackageCheck,
+  ClipboardList, FileText, History, Home, Landmark, LayoutDashboard, LayoutGrid, ListTree, LogOut, Menu, Moon, Package, PackageCheck,
   ReceiptText, Scale, Settings, Sun,
   FilePen, ShoppingCart, Store, Truck, Undo2, UserCog, Users, Wallet, Warehouse, type LucideIcon,
 } from "lucide-react";
 
-type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[]; hidden?: boolean };   // hidden = left out of every menu; page and data stay
+type Item = { href: string; label: string; roles: Role[]; icon: LucideIcon; also?: string[]; hidden?: boolean; superOnly?: boolean };   // superOnly = super admin only   // hidden = left out of every menu; page and data stay
 type Heading = { heading: string; inline?: boolean };   // caption that splits a group into sub-sections; inline = links straight in the navbar, no dropdown
 type Entry = Item | Heading;
 const isHeading = (e: Entry): e is Heading => "heading" in e;
@@ -70,7 +70,7 @@ const groups: Group[] = [
   ]},
   { label: "Administration", icon: Settings, color: "#6b7280", items: [
     { href: "/admin/users", label: "Users", roles: ["ADMIN"], icon: UserCog },
-    { href: "/admin/activity-log", label: "Activity Log", roles: ["ADMIN"], icon: History },
+    { href: "/admin/activity-log", label: "Activity Log", roles: ["ADMIN"], icon: History, superOnly: true },
     { href: "/hr/employees", label: "Employees", roles: ["ADMIN", "ACCOUNTANT"], icon: Users },
     { href: "/master/products", label: "Products", roles: ["ADMIN"], icon: Package },
     { href: "/master/suppliers", label: "Suppliers", roles: ["ADMIN"], icon: Building2 },
@@ -81,10 +81,10 @@ const groups: Group[] = [
 ];
 
 /** Role filter; a sub-section caption stays only if at least one item under it is visible. */
-function visibleGroups(role: Role): Group[] {
+function visibleGroups(role: Role, superAdmin = false): Group[] {
   return groups
     .map((g) => {
-      const kept = g.items.filter((e) => isHeading(e) || (!e.hidden && e.roles.includes(role)));
+      const kept = g.items.filter((e) => isHeading(e) || (!e.hidden && e.roles.includes(role) && (!e.superOnly || superAdmin)));
       const items = kept.filter((e, i) => !isHeading(e) || (kept[i + 1] !== undefined && !isHeading(kept[i + 1])));
       return { ...g, items };
     })
@@ -93,8 +93,8 @@ function visibleGroups(role: Role): Group[] {
 
 export type AppTile = { label: string; href: string; icon: LucideIcon; color: string };
 /** Apps the role can open — used by the navbar switcher and the home screen. */
-export function appsFor(role: Role): AppTile[] {
-  return visibleGroups(role).map((g) => {
+export function appsFor(role: Role, superAdmin = false): AppTile[] {
+  return visibleGroups(role, superAdmin).map((g) => {
     const first = g.items.find((e): e is Item => !isHeading(e))!;
     return { label: g.label || "Dashboard", href: first.href, icon: g.icon, color: g.color };
   });
@@ -209,7 +209,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   if (!ready) return <div className="min-h-screen flex items-center justify-center muted">{t("Loading…")}</div>;
   if (!user) return <>{children}</>;
 
-  const visible = visibleGroups(user.role);
+  const visible = visibleGroups(user.role, !!user.superAdmin);
 
   const matches = (n: Item) =>
     pathname === n.href || (n.href !== "/" && pathname.startsWith(n.href + "/")) || !!n.also?.some((p) => pathname === p || pathname.startsWith(p + "/"));
@@ -236,7 +236,7 @@ export default function Shell({ children }: { children: ReactNode }) {
   });
   const flat = sections.length === 1 && sections[0].heading === null;
   const isHome = !app || app.label === "";
-  const apps = appsFor(user.role);
+  const apps = appsFor(user.role, !!user.superAdmin);
   const appHref = isHome ? "/" : apps.find((a) => a.label === app.label)?.href ?? "/";
   const initial = (user.fullName || user.username || "?").trim().charAt(0).toUpperCase();
   const toggleMenu = (id: string) => setMenu((m) => (m === id ? null : id));
@@ -246,6 +246,11 @@ export default function Shell({ children }: { children: ReactNode }) {
       <header className="o-nav flex items-center sticky top-0 z-40 pr-2">
         {/* mobile: full menu */}
         <button className="o-nav-btn md:hidden" onClick={() => setOpenNav(true)} aria-label={t("Menu")}><Menu size={18} /></button>
+
+        {/* home: one click back to the home screen from anywhere */}
+        <Link href="/" className={`o-nav-btn ${pathname === "/" ? "is-open" : ""}`} aria-label={t("Home")} title={t("Home")}>
+          <Home size={18} />
+        </Link>
 
         {/* app switcher */}
         <div className="relative hidden md:block" data-menu>

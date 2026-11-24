@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { endpoints } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
 
 /** VAT switch and default rate. Selling prices include VAT; each product may override the rate. */
 export default function TaxSettingsPage() {
@@ -53,7 +54,7 @@ export default function TaxSettingsPage() {
           <li>{t("AIT / VAT deducted at source are keyed on receipt and payment vouchers.")}</li>
           <li>{t("Switching on affects new sales only; nothing already posted changes.")}</li>
         </ul>
-        {msg && <div className={`note mt-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+        <TopMessage msg={msg} />
       </div>
     </div>
   );

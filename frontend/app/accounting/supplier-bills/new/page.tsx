@@ -8,6 +8,8 @@ import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { endpoints, fmtDate, type UnbilledGrn } from "@/lib/api";
 import { fmtMoney, today } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -72,11 +74,18 @@ export default function NewSupplierBillPage() {
   const billed = r2(lines.reduce((s, g) => s + (Number(picked[g.grn_id]) || 0), 0));
   const variance = r2(billed - received);
 
+  // first thing missing, in form order: supplier, a receipt, bill no., billed amounts
+  const badAmount = lines.find((g) => !(Number(picked[g.grn_id]) > 0));
+  const problem: Problem =
+    !supplierId ? { key: "supplier", text: t("Pick a supplier") }
+    : lines.length === 0 ? { key: "grn", text: t("Pick at least one goods receipt to bill") }
+    : !invoice.trim() ? { key: "invoice", text: t("Enter the supplier's bill number") }
+    : badAmount ? { key: `amt-${badAmount.grn_id}`, text: t("Every billed amount must be more than zero") }
+    : null;
+  const check = useStepCheck(problem);
+
   async function save() {
-    if (!supplierId) { setErr(t("Pick a supplier")); return; }
-    if (lines.length === 0) { setErr(t("Pick at least one goods receipt to bill")); return; }
-    if (!invoice.trim()) { setErr(t("Enter the supplier's bill number")); return; }
-    if (lines.some((g) => !(Number(picked[g.grn_id]) > 0))) { setErr(t("Every billed amount must be more than zero")); return; }
+    if (check.stop()) return;
     setBusy(true); setErr("");
     try {
       await endpoints.createSupplierBill({
@@ -98,12 +107,12 @@ export default function NewSupplierBillPage() {
 
       <form className="card p-5 mb-4" onSubmit={(e) => { e.preventDefault(); save(); }}>
         <div className="form-grid">
-          <div className="field" style={{ gridColumn: "span 2" }}><label>{t("Supplier")} <span className="req">*</span></label>
+          <div className={`field ${check.bad("supplier")}`} style={{ gridColumn: "span 2" }}><label>{t("Supplier")} <span className="req">*</span></label>
             <SearchSelect options={supplierOpts} value={supplierId} onChange={(v) => { setSupplierId(v); setPicked({}); setErr(""); }}
               placeholder={t("Suppliers with goods not billed…")} />
             <div className="h-4 leading-4 text-[11px] muted">{supplierId ? `${mine.length} ${t("receipts not billed")}` : ""}</div></div>
           <div className="field"><label>{t("Supplier bill no.")} <span className="req">*</span></label>
-            <input className="inp" value={invoice} onChange={(e) => setInvoice(e.target.value)} />
+            <input className={`inp ${check.bad("invoice")}`} value={invoice} onChange={(e) => setInvoice(e.target.value)} />
             <div className="h-4 leading-4" /></div>
           <div className="field"><label>{t("Bill date")}</label>
             <DateInput className="inp" max={today()} value={billDate} onChange={(e) => setBillDate(e.target.value)} />
@@ -118,7 +127,7 @@ export default function NewSupplierBillPage() {
         <button type="submit" hidden />
       </form>
 
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage msg={check.msg} err={check.msg ? null : err} />
 
       {supplierId && (
         <div className="card table-wrap mb-4">
@@ -145,7 +154,7 @@ export default function NewSupplierBillPage() {
                         <td className="font-mono text-[13px]">{g.bill_no ?? "—"}</td>
                         <td className="num">{fmtMoney(g.to_bill)}</td>
                         <td className="num">
-                          {on ? <input className="inp num" style={{ width: 120 }} type="number" step="0.01" min="0"
+                          {on ? <input className={`inp num ${check.bad(`amt-${g.grn_id}`)}`} style={{ width: 120 }} type="number" step="0.01" min="0"
                                        value={picked[g.grn_id]} onChange={(e) => setPicked({ ...picked, [g.grn_id]: e.target.value })} />
                               : "—"}
                         </td>

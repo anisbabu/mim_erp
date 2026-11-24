@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import { endpoints, fmtDate, type DeliveryChallan, type Customer } from "@/lib/api";
 import { beep } from "@/lib/beep";
 import { useI18n } from "@/lib/i18n";
+import TopMessage, { type Msg } from "@/components/TopMessage";
 
 const PAGE_SIZE = 20;
 
@@ -13,6 +14,7 @@ export default function ChallanListPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [busy, setBusy] = useState<string | null>(null);
+  const [topMsg, setTopMsg] = useState<Msg>(null);   // shown in the top message bar
 
   useEffect(() => {
     endpoints.allChallans().then(setChallans).catch(() => {});
@@ -42,13 +44,14 @@ export default function ChallanListPage() {
 
   async function fetchBlob(dcId: string): Promise<{ blob: Blob; url: string } | null> {
     setBusy(dcId);
+    setTopMsg(null);
     try {
       const blob = await endpoints.challanBlob(dcId, lang);
       const url = URL.createObjectURL(blob);
       beep();
       return { blob, url };
     } catch (e: any) {
-      alert(e.message);
+      setTopMsg({ kind: "err", text: e.message });
       return null;
     } finally {
       setBusy(null);
@@ -71,22 +74,24 @@ export default function ChallanListPage() {
     URL.revokeObjectURL(r.url);
   }
 
-  async function shareChallan(dcId: string, dcNo: string) {
-    const r = await fetchBlob(dcId);
-    if (!r) return;
-    const file = new File([r.blob], `${dcNo}.pdf`, { type: "application/pdf" });
-    if (navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file], title: `Challan ${dcNo}`, text: `Delivery Challan ${dcNo}` });
-      } catch { /* cancelled */ }
-      URL.revokeObjectURL(r.url);
-    } else {
-      window.open(r.url, "_blank");
+  /** One click: sends the challan PDF straight to the customer's WhatsApp (Meta Cloud API) — no OS share sheet. */
+  async function shareChallan(dcId: string) {
+    setBusy(dcId);
+    setTopMsg(null);
+    try {
+      const r = await endpoints.shareChallanWhatsApp(dcId, lang);
+      beep();
+      setTopMsg({ kind: "ok", text: `${t("Sent to WhatsApp")} ${r.sentTo}` });
+    } catch (e: any) {
+      setTopMsg({ kind: "err", text: e.message });
+    } finally {
+      setBusy(null);
     }
   }
 
   return (
     <div>
+      <TopMessage msg={topMsg} />
       <h1 className="page-title mb-4">{t("Challans")}</h1>
 
       <input
@@ -138,8 +143,8 @@ export default function ChallanListPage() {
                         onClick={() => downloadChallan(dc.id, dc.dcNo)}>
                         ↓ PDF
                       </button>
-                      <button className="btn btn-share btn-sm" disabled={loading} title={t("Share")}
-                        onClick={() => shareChallan(dc.id, dc.dcNo)}>
+                      <button className="btn btn-share btn-sm" disabled={loading} title={t("Send to customer's WhatsApp")}
+                        onClick={() => shareChallan(dc.id)}>
                         ↗ {t("Share")}
                       </button>
                     </div>

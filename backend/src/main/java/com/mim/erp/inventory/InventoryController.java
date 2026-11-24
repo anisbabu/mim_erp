@@ -117,6 +117,99 @@ public class InventoryController {
         return layers.stockBySupplier();
     }
 
+    /** Stock per supplier + product + warehouse: the stock page filters and groups it. */
+    @GetMapping("/overview/detail")
+    public List<StockLayerRepository.DetailStockRow> detail() {
+        return layers.stockDetail();
+    }
+
+    /** A table exactly as shown on the stock page (current tab + filters, every row), printed as PDF. */
+    public record PdfColumn(String label, String align, Float weight) {}
+    public record PdfTable(String title, String subtitle, List<PdfColumn> columns, List<List<String>> rows, List<String> total) {}
+
+    @PostMapping(value = "/stock-report/table", produces = "application/pdf")
+    public ResponseEntity<byte[]> stockTablePdf(@RequestParam(defaultValue = "en") String lang, @RequestBody PdfTable t) {
+        boolean bn = "bn".equalsIgnoreCase(lang);
+        if (t.columns() == null || t.columns().isEmpty()) throw new ApiException("Nothing to print");
+        if (t.rows() != null && t.rows().size() > 50000) throw new ApiException("Too many rows to print");
+        int n = t.columns().size();
+        boolean landscape = n > 6;
+        try {
+            Rectangle size = landscape ? new Rectangle(842f, 595f) : new Rectangle(595f, 842f);   // A4
+            Document doc = new Document(size, 28.35f, 28.35f, 28.35f, 36f);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            PdfWriter writer = PdfWriter.getInstance(doc, out);
+            doc.open();
+            PdfContentByte cb = writer.getDirectContent();
+            BanglaPdf.Cache cache = new BanglaPdf.Cache();
+            float pageW = doc.right() - doc.left();
+            Color grey = new Color(0x55, 0x55, 0x55);
+
+            Paragraph co = new Paragraph("MIM ENTERPRISE", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16));
+            co.setAlignment(Element.ALIGN_CENTER);
+            doc.add(co);
+            String title = t.title() == null || t.title().isBlank() ? (bn ? "মজুদ পণ্য" : "STOCK ON HAND") : t.title();
+            String sub = ((bn ? "তারিখ: " : "As of ") + LocalDate.now())
+                + (t.subtitle() == null || t.subtitle().isBlank() ? "" : "  ·  " + t.subtitle());
+            addLine(doc, cb, cache, title, true, 11, Color.BLACK, pageW, 0);
+            addLine(doc, cb, cache, sub, false, 9, grey, pageW, 6);
+
+            float sum = 0;
+            float[] colW = new float[n];
+            for (int i = 0; i < n; i++) {
+                Float w = t.columns().get(i).weight();
+                colW[i] = w == null || w <= 0 ? ("R".equalsIgnoreCase(t.columns().get(i).align()) ? 1.6f : 4f) : w;
+                sum += colW[i];
+            }
+            for (int i = 0; i < n; i++) colW[i] = colW[i] / sum * pageW;
+            int[] aligns = new int[n];
+            for (int i = 0; i < n; i++) aligns[i] = "R".equalsIgnoreCase(t.columns().get(i).align()) ? Element.ALIGN_RIGHT
+                : "C".equalsIgnoreCase(t.columns().get(i).align()) ? Element.ALIGN_CENTER : Element.ALIGN_LEFT;
+
+            PdfPTable tbl = new PdfPTable(n);
+            tbl.setTotalWidth(colW);
+            tbl.setLockedWidth(true);
+            tbl.setHeaderRows(1);
+            for (int i = 0; i < n; i++) {
+                PdfPCell h = pdfText(true, cb, cache, nz(t.columns().get(i).label()), true, PdfKit.INK, aligns[i], colW[i], 3);
+                h.setBackgroundColor(PdfKit.TINT);
+                tbl.addCell(h);
+            }
+            if (t.rows() != null) for (List<String> r : t.rows())
+                for (int i = 0; i < n; i++)
+                    tbl.addCell(pdfText(true, cb, cache, i < r.size() ? nz(r.get(i)) : "", false, Color.BLACK, aligns[i], colW[i], 2.5f));
+            if (t.total() != null && !t.total().isEmpty())
+                for (int i = 0; i < n; i++)
+                    tbl.addCell(pdfText(true, cb, cache, i < t.total().size() ? nz(t.total().get(i)) : "", true, Color.BLACK, aligns[i], colW[i], 4));
+            doc.add(tbl);
+            doc.close();
+            return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"stock-" + LocalDate.now() + (bn ? "-bn" : "") + ".pdf\"")
+                .body(out.toByteArray());
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ApiException("Failed to generate stock report: " + e.getMessage());
+        }
+    }
+
+    private static String nz(String s) { return s == null ? "" : s; }
+
+    /** A centred heading line: Bangla text is drawn as shaped outlines, anything else in Helvetica. */
+    private static void addLine(Document doc, PdfContentByte cb, BanglaPdf.Cache cache, String text, boolean bold, float size,
+                                Color color, float width, float after) throws Exception {
+        if (BanglaPdf.hasBengali(text)) {
+            Image im = BanglaPdf.text(cb, cache, text, bold, size, color, Element.ALIGN_CENTER, width);
+            im.setSpacingAfter(after);
+            doc.add(im);
+        } else {
+            Paragraph p = new Paragraph(text, FontFactory.getFont(bold ? FontFactory.HELVETICA_BOLD : FontFactory.HELVETICA, size, Font.NORMAL, color));
+            p.setAlignment(Element.ALIGN_CENTER);
+            p.setSpacingAfter(after);
+            doc.add(p);
+        }
+    }
+
     /** Stock-on-hand report as PDF (A4). lang=bn prints Bangla headings and names. */
     @GetMapping(value = "/stock-report", produces = "application/pdf")
     public ResponseEntity<byte[]> stockReport(@RequestParam(defaultValue = "en") String lang) {

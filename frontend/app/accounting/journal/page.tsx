@@ -8,6 +8,9 @@ import PageHeader from "@/components/PageHeader";
 import { TrashIcon } from "@/components/Icons";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { fmtMoney, today } from "@/lib/fmt";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
+import { BookOpen } from "lucide-react";
 
 type Line = { accountId: string; debit: string; credit: string };
 
@@ -54,16 +57,33 @@ export default function JournalPage() {
   const totalCr = lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
   const balanced = Math.abs(totalDr - totalCr) < 0.01 && totalDr > 0;
 
+  // first thing missing, line by line: ledger -> amount; then two lines; then balance
+  const problem: Problem = (() => {
+    for (let i = 0; i < lines.length; i++) {
+      const l = lines[i];
+      const amt = Number(l.debit) > 0 || Number(l.credit) > 0;
+      if (amt && !l.accountId) return { key: `acct-${i}`, text: `${t("Select a ledger.")} (${t("line")} ${i + 1})` };
+      if (l.accountId && !amt) return { key: `amt-${i}`, text: `${t("Enter a debit or credit amount.")} (${t("line")} ${i + 1})` };
+    }
+    const done = lines.filter((l) => l.accountId && (Number(l.debit) > 0 || Number(l.credit) > 0)).length;
+    if (done < 2) {
+      const i = Math.max(0, lines.findIndex((l) => !l.accountId));
+      return { key: `acct-${i}`, text: t("A journal needs at least two lines.") };
+    }
+    if (!balanced) return { key: "balance", text: t("Not balanced") };
+    return null;
+  })();
+  const check = useStepCheck(problem);
+
   async function post() {
     setMsg(null);
+    if (check.stop()) return;
     const payload = {
       entryDate, narration,
       lines: lines
         .filter((l) => l.accountId && (Number(l.debit) > 0 || Number(l.credit) > 0))
         .map((l) => ({ accountId: l.accountId, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0 })),
     };
-    if (payload.lines.length < 2) { setMsg({ kind: "err", text: "A journal needs at least two lines." }); return; }
-    if (!balanced) { setMsg({ kind: "err", text: t("Not balanced") }); return; }
     setBusy(true);
     try {
       const res = await endpoints.postJournal(payload);
@@ -96,13 +116,13 @@ export default function JournalPage() {
             <tbody>
               {lines.map((l, i) => (
                 <tr key={i}>
-                  <td><SearchSelect options={ledgerOpts} value={l.accountId}
-                    onChange={(v) => update(i, { accountId: v })} placeholder={t("Search…")} /></td>
+                  <td><div className={check.bad(`acct-${i}`)}><SearchSelect options={ledgerOpts} value={l.accountId}
+                    onChange={(v) => update(i, { accountId: v })} placeholder={t("Search…")} /></div></td>
                   <td className="text-right">
-                    <input className="inp num" style={{ width: 130, marginLeft: "auto" }} type="number" min={0}
+                    <input className={`inp num ${check.bad(`amt-${i}`)}`} style={{ width: 130, marginLeft: "auto" }} type="number" min={0}
                       value={l.debit} onChange={(e) => update(i, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} /></td>
                   <td className="text-right">
-                    <input className="inp num" style={{ width: 130, marginLeft: "auto" }} type="number" min={0}
+                    <input className={`inp num ${check.bad(`amt-${i}`)}`} style={{ width: 130, marginLeft: "auto" }} type="number" min={0}
                       value={l.credit} onChange={(e) => update(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} /></td>
                   <td className="text-right">
                     {lines.length > 2 && <button className="btn-icon btn-icon-del" title="Remove" onClick={() => removeLine(i)}><TrashIcon /></button>}</td>
@@ -124,13 +144,13 @@ export default function JournalPage() {
         <div className="mt-4 flex items-center gap-2">
           <button className="btn-ghost btn-sm" onClick={addLine}>+ {t("Add line")}</button>
           <div className="flex-1" />
-          <button className="btn" onClick={post} disabled={busy || !balanced}>{busy ? "…" : t("Post")}</button>
+          <button className="btn" onClick={post} disabled={busy}>{busy ? "…" : t("Post")}</button>
         </div>
-        {msg && <div className={`note mt-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>{msg.text}</div>}
+        <TopMessage msg={check.msg ?? msg} />
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
-        <div className="section-label">{t("Journal register")}</div>
+        <div className="section-label tone-teal"><BookOpen size={16} />{t("Journal register")}</div>
         <div className="flex items-end gap-2">
           <div className="field"><label>{t("From")}</label><DateInput className="inp" value={rf} onChange={(e) => setRf(e.target.value)} /></div>
           <div className="field"><label>{t("To")}</label><DateInput className="inp" value={rt} onChange={(e) => setRt(e.target.value)} /></div>

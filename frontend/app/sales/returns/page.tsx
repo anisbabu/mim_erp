@@ -9,6 +9,9 @@ import { today } from "@/lib/fmt";
 import {
   endpoints, fmtDate, type Account, type Customer, type Returnable, type SalesOrder, type SalesReturnRow,
 } from "@/lib/api";
+import TopMessage from "@/components/TopMessage";
+import { useStepCheck, type Problem } from "@/lib/useStepCheck";
+import { History, Printer, ScrollText, Undo2 } from "lucide-react";
 
 const money = (n: number) => Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const DELIVERED = ["DELIVERED", "PARTIALLY_DELIVERED", "INVOICED", "CLOSED"];
@@ -58,13 +61,20 @@ export default function SalesReturnsPage() {
   const total = (data?.lines ?? []).reduce((s, l) => s + (Number(qty[l.dc_line_id]) || 0) * l.net_unit_price, 0);
   const cash = data?.order.payment_mode === "CASH";
 
+  // first thing missing: a return qty, then the reason
+  const firstQtyLine = (data?.lines.find((l) => l.qty_available > 0) ?? data?.lines[0])?.dc_line_id;
+  const problem: Problem = !data ? null
+    : !data.lines.some((l) => Number(qty[l.dc_line_id]) > 0) ? { key: `qty-${firstQtyLine}`, text: t("Enter a return quantity for at least one line.") }
+    : !reason.trim() ? { key: "reason", text: t("Give the reason for the return.") }
+    : null;
+  const check = useStepCheck(problem);
+
   async function submit() {
     if (!data) return;
     setMsg(null);
+    if (check.stop()) return;
     const lines = data.lines.filter((l) => Number(qty[l.dc_line_id]) > 0)
       .map((l) => ({ dcLineId: l.dc_line_id, qty: Number(qty[l.dc_line_id]) }));
-    if (lines.length === 0) { setMsg({ kind: "err", text: t("Enter a return quantity for at least one line.") }); return; }
-    if (!reason.trim()) { setMsg({ kind: "err", text: t("Give the reason for the return.") }); return; }
     setBusy(true);
     try {
       const r = await endpoints.createSalesReturn({
@@ -97,7 +107,7 @@ export default function SalesReturnsPage() {
 
       {open && (
         <div className="card p-5 mb-6">
-          <div className="section-label mb-3">{t("New return")}</div>
+          <div className="section-label tone-warn mb-3"><Undo2 size={16} />{t("New return")}</div>
           <div className="form-grid cols-4">
             <div className="field" style={{ gridColumn: "span 2" }}>
               <label>{t("Sales order")} <span className="req">*</span></label>
@@ -141,7 +151,7 @@ export default function SalesReturnsPage() {
                           <td className="num">{l.qty_returned}</td>
                           <td className="num">{l.qty_available}</td>
                           <td className="num">{money(l.net_unit_price)}</td>
-                          <td><input className="inp num" type="number" min={0} max={l.qty_available}
+                          <td><input className={`inp num ${check.bad(`qty-${l.dc_line_id}`)}`} type="number" min={0} max={l.qty_available}
                             disabled={l.qty_available <= 0} value={qty[l.dc_line_id] ?? ""}
                             style={bad ? { borderColor: "#b91c1c" } : undefined}
                             onChange={(e) => setQty({ ...qty, [l.dc_line_id]: e.target.value })} /></td>
@@ -163,7 +173,7 @@ export default function SalesReturnsPage() {
               <div className="form-grid cols-4 mt-4">
                 <div className="field" style={{ gridColumn: "span 2" }}>
                   <label>{t("Reason for return")} <span className="req">*</span></label>
-                  <input className="inp" value={reason} onChange={(e) => setReason(e.target.value)} />
+                  <input className={`inp ${check.bad("reason")}`} value={reason} onChange={(e) => setReason(e.target.value)} />
                 </div>
                 <div className="field">
                   <label>{t("Return date")} <span className="req">*</span></label>
@@ -191,7 +201,7 @@ export default function SalesReturnsPage() {
               </div>
               <div className="mt-4 flex items-center gap-3">
                 <button className="btn" onClick={submit} disabled={busy}>{busy ? t("Recording…") : t("Record return")}</button>
-                <span className="text-[12px] muted">
+                <span className="acct-trace"><ScrollText size={13} className="inline -mt-0.5 mr-1" />
                   {settlement === "CREDIT_NOTE"
                     ? t("Dr Sales · Cr Customer ledger; Dr Inventory · Cr Cost of sales")
                     : t("Dr Sales · Cr Cash/Bank; Dr Inventory · Cr Cost of sales")}
@@ -199,17 +209,14 @@ export default function SalesReturnsPage() {
               </div>
             </>
           )}
-          {msg && (
-            <div className={`note mt-4 ${msg.kind === "ok" ? "note-ok" : "note-err"}`}>
-              {msg.text}
-              {msg.id && <button className="btn btn-print btn-sm ml-3" onClick={() => pdf(msg.id!, "credit-note")}>{t("Download PDF")}</button>}
-            </div>
-          )}
+          <TopMessage msg={check.msg ?? msg}>
+            {msg?.id && <button className="btn btn-print btn-sm shrink-0" onClick={() => pdf(msg.id!, "credit-note")}>{t("Download PDF")}</button>}
+          </TopMessage>
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
-        <div className="section-label">{t("Past returns")}</div>
+        <div className="section-label tone-teal"><History size={16} />{t("Past returns")}</div>
         <div className="flex-1" />
         <input className="inp" style={{ maxWidth: 260 }} placeholder={t("Search…")} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
@@ -238,7 +245,7 @@ export default function SalesReturnsPage() {
                 <td className="font-mono text-[13px]">{r.so_no}</td>
                 <td className="muted">{r.reason}</td>
                 <td className="num font-medium">{money(r.goods_value)}</td>
-                <td><button className="btn-ghost btn-sm" onClick={() => pdf(r.id, r.credit_note_no ?? r.return_no)}>{t("PDF")}</button></td>
+                <td><button className="btn btn-print btn-sm" onClick={() => pdf(r.id, r.credit_note_no ?? r.return_no)}><Printer size={13} className="mr-1" />{t("PDF")}</button></td>
               </tr>
             ))}
             {shown.length === 0 && (

@@ -22,9 +22,7 @@ export default function VariancePage() {
         <div className="flex gap-1 text-sm">
           {(["warehouse", "company"] as const).map((s) => (
             <button key={s} onClick={() => setScope(s)}
-              className="px-3 py-1.5 rounded-lg"
-              style={{ background: scope === s ? "#1d5e4f" : "#fff", color: scope === s ? "#fff" : "#1c1b19",
-                       border: "1px solid #d8d4ca" }}>
+              className={`filter-btn ${s === "warehouse" ? "tone-teal" : "tone-all"}${scope === s ? " on" : ""}`}>
               {s === "warehouse" ? t("Per warehouse") : t("Company-wide")}
             </button>
           ))}

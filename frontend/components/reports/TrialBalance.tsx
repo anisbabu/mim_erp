@@ -5,6 +5,7 @@ import { endpoints, fmtDate, type TrialBalanceReport } from "@/lib/api";
 import { fmtMoney } from "@/lib/fmt";
 import { useI18n } from "@/lib/i18n";
 import { ClosedBanner, ReportTitle, Toolbar, YearSelect, savePdf, useSaved, useYears } from "./ReportKit";
+import TopMessage from "@/components/TopMessage";
 
 export default function TrialBalance() {
   const { t, lang } = useI18n();
@@ -36,7 +37,7 @@ export default function TrialBalance() {
         </label>
       </Toolbar>
       <ClosedBanner status={tb?.yearStatus} />
-      {err && <div className="note note-err mb-3">{err}</div>}
+      <TopMessage err={err} />
       <div className="report-sheet">
         {tb && (
           <>

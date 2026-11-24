@@ -133,7 +133,8 @@ export default function SearchSelect({
 
   // closing hands focus back to the field, so Tab carries on to the next field of the form
   function close() { setOpen(false); setQ(""); btnRef.current?.focus(); }
-  function pick(v: string) { onChange(v); close(); }
+  // "mim:edit" tells the top message bar the user changed a field (a pick fires no input event)
+  function pick(v: string) { onChange(v); close(); window.dispatchEvent(new Event("mim:edit")); }
 
   const row = (o: Option, i: number) => (
     <button type="button" onMouseEnter={() => setHi(i)} onClick={() => pick(o.value)}
@@ -158,7 +159,7 @@ export default function SearchSelect({
           toggle();
         }}
         className="inp text-left flex items-center justify-between" style={{ width: "100%" }}>
-        <span className={selected ? "" : "text-[#8b929b]"}
+        <span className={selected ? "" : "text-[#8b929b] font-normal"}
               style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {selected ? selected.label : placeholder}
         </span>
