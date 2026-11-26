@@ -21,7 +21,7 @@ export default function Dashboard() {
         {apps.map((a) => (
           <Link key={a.label} href={a.href} className="o-app">
             <span className="o-app-icon" style={{ background: a.color }}><a.icon size={30} strokeWidth={1.7} /></span>
-            <span>{t(a.label)}</span>
+            <span className="o-app-label">{t(a.label)}</span>
           </Link>
         ))}
       </div>

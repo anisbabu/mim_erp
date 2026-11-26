@@ -12,11 +12,17 @@ import { PackageMinus, PackagePlus } from "lucide-react";
 
 const blank = { name: "", category: "", purchaseDate: today(), cost: "", residualValue: "0", usefulLifeMonths: "60", paidFromAccountId: "" };
 
+const ASSET_CATEGORIES = [
+  "Land", "Building", "Leasehold Improvements", "Furniture & Fixtures", "Office Equipment",
+  "Computer & IT Equipment", "Vehicles", "Machinery & Equipment", "Tools", "Software", "Others",
+];
+
 export default function FixedAssetsPage() {
   const { t, lang } = useI18n();
   const [assets, setAssets] = useState<FixedAsset[]>([]);
   const [ledgers, setLedgers] = useState<LedgerRow[]>([]);
   const [f, setF] = useState(blank);
+  const [categoryOther, setCategoryOther] = useState(false);
   const [period, setPeriod] = useState(today().slice(0, 7));
   const [disp, setDisp] = useState<{ id: string; date: string; proceeds: string; depositAccountId: string } | null>(null);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
@@ -42,7 +48,7 @@ export default function FixedAssetsPage() {
       ...f, cost: Number(f.cost), residualValue: Number(f.residualValue) || 0, usefulLifeMonths: Number(f.usefulLifeMonths),
       paidFromAccountId: f.paidFromAccountId || null,
     }), (r) => `${t("Asset registered")}: ${r.code}`);
-    if (ok) setF(blank);
+    if (ok) { setF(blank); setCategoryOther(false); }
   }
 
   const tot = assets.filter((a) => a.status === "ACTIVE").reduce(
@@ -67,34 +73,34 @@ export default function FixedAssetsPage() {
       <TopMessage msg={msg} />
 
       <div className="card table-wrap mb-6">
-        <table className="rpt" style={{ minWidth: 900 }}>
-          <colgroup><col style={{ width: 80 }} /><col /><col style={{ width: 110 }} /><col style={{ width: 100 }} />
-            <col style={{ width: 120 }} /><col style={{ width: 120 }} /><col style={{ width: 120 }} /><col style={{ width: 100 }} /><col style={{ width: 90 }} /></colgroup>
+        <table className="tbl tbl-gridded" style={{ tableLayout: "fixed", minWidth: 1080 }}>
+          <colgroup><col style={{ width: 90 }} /><col /><col style={{ width: 150 }} /><col style={{ width: 110 }} />
+            <col style={{ width: 140 }} /><col style={{ width: 170 }} /><col style={{ width: 150 }} /><col style={{ width: 110 }} /><col style={{ width: 90 }} /></colgroup>
           <thead><tr>
-            <th className="l">{t("Code")}</th><th className="l">{t("Asset")}</th><th className="l">{t("Category")}</th>
-            <th className="l">{t("Purchased")}</th><th className="n">{t("Cost")}</th><th className="n">{t("Accumulated depreciation")}</th>
-            <th className="n">{t("Net book value")}</th><th className="l">{t("Status")}</th><th></th>
+            <th style={{ textAlign: "center" }}>{t("Code")}</th><th style={{ textAlign: "center" }}>{t("Asset")}</th><th style={{ textAlign: "center" }}>{t("Category")}</th>
+            <th style={{ textAlign: "center" }}>{t("Purchased")}</th><th style={{ textAlign: "center" }}>{t("Cost")}</th><th style={{ textAlign: "center" }}>{t("Accumulated depreciation")}</th>
+            <th style={{ textAlign: "center" }}>{t("Net book value")}</th><th style={{ textAlign: "center" }}>{t("Status")}</th><th></th>
           </tr></thead>
           <tbody>
             {assets.map((a) => (
               <tr key={a.id}>
-                <td className="l font-mono text-[12px]">{a.code}</td>
-                <td className="l" title={a.name}>{a.name}</td>
-                <td className="l">{a.category}</td>
-                <td className="l">{fmtDate(a.purchase_date)}</td>
-                <td className="n">{fmtMoney(a.cost)}</td><td className="n">{fmtMoney(a.accumulated)}</td>
-                <td className="n">{fmtMoney(a.net_book_value)}</td>
-                <td className="l"><span className={`status-chip ${a.status === "ACTIVE" ? "status-ok" : "status-info"}`}>{a.status}</span></td>
-                <td className="n">{a.status === "ACTIVE" &&
+                <td className="font-mono text-[12px]">{a.code}</td>
+                <td title={a.name}>{a.name}</td>
+                <td>{a.category}</td>
+                <td>{fmtDate(a.purchase_date)}</td>
+                <td className="num">{fmtMoney(a.cost)}</td><td className="num">{fmtMoney(a.accumulated)}</td>
+                <td className="num">{fmtMoney(a.net_book_value)}</td>
+                <td><span className={`status-chip ${a.status === "ACTIVE" ? "status-ok" : "status-info"}`}>{a.status}</span></td>
+                <td className="text-right">{a.status === "ACTIVE" &&
                   <button className="btn-ghost btn-sm" onClick={() => setDisp({ id: a.id, date: today(), proceeds: "", depositAccountId: "" })}>{t("Dispose")}</button>}</td>
               </tr>
             ))}
-            {assets.length === 0 && <tr><td colSpan={9} className="l muted">{t("No fixed assets registered yet.")}</td></tr>}
+            {assets.length === 0 && <tr><td colSpan={9} className="muted">{t("No fixed assets registered yet.")}</td></tr>}
           </tbody>
           {assets.length > 0 && (
             <tfoot><tr>
-              <td colSpan={4} className="l">{t("Total (active assets)")}</td>
-              <td className="n">{fmtMoney(tot.cost)}</td><td className="n">{fmtMoney(tot.acc)}</td><td className="n">{fmtMoney(tot.nbv)}</td><td colSpan={2} />
+              <td colSpan={4} className="font-semibold">{t("Total (active assets)")}</td>
+              <td className="num font-semibold">{fmtMoney(tot.cost)}</td><td className="num font-semibold">{fmtMoney(tot.acc)}</td><td className="num font-semibold">{fmtMoney(tot.nbv)}</td><td colSpan={2} />
             </tr></tfoot>
           )}
         </table>
@@ -128,7 +134,17 @@ export default function FixedAssetsPage() {
           <div className="field"><label>{t("Asset name")}</label>
             <input className="inp" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} /></div>
           <div className="field"><label>{t("Category")}</label>
-            <input className="inp" value={f.category} placeholder="Vehicles, Furniture, Equipment…" onChange={(e) => setF({ ...f, category: e.target.value })} /></div>
+            <select className="inp" value={categoryOther ? "Others" : f.category}
+              onChange={(e) => {
+                if (e.target.value === "Others") { setCategoryOther(true); setF({ ...f, category: "" }); }
+                else { setCategoryOther(false); setF({ ...f, category: e.target.value }); }
+              }}>
+              <option value="">{t("Select category")}</option>
+              {ASSET_CATEGORIES.map((c) => <option key={c} value={c}>{t(c)}</option>)}
+            </select>
+            {categoryOther && (
+              <input className="inp mt-1" placeholder={t("Specify category")} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} />
+            )}</div>
           <div className="field"><label>{t("Purchase date")}</label>
             <DateInput className="inp" value={f.purchaseDate} onChange={(e) => setF({ ...f, purchaseDate: e.target.value })} /></div>
           <div className="field"><label>{t("Cost")}</label>

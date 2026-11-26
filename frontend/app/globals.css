@@ -325,6 +325,12 @@ html.dark {
     color: var(--text);
   }
   .table-wrap { @apply overflow-x-auto; }
+  /* ── Gridded table variant (white gap between every row and column) ────── */
+  .tbl-gridded { border-collapse: separate; border-spacing: 3px 2px; background: var(--border-soft); }
+  .tbl-gridded th, .tbl-gridded td { border: none !important; }
+  .tbl-gridded th { background: var(--tbl-tfoot-bg); }
+  .tbl-gridded td { background: var(--surface); padding: 8px 14px; }
+  .tbl-gridded tbody tr:hover td { background: var(--tbl-tr-hover); }
 
   /* ── Feedback ───────────────────────────────────────────────────────────── */
   .note { @apply text-[13px] rounded px-3 py-2; }
@@ -498,8 +504,10 @@ html.dark .o-menu-item.is-active { color: #fff; }
   display: flex; align-items: center; justify-content: center; width: 48px; height: 48px;
   border-radius: 10px; color: #fff; box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
 }
+.o-app-label { font-weight: 600; letter-spacing: 0.01em; color: var(--role-title); }
 .o-home { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 12px; max-width: 760px; margin: 0 auto; }
 .o-home .o-app { font-size: 13px; padding: 14px 6px; }
+.o-home .o-app-label { font-size: 13.5px; }
 .o-home .o-app-icon { width: 64px; height: 64px; border-radius: 14px; }
 .o-avatar {
   display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;

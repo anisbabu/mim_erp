@@ -25,8 +25,25 @@ const ledgerTotals = (l: LedgerRow): Totals => ({
   closing: Number(l.closing),
 });
 const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-/** Signed (Dr positive) amount shown as "1,200.00 Dr" / "300.00 Cr". */
-const drcr = (n: number) => (Math.abs(n) < 0.005 ? "0.00" : `${money(Math.abs(n))} ${n > 0 ? "Dr" : "Cr"}`);
+/** Signed (Dr positive) amount as "1,200.00 Dr" / "300.00 Cr", suffix in its own fixed-width slot so digits stay aligned across rows. */
+function Drcr({ n }: { n: number }) {
+  const zero = Math.abs(n) < 0.005;
+  return (
+    <span className="inline-flex justify-end w-full">
+      <span>{zero ? "0.00" : money(Math.abs(n))}</span>
+      <span className="inline-block text-left" style={{ width: 22 }}>{zero ? "" : ` ${n > 0 ? "Dr" : "Cr"}`}</span>
+    </span>
+  );
+}
+/** Plain amount with the same reserved suffix-width slot as Drcr, so Debit/Credit line up with Opening/Closing's decimals. */
+function Plain({ n }: { n: number }) {
+  return (
+    <span className="inline-flex justify-end w-full">
+      <span>{money(n)}</span>
+      <span className="inline-block" style={{ width: 22 }} />
+    </span>
+  );
+}
 
 type GroupForm = { code: string; name: string; nameBn: string; description: string; parentId: string; nature: Nature; active: boolean };
 type LedgerForm = { code: string; name: string; nameBn: string; description: string; groupId: string; active: boolean; defaultDeposit: boolean };
@@ -245,20 +262,21 @@ export default function ChartOfAccountsPage() {
     return (
       <Fragment key={g.id}>
         <tr style={{ background: "var(--bg)", opacity: inactive ? 0.6 : 1 }}>
-          <td className="font-mono text-[13px]" style={{ paddingLeft: 12 + depth * 20 }}>
+          <td className="font-mono text-[13px]" style={{ paddingLeft: 12 + depth * 20, paddingRight: 4, whiteSpace: "nowrap", overflow: "hidden" }}>
             <button className="mr-1.5 w-4 text-center muted" onClick={() => setCollapsed(toggle(collapsed, g.id))}
-              aria-label={isOpen ? "Collapse" : "Expand"}>{isOpen ? "▾" : "▸"}</button>{g.code}
+              aria-label={isOpen ? "Collapse" : "Expand"}>{isOpen ? "▾" : "▸"}</button>
+            <span style={{ display: "inline-block", maxWidth: "calc(100% - 20px)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "middle" }} title={g.code}>{g.code}</span>
           </td>
-          <td className="font-semibold">
+          <td className="font-semibold" style={{ paddingLeft: 6 }}>
             {gname(g)}
             {depth === 0 && <span className="chip ml-2 bg-slate-100 text-slate-600">{t(g.nature)}</span>}
             {inactive && <span className="chip ml-2 bg-slate-100 text-slate-500">{t("Inactive")}</span>}
             {g.system && <span className="chip ml-2 bg-slate-100 text-slate-500">{t("System")}</span>}
           </td>
-          <td className="num">{drcr(tot.opening)}</td>
-          <td className="num">{money(tot.debit)}</td>
-          <td className="num">{money(tot.credit)}</td>
-          <td className="num font-semibold">{drcr(tot.closing)}</td>
+          <td className="num"><Drcr n={tot.opening} /></td>
+          <td className="num"><Plain n={tot.debit} /></td>
+          <td className="num"><Plain n={tot.credit} /></td>
+          <td className="num font-semibold"><Drcr n={tot.closing} /></td>
           <td className="text-right whitespace-nowrap">
             <button className="btn-ghost btn-sm mr-1" title={t("New ledger")} onClick={() => openNewLedger(g.id)}>+ {t("Ledger")}</button>
             <button className="btn-ghost btn-sm mr-1" title={t("New group")} onClick={() => openNewGroup(g.id)}>+ {t("Group")}</button>
@@ -291,17 +309,19 @@ export default function ChartOfAccountsPage() {
     const inactive = l.active === false;
     return (
       <tr key={l.id} style={{ opacity: inactive ? 0.55 : 1 }}>
-        <td className="font-mono text-[13px]" style={{ paddingLeft: 12 + depth * 20 + 20 }}>{l.code}</td>
-        <td>
+        <td className="font-mono text-[13px]" style={{ paddingLeft: 12 + depth * 20 + 20, paddingRight: 4, whiteSpace: "nowrap", overflow: "hidden" }}>
+          <span style={{ display: "inline-block", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", verticalAlign: "middle" }} title={l.code}>{l.code}</span>
+        </td>
+        <td style={{ paddingLeft: 6 }}>
           {lname(l)}
           {l.party_type && <span className="chip ml-2 bg-brand-soft text-brand">{t(l.party_type === "CUSTOMER" ? "Customer ledger" : "Supplier ledger")}</span>}
           {l.default_deposit && <span className="chip ml-2 chip-posted">{t("Default for cheques")}</span>}
           {inactive && <span className="chip ml-2 bg-slate-100 text-slate-500">{t("Inactive")}</span>}
         </td>
-        <td className="num">{drcr(tot.opening)}</td>
-        <td className="num">{money(tot.debit)}</td>
-        <td className="num">{money(tot.credit)}</td>
-        <td className="num font-medium">{drcr(tot.closing)}</td>
+        <td className="num"><Drcr n={tot.opening} /></td>
+        <td className="num"><Plain n={tot.debit} /></td>
+        <td className="num"><Plain n={tot.credit} /></td>
+        <td className="num font-medium"><Drcr n={tot.closing} /></td>
         <td className="text-right whitespace-nowrap">
           <button className="btn-icon btn-icon-edit mr-1" title="Edit" onClick={() => openEditLedger(l)}><EditIcon /></button>
           {!l.is_system && !l.party_type &&
@@ -388,8 +408,8 @@ export default function ChartOfAccountsPage() {
       <PageHeader crumbs={["Accounting", "Setup"]} title={t("Chart of accounts")}
         subtitle={t("Groups add up their ledgers; entries are posted to ledgers only. Balances are for the current financial year.")}
         actions={<>
-          <button className="btn-ghost" onClick={() => openNewGroup()}>+ {t("New group")}</button>
-          <button className="btn" onClick={() => openNewLedger()}>+ {t("New ledger")}</button>
+          <button className="btn-ghost" style={{ borderRadius: 9999 }} onClick={() => openNewGroup()}>+ {t("New group")}</button>
+          <button className="btn" style={{ borderRadius: 9999 }} onClick={() => openNewLedger()}>+ {t("New ledger")}</button>
         </>} />
 
       <TopMessage msg={msg} />
@@ -407,23 +427,23 @@ export default function ChartOfAccountsPage() {
         <div className="flex-1" />
         <label className="flex items-center gap-1.5 text-[13px] muted">
           <input type="checkbox" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />{t("Show inactive")}</label>
-        <button className="btn-ghost btn-sm" onClick={expandAll}>{t("Expand all")}</button>
-        <button className="btn-ghost btn-sm" onClick={collapseAll}>{t("Collapse all")}</button>
+        <button className="btn-ghost btn-sm" style={{ color: "var(--muted)" }} onClick={expandAll}>{t("Expand all")}</button>
+        <button className="btn-ghost btn-sm" style={{ color: "var(--muted)" }} onClick={collapseAll}>{t("Collapse all")}</button>
       </div>
 
       <div className="card table-wrap">
-        <table className="tbl" style={{ tableLayout: "fixed", minWidth: 1120 }}>
+        <table className="tbl tbl-gridded" style={{ tableLayout: "fixed", minWidth: 1360 }}>
           <colgroup>
-            <col style={{ width: 150 }} /><col /><col style={{ width: 130 }} />
-            <col style={{ width: 120 }} /><col style={{ width: 120 }} /><col style={{ width: 150 }} /><col style={{ width: 200 }} />
+            <col style={{ width: 150 }} /><col /><col style={{ width: 170 }} />
+            <col style={{ width: 150 }} /><col style={{ width: 150 }} /><col style={{ width: 190 }} /><col style={{ width: 200 }} />
           </colgroup>
           <thead><tr>
-            <th style={{ textAlign: "left" }}>{t("Code")}</th>
-            <th style={{ textAlign: "left" }}>{t("Group / Ledger")}</th>
-            <th style={{ textAlign: "right" }}>{t("Opening")}</th>
-            <th style={{ textAlign: "right" }}>{t("Debit")}</th>
-            <th style={{ textAlign: "right" }}>{t("Credit")}</th>
-            <th style={{ textAlign: "right" }}>{t("Closing balance")}</th>
+            <th style={{ textAlign: "center" }}>{t("Code")}</th>
+            <th style={{ textAlign: "center" }}>{t("Group / Ledger")}</th>
+            <th style={{ textAlign: "center" }}>{t("Opening")}</th>
+            <th style={{ textAlign: "center" }}>{t("Debit")}</th>
+            <th style={{ textAlign: "center" }}>{t("Credit")}</th>
+            <th style={{ textAlign: "center" }}>{t("Closing balance")}</th>
             <th></th>
           </tr></thead>
           <tbody>

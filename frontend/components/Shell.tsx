@@ -59,7 +59,7 @@ const groups: Group[] = [
     { href: "/accounting/customer-invoices", label: "Customer invoices", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: ReceiptText },
     { href: "/accounting/payments", label: "Receipts & payments", roles: BOOKS, icon: Banknote },
     { href: "/accounting/contra", label: "Contra voucher", roles: ["ACCOUNTANT", "ADMIN"], icon: ArrowLeftRight },
-    { href: "/accounting/approvals", label: "Voucher approvals", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: ClipboardList },
+    { href: "/accounting/approvals", label: "Voucher approvals", roles: ["ACCOUNTANT", "MANAGER", "ADMIN"], icon: ClipboardList, hidden: true },
     { href: "/accounting/cheques", label: "Cheques received", roles: BOOKS, icon: Landmark },
     { href: "/accounting/petty-cash", label: "Petty cash", roles: BOOKS, icon: Wallet, hidden: true },
     { href: "/accounting/bank-recon", label: "Bank reconciliation", roles: BOOKS, icon: Scale, hidden: true },
@@ -266,7 +266,7 @@ export default function Shell({ children }: { children: ReactNode }) {
                   return (
                     <Link key={a.label} href={a.href} className="o-app" onClick={() => setMenu(null)}>
                       <span className="o-app-icon" style={{ background: a.color }}><Icon size={24} strokeWidth={1.8} /></span>
-                      <span>{t(a.label)}</span>
+                      <span className="o-app-label">{t(a.label)}</span>
                     </Link>
                   );
                 })}
