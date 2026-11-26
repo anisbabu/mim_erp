@@ -889,7 +889,7 @@ public class SalesService {
 
         List<DeliveryChallan> dcList = onlyChallans(challans.findBySoIdWithLines(soId), dcIds);
         if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
-        return tokenPdf(so, dcList, bn, false);
+        return tokenPdf(so, dcList, bn, true);
     }
 
     /** dcIds = only these challans of the order (the pickup just made from "Take Now"); null/empty = all. */
