@@ -23,6 +23,7 @@ public class DeliveryChallan {
     private LocalDate challanDate;
     private String status = "ISSUED";   // ISSUED | CONSOLIDATED | CANCELLED
     private String discountBy;          // audit: who authorised the discount
+    private java.time.OffsetDateTime collectedAt;   // set once, by the gate-pass QR scan (/public/dc) — null = not yet picked up
 
     @JsonIgnore
     @OneToMany(mappedBy = "dc", cascade = CascadeType.ALL, orphanRemoval = true)

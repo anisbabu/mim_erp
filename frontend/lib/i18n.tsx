@@ -933,6 +933,8 @@ const DICT: Record<string, { en: string; bn: string }> = {
   "Open / Print": { en: "Open / Print", bn: "খুলুন / প্রিন্ট" },
   "Print": { en: "Print", bn: "প্রিন্ট" },
   "Share": { en: "Share", bn: "শেয়ার" },
+  "Collected": { en: "Collected", bn: "সংগ্রহ করা হয়েছে" },
+  "Print warehouse gate-pass token (with QR)": { en: "Print warehouse gate-pass token (with QR)", bn: "গুদাম গেট-পাস টোকেন প্রিন্ট করুন (QR সহ)" },
   "challans": { en: "challans", bn: "চালান" },
   "Open challans by customer": { en: "Open challans by customer", bn: "গ্রাহক অনুযায়ী খোলা চালান" },
   "Open challans": { en: "Open challans", bn: "খোলা চালান" },

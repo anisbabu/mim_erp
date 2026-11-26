@@ -207,7 +207,7 @@ export type UnbilledGrn = {
 };
 export type PurchaseOrder = { id: string; poNo: string; supplierId: string; status: string; orderDate: string; note?: string };
 export type SalesOrder = { id: string; soNo: string; customerId: string; shopId: string; workflow: string; status: string; orderDate: string };
-export type DeliveryChallan = { id: string; dcNo: string; customerId: string; warehouseId: string; status: string; challanDate: string };
+export type DeliveryChallan = { id: string; dcNo: string; customerId: string; warehouseId: string; status: string; challanDate: string; collectedAt?: string | null };
 export type ChallanLineView = { dcLineId: string; dcNo: string; productId: string; productName: string; warehouseId?: string; qty: number; unitPrice: number; unitCost: number; discountAmt: number; priceLower?: number; priceUpper?: number };
 export type SoLineView = { id: string; productId: string; productName: string; qty: number; qtyPending: number; unitPrice: number };
 export type SalesReturnRow = {

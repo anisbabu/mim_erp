@@ -34,6 +34,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/login").permitAll()
                 // fetched by Meta's WhatsApp servers (no login session); the signed token is the access control
                 .requestMatchers("/public/wa/**").permitAll()
+                // warehouse gate-pass QR scan (no login session on the gate guard's phone); signed token is the access control
+                .requestMatchers("/public/dc/**").permitAll()
                 // activity log — admin only, and read only (the controller has no write endpoint)
                 .requestMatchers("/api/audit-log/**").hasRole("ADMIN")
                 // user administration — reads open to any authenticated role (e.g. authoriser

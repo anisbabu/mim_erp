@@ -64,6 +64,20 @@ export default function ChallanListPage() {
     window.open(r.url, "_blank");
   }
 
+  async function openToken(dcId: string) {
+    setBusy(dcId);
+    setTopMsg(null);
+    try {
+      const blob = await endpoints.challanTokenBlob(dcId, lang);
+      window.open(URL.createObjectURL(blob), "_blank");
+      beep();
+    } catch (e: any) {
+      setTopMsg({ kind: "err", text: e.message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function downloadChallan(dcId: string, dcNo: string) {
     const r = await fetchBlob(dcId);
     if (!r) return;
@@ -132,6 +146,11 @@ export default function ChallanListPage() {
                       }}>
                       {t(dc.status)}
                     </span>
+                    {dc.collectedAt && (
+                      <div className="text-[11px] mt-1" style={{ color: "var(--role-save)" }}>
+                        {t("Collected")} {fmtDate(dc.collectedAt)}
+                      </div>
+                    )}
                   </td>
                   <td className="text-right">
                     <div className="flex items-center justify-end gap-2">
@@ -142,6 +161,10 @@ export default function ChallanListPage() {
                       <button className="btn btn-print btn-sm" disabled={loading} title={t("Download PDF")}
                         onClick={() => downloadChallan(dc.id, dc.dcNo)}>
                         ↓ PDF
+                      </button>
+                      <button className="btn-ghost btn-sm" disabled={loading} title={t("Print warehouse gate-pass token (with QR)")}
+                        onClick={() => openToken(dc.id)}>
+                        🎫 {t("Token")}
                       </button>
                       <button className="btn btn-share btn-sm" disabled={loading} title={t("Send to customer's WhatsApp")}
                         onClick={() => shareChallan(dc.id)}>

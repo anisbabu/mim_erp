@@ -8,6 +8,7 @@ import com.mim.erp.accounting.VatService;
 import com.mim.erp.auth.AppUser;
 import com.mim.erp.auth.CurrentUserService;
 import com.mim.erp.common.ApiException;
+import com.mim.erp.common.DocLinkSigner;
 import com.mim.erp.common.DocNumberService;
 import com.mim.erp.common.PdfKit;
 import com.mim.erp.inventory.InventoryService;
@@ -19,14 +20,23 @@ import com.mim.erp.master.Warehouse;
 import com.mim.erp.master.WarehouseRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.google.zxing.BarcodeFormat;
+import com.google.zxing.client.j2se.MatrixToImageWriter;
+import com.google.zxing.common.BitMatrix;
+import com.google.zxing.qrcode.QRCodeWriter;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -62,6 +72,8 @@ public class SalesService {
     private final com.mim.erp.auth.AppUserRepository users;
     private final com.mim.erp.master.ShopRepository shops;
     private final VatService vat;
+    private final DocLinkSigner linkSigner;
+    private final String publicBaseUrl;
 
     public SalesService(SalesOrderRepository orders, DeliveryChallanRepository challans,
                         ProductRepository products, CustomerRepository customers,
@@ -71,7 +83,8 @@ public class SalesService {
                         WarehouseRepository warehouses,
                         com.mim.erp.auth.AppUserRepository users,
                         com.mim.erp.master.ShopRepository shops, VatService vat,
-                        SoStatusService soStatus) {
+                        SoStatusService soStatus, DocLinkSigner linkSigner,
+                        @Value("${mim.whatsapp.public-base-url}") String publicBaseUrl) {
         this.soStatus = soStatus;
         this.vat = vat;
         this.users = users;
@@ -80,6 +93,7 @@ public class SalesService {
         this.customers = customers; this.inventory = inventory;
         this.accounting = accounting; this.docNo = docNo; this.currentUser = currentUser;
         this.ledgers = ledgers; this.warehouses = warehouses;
+        this.linkSigner = linkSigner; this.publicBaseUrl = publicBaseUrl;
     }
 
 
@@ -875,7 +889,7 @@ public class SalesService {
 
         List<DeliveryChallan> dcList = onlyChallans(challans.findBySoIdWithLines(soId), dcIds);
         if (dcList.isEmpty()) throw new ApiException("No challans found for this order");
-        return tokenPdf(so, dcList, bn);
+        return tokenPdf(so, dcList, bn, false);
     }
 
     /** dcIds = only these challans of the order (the pickup just made from "Take Now"); null/empty = all. */
@@ -892,10 +906,27 @@ public class SalesService {
         if (dc.getSoId() == null) throw new ApiException("This challan is not under a sales order yet");
         SalesOrder so = orders.findById(dc.getSoId())
             .orElseThrow(() -> new ApiException("Sales order not found"));
-        return tokenPdf(so, List.of(dc), bn);
+        return tokenPdf(so, List.of(dc), bn, true);
     }
 
-    private byte[] tokenPdf(SalesOrder so, List<DeliveryChallan> dcList, boolean bn) {
+    /** Current collection state of a challan's gate pass — null means not yet picked up. */
+    @Transactional(readOnly = true)
+    public OffsetDateTime collectStatus(UUID dcId) {
+        return challans.findById(dcId).orElseThrow(() -> new ApiException("Challan not found")).getCollectedAt();
+    }
+
+    /** Marks a challan's gate pass as collected on first call; later calls just return the original timestamp. */
+    @Transactional
+    public OffsetDateTime markCollected(UUID dcId) {
+        DeliveryChallan dc = challans.findById(dcId).orElseThrow(() -> new ApiException("Challan not found"));
+        if (dc.getCollectedAt() == null) {
+            dc.setCollectedAt(OffsetDateTime.now());
+            challans.save(dc);
+        }
+        return dc.getCollectedAt();
+    }
+
+    private byte[] tokenPdf(SalesOrder so, List<DeliveryChallan> dcList, boolean bn, boolean withVerifyQr) {
         // collect all product names
         Set<UUID> pids = dcList.stream()
             .flatMap(dc -> dc.getLines().stream().map(DcLine::getProductId))
@@ -1001,6 +1032,40 @@ public class SalesService {
                 String noteText = bn ? String.format(kit.l("dispatch note"), whName)
                     : "* This token authorises dispatch from " + whName + " only. Do not release without this token.";
                 doc.add(kit.para(noteText, false, true, 8, Color.BLACK, Element.ALIGN_CENTER, 16, 0));
+
+                if (withVerifyQr) {
+                    if (dc.getCollectedAt() != null) {
+                        String stampText = (bn ? kit.l("ALREADY COLLECTED") + " — " : "ALREADY COLLECTED — ")
+                            + dc.getCollectedAt().atZoneSameInstant(java.time.ZoneId.systemDefault())
+                                .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+                        PdfPTable stamp = new PdfPTable(1);
+                        stamp.setWidthPercentage(100);
+                        stamp.setSpacingBefore(6);
+                        stamp.setSpacingAfter(6);
+                        PdfPCell sc = kit.cell(stampText, true, 10, Color.WHITE, Element.ALIGN_CENTER, kit.pageWidth(), 5);
+                        sc.setBackgroundColor(new Color(0xC0, 0x1C, 0x28));
+                        sc.setPadding(5);
+                        sc.setBorder(Rectangle.NO_BORDER);
+                        stamp.addCell(sc);
+                        doc.add(stamp);
+                    }
+                    try {
+                        String verifyUrl = publicBaseUrl + "/public/dc/"
+                            + linkSigner.sign("DC_VERIFY", dc.getId(), List.of(), "en", Duration.ofDays(3650));
+                        QRCodeWriter qrWriter = new QRCodeWriter();
+                        BitMatrix matrix = qrWriter.encode(verifyUrl, BarcodeFormat.QR_CODE, 160, 160);
+                        ByteArrayOutputStream qrOut = new ByteArrayOutputStream();
+                        javax.imageio.ImageIO.write(MatrixToImageWriter.toBufferedImage(matrix), "PNG", qrOut);
+                        Image qr = Image.getInstance(qrOut.toByteArray());
+                        qr.scaleToFit(70, 70);
+                        qr.setAlignment(Image.ALIGN_CENTER);
+                        doc.add(qr);
+                        doc.add(kit.para(bn ? kit.l("scan to verify pickup") : "Scan to verify / confirm pickup",
+                            false, true, 7, Color.GRAY, Element.ALIGN_CENTER, 2, 0));
+                    } catch (Exception qe) {
+                        log.warn("QR generation failed for DC {}", dc.getId(), qe);
+                    }
+                }
                 }));
             }
             return renderSlips(bn, pages);
