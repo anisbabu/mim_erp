@@ -4,7 +4,7 @@ import DateInput from "@/components/DateInput";
 import PageHeader from "@/components/PageHeader";
 import SearchSelect, { type Option } from "@/components/SearchSelect";
 import { productKeywords } from "@/lib/productSearch";
-import { useEffect, useState, useMemo } from "react";
+import { Fragment, useEffect, useState, useMemo } from "react";
 import { useI18n } from "@/lib/i18n";
 import { endpoints, type DetailStockRow, type StockStatusRow, type StockSummaryRow, type PdfTable,
   type Product, type Warehouse, type Supplier } from "@/lib/api";
@@ -15,6 +15,23 @@ type View = "all" | "product" | "warehouse" | "supplier" | "summary";
 const monthStart = () => today().slice(0, 8) + "01";
 const qtyText = (n: number) => String(Number(n.toFixed(3)));
 const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const rateText = (value: number, qty: number) => (qty ? money(value / qty) : "");
+
+type StageTotals = {
+  openingQty: number; openingValue: number; inwardQty: number; inwardValue: number;
+  outwardQty: number; outwardValue: number; closingQty: number; closingValue: number;
+};
+function sumStage(rows: StockSummaryRow[]): StageTotals {
+  const s: StageTotals = { openingQty: 0, openingValue: 0, inwardQty: 0, inwardValue: 0,
+    outwardQty: 0, outwardValue: 0, closingQty: 0, closingValue: 0 };
+  for (const r of rows) {
+    s.openingQty += Number(r.openingQty); s.openingValue += Number(r.openingValue);
+    s.inwardQty  += Number(r.inwardQty);  s.inwardValue  += Number(r.inwardValue);
+    s.outwardQty += Number(r.outwardQty); s.outwardValue += Number(r.outwardValue);
+    s.closingQty += Number(r.closingQty); s.closingValue += Number(r.closingValue);
+  }
+  return s;
+}
 
 type ProductRow   = { productId: string; onHand: number; committed: number | null; available: number | null; onOrder: number | null; value: number };
 type WarehouseRow = { warehouseId: string; qty: number; value: number };
@@ -144,6 +161,21 @@ export default function StockPage() {
     (!fProduct || r.productId === fProduct) &&
     (!fSupplier || products[r.productId]?.supplierId === fSupplier)), [summaryRows, fProduct, fSupplier, products]);
 
+  // summary rows grouped by product group (category), in the order they first appear —
+  // already sorted by group name from the backend query — with a subtotal per group.
+  const groupedSummary = useMemo(() => {
+    const order: string[] = [];
+    const map = new Map<string, StockSummaryRow[]>();
+    for (const r of summaryPicked) {
+      const g = r.productGroup ?? t("No group");
+      if (!map.has(g)) { map.set(g, []); order.push(g); }
+      map.get(g)!.push(r);
+    }
+    return order.map((g) => ({ group: g, rows: map.get(g)!, sub: sumStage(map.get(g)!) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summaryPicked, lang]);
+  const summaryGrand = useMemo(() => sumStage(summaryPicked), [summaryPicked]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const has = (...xs: string[]) => !q || xs.some((x) => x.toLowerCase().includes(q));
@@ -180,7 +212,7 @@ export default function StockPage() {
   function buildPdf(): PdfTable {
     const tabTitle: Record<View, string> = {
       all: t("Stock on hand"), product: t("Stock by product"), warehouse: t("Stock by warehouse"),
-      supplier: t("Stock by supplier"), summary: t("Stock summary"),
+      supplier: t("Stock by supplier"), summary: t("Stock summary (category wise)"),
     };
     const parts = [
       fProduct   && `${t("Product")}: ${pName(fProduct)}`,
@@ -216,17 +248,27 @@ export default function StockPage() {
       columns: [L(t("Supplier"), 3.5), L(t("Product"), 5), R(t("Qty"), 1.3), R(t("Value (cost)"), 2)],
       rows: (filtered as SupplierRow[]).map((r) => [sName(r.supplierId), pName(r.productId), qtyText(r.qty), money(r.value)]),
       total: ["", totalLabel, qtyText(totals.qty), money(totals.value)] };
+    const stageCols = (label: string) =>
+      [R(`${t(label)} ${t("Qty")}`), R(`${t(label)} ${t("Rate")}`), R(`${t(label)} ${t("Value")}`, 1.6)];
+    const stageCells = (qty: number, value: number) => [qtyText(qty), rateText(value, qty), money(value)];
     return { ...base,
-      columns: [L(t("Product"), 4.5), L(t("Group"), 2),
-        R(t("Opening") + " " + t("Qty")), R(t("Opening") + " " + t("Value"), 1.7),
-        R(t("Inward") + " " + t("Qty")),  R(t("Inward") + " " + t("Value"), 1.7),
-        R(t("Outward") + " " + t("Qty")), R(t("Outward") + " " + t("Value"), 1.7),
-        R(t("Closing") + " " + t("Qty")), R(t("Closing") + " " + t("Value"), 1.7)],
-      rows: (filtered as StockSummaryRow[]).map((r) => [pName(r.productId), r.productGroup ?? "",
-        qtyText(Number(r.openingQty)), money(Number(r.openingValue)), qtyText(Number(r.inwardQty)), money(Number(r.inwardValue)),
-        qtyText(Number(r.outwardQty)), money(Number(r.outwardValue)), qtyText(Number(r.closingQty)), money(Number(r.closingValue))]),
-      total: [totalLabel, "", "", money(totals.openingValue), "", money(totals.inwardValue),
-        "", money(totals.outwardValue), "", money(totals.closingValue)] };
+      columns: [L(t("Product"), 4), ...stageCols("Opening"), ...stageCols("Inward"), ...stageCols("Outward"), ...stageCols("Closing")],
+      rows: groupedSummary.flatMap((g) => [
+        [g.group, "", "", "", "", "", "", "", "", "", "", "", ""],
+        ...g.rows.map((r) => [pName(r.productId),
+          ...stageCells(Number(r.openingQty), Number(r.openingValue)),
+          ...stageCells(Number(r.inwardQty), Number(r.inwardValue)),
+          ...stageCells(Number(r.outwardQty), Number(r.outwardValue)),
+          ...stageCells(Number(r.closingQty), Number(r.closingValue))]),
+        [t("Sub Total"), qtyText(g.sub.openingQty), "", money(g.sub.openingValue),
+          qtyText(g.sub.inwardQty), "", money(g.sub.inwardValue),
+          qtyText(g.sub.outwardQty), "", money(g.sub.outwardValue),
+          qtyText(g.sub.closingQty), "", money(g.sub.closingValue)],
+      ]),
+      total: [t("Grand Total"), qtyText(summaryGrand.openingQty), "", money(summaryGrand.openingValue),
+        qtyText(summaryGrand.inwardQty), "", money(summaryGrand.inwardValue),
+        qtyText(summaryGrand.outwardQty), "", money(summaryGrand.outwardValue),
+        qtyText(summaryGrand.closingQty), "", money(summaryGrand.closingValue)] };
   }
 
   async function downloadPdf() {
@@ -405,42 +447,64 @@ export default function StockPage() {
           <table className="tbl">
             <thead>
               <tr>
-                <th rowSpan={2}>{t("Product")}</th><th rowSpan={2}>{t("Group")}</th>
-                <th colSpan={2} className="text-center">{t("Opening")}</th>
-                <th colSpan={2} className="text-center">{t("Inward")}</th>
-                <th colSpan={2} className="text-center">{t("Outward")}</th>
-                <th colSpan={2} className="text-center">{t("Closing")}</th>
+                <th rowSpan={2}>{t("Product")}</th>
+                <th colSpan={3} className="text-center">{t("Opening")}</th>
+                <th colSpan={3} className="text-center">{t("Inward")}</th>
+                <th colSpan={3} className="text-center">{t("Outward")}</th>
+                <th colSpan={3} className="text-center">{t("Closing")}</th>
               </tr>
               <tr>
-                {["Qty", "Value", "Qty", "Value", "Qty", "Value", "Qty", "Value"].map((h, i) =>
+                {["Qty", "Rate", "Value", "Qty", "Rate", "Value", "Qty", "Rate", "Value", "Qty", "Rate", "Value"].map((h, i) =>
                   <th key={i} className="num">{t(h)}</th>)}
               </tr>
             </thead>
             <tbody>
-              {empty(10)}
-              {(pageItems as StockSummaryRow[]).map((r, i) => (
-                <tr key={i}>
-                  <td>{pName(r.productId)}</td>
-                  <td>{r.productGroup ?? ""}</td>
-                  <td className="num">{qtyText(Number(r.openingQty))}</td><td className="num">{money(Number(r.openingValue))}</td>
-                  <td className="num">{qtyText(Number(r.inwardQty))}</td><td className="num">{money(Number(r.inwardValue))}</td>
-                  <td className="num">{qtyText(Number(r.outwardQty))}</td><td className="num">{money(Number(r.outwardValue))}</td>
-                  <td className="num">{qtyText(Number(r.closingQty))}</td><td className="num">{money(Number(r.closingValue))}</td>
-                </tr>
+              {groupedSummary.length === 0 && (
+                <tr><td colSpan={13} className="text-center" style={{ color: "var(--muted)" }}>
+                  {t("No stock movements in this period.")}</td></tr>
+              )}
+              {groupedSummary.map((g) => (
+                <Fragment key={g.group}>
+                  <tr><td colSpan={13} className="bg-brand-soft text-brand font-semibold">{g.group}</td></tr>
+                  {g.rows.map((r, i) => (
+                    <tr key={i}>
+                      <td>{pName(r.productId)}</td>
+                      <td className="num">{qtyText(Number(r.openingQty))}</td>
+                      <td className="num">{rateText(Number(r.openingValue), Number(r.openingQty))}</td>
+                      <td className="num">{money(Number(r.openingValue))}</td>
+                      <td className="num">{qtyText(Number(r.inwardQty))}</td>
+                      <td className="num">{rateText(Number(r.inwardValue), Number(r.inwardQty))}</td>
+                      <td className="num">{money(Number(r.inwardValue))}</td>
+                      <td className="num">{qtyText(Number(r.outwardQty))}</td>
+                      <td className="num">{rateText(Number(r.outwardValue), Number(r.outwardQty))}</td>
+                      <td className="num">{money(Number(r.outwardValue))}</td>
+                      <td className="num">{qtyText(Number(r.closingQty))}</td>
+                      <td className="num">{rateText(Number(r.closingValue), Number(r.closingQty))}</td>
+                      <td className="num">{money(Number(r.closingValue))}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-semibold">
+                    <td>{t("Sub Total")}</td>
+                    <td className="num">{qtyText(g.sub.openingQty)}</td><td className="num" /><td className="num">{money(g.sub.openingValue)}</td>
+                    <td className="num">{qtyText(g.sub.inwardQty)}</td><td className="num" /><td className="num">{money(g.sub.inwardValue)}</td>
+                    <td className="num">{qtyText(g.sub.outwardQty)}</td><td className="num" /><td className="num">{money(g.sub.outwardValue)}</td>
+                    <td className="num">{qtyText(g.sub.closingQty)}</td><td className="num" /><td className="num">{money(g.sub.closingValue)}</td>
+                  </tr>
+                </Fragment>
               ))}
             </tbody>
-            {filtered.length > 0 && <tfoot><tr>
-              <td colSpan={2} className="text-right font-semibold">{totalLabel}</td>
-              <td /><td className="num font-semibold">{money(totals.openingValue)}</td>
-              <td /><td className="num font-semibold">{money(totals.inwardValue)}</td>
-              <td /><td className="num font-semibold">{money(totals.outwardValue)}</td>
-              <td /><td className="num font-semibold">{money(totals.closingValue)}</td>
+            {groupedSummary.length > 0 && <tfoot><tr className="font-semibold">
+              <td>{t("Grand Total")}</td>
+              <td className="num">{qtyText(summaryGrand.openingQty)}</td><td className="num" /><td className="num">{money(summaryGrand.openingValue)}</td>
+              <td className="num">{qtyText(summaryGrand.inwardQty)}</td><td className="num" /><td className="num">{money(summaryGrand.inwardValue)}</td>
+              <td className="num">{qtyText(summaryGrand.outwardQty)}</td><td className="num" /><td className="num">{money(summaryGrand.outwardValue)}</td>
+              <td className="num">{qtyText(summaryGrand.closingQty)}</td><td className="num" /><td className="num">{money(summaryGrand.closingValue)}</td>
             </tr></tfoot>}
           </table>
         )}
       </div>
 
-      {totalPages > 1 && (
+      {totalPages > 1 && view !== "summary" && (
         <div className="flex items-center justify-between mt-4 text-sm" style={{ color: "var(--muted)" }}>
           <span>{filtered.length} {t("rows")} · {t("page")} {page} {t("of")} {totalPages}</span>
           <div className="flex gap-2">
