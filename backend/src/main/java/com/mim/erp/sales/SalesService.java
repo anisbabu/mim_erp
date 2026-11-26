@@ -654,9 +654,11 @@ public class SalesService {
             acct.setHorizontalAlignment(Element.ALIGN_RIGHT);
             acct.setSpacingBefore(6);
             acct.setSpacingAfter(8);
-            acctRow(acct, kit, kit.l("Previous Balance"), fmt(bal[0]), true, boxW * 0.6f, boxW * 0.4f);
+            // a negative balance is money of the customer's we hold (cash paid ahead of undelivered goods) —
+            // show it as a credit/advance, never as a negative "Due" figure
+            acctRow(acct, kit, kit.l(bal[0].signum() < 0 ? "Advance Balance" : "Previous Balance"), fmt(bal[0].abs()), true, boxW * 0.6f, boxW * 0.4f);
             acctRow(acct, kit, kit.l(credit ? "This Invoice (On Credit)" : "Paid In Cash"), fmt(grandTotal), false, boxW * 0.6f, boxW * 0.4f);
-            acctRow(acct, kit, kit.l("Balance Due"), fmt(bal[1]), true, boxW * 0.6f, boxW * 0.4f);
+            acctRow(acct, kit, kit.l(bal[1].signum() < 0 ? "Advance Balance" : "Balance Due"), fmt(bal[1].abs()), true, boxW * 0.6f, boxW * 0.4f);
             doc.add(acct);
 
             doc.add(kit.para(kit.l("Thank you for your business with us."), false, true, 9, Color.BLACK, Element.ALIGN_CENTER, 18, 0));

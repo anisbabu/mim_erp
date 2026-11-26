@@ -190,6 +190,7 @@ public final class PdfKit {
     private static final Map<String, String> BN = Map.ofEntries(
         Map.entry("SALES INVOICE", "বিক্রয় ইনভয়েস"),
         Map.entry("Previous Balance", "পূর্বের বাকি"),
+        Map.entry("Advance Balance", "অগ্রিম জমা"),
         Map.entry("Salesperson", "বিক্রয়কর্মী"),
         Map.entry("This Invoice (On Credit)", "এই ইনভয়েস (বাকিতে)"),
         Map.entry("Paid In Cash", "নগদ পরিশোধ"),

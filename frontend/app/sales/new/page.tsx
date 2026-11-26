@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
-  endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView, type CommittedRow, type StockStatusRow,
+  endpoints, type Product, type Warehouse, type Shop, type Customer, type Supplier, type WarehouseStock, type UserView, type StockStatusRow,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { TrashIcon } from "@/components/Icons";
@@ -14,10 +14,7 @@ import { useI18n } from "@/lib/i18n";
 import TopMessage from "@/components/TopMessage";
 import { useStepCheck, type Problem } from "@/lib/useStepCheck";
 
-type Line = { productId: string; warehouseId: string; qty: string; unitPrice: string };
-/** Quantity delivered at order time: all of it from the chosen warehouse, nothing without one —
- *  that stays pending and is taken later from Sales orders → Take now. */
-const takeOf = (l: Line) => (l.warehouseId ? Number(l.qty) || 0 : 0);
+type Line = { productId: string; qty: string; unitPrice: string };
 
 export default function NewSalePage() {
   const { user, activeShopId } = useAuth();
@@ -36,7 +33,7 @@ export default function NewSalePage() {
   const [salespersonId, setSalespersonId] = useState("");
   const [localShopId, setLocalShopId]   = useState("");
   const [paymentMode, setPaymentMode]   = useState<"CASH" | "CREDIT">("CASH");
-  const [lines, setLines] = useState<Line[]>([{ productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
+  const [lines, setLines] = useState<Line[]>([{ productId: "", qty: "", unitPrice: "" }]);
   const [overrideBy, setOverrideBy] = useState("");
   const [discountBy, setDiscountBy] = useState("");
   const [discount, setDiscount]     = useState("");
@@ -48,11 +45,10 @@ export default function NewSalePage() {
   const [demoLoaded, setDemoLoaded] = useState(false);
   const [focusLine, setFocusLine] = useState<number | null>(null);
 
+  // stock-by-warehouse reference panel for whichever line's product was picked last — informational only;
+  // delivery (which warehouse, how much now vs pending) is decided later on Sales orders → Fulfill.
   const [stockPanel, setStockPanel]         = useState<WarehouseStock[]>([]);
   const [panelProductId, setPanelProductId] = useState("");
-  const [panelLineIndex, setPanelLineIndex] = useState<number | null>(null);
-  const [stockByProduct, setStockByProduct] = useState<Record<string, WarehouseStock[]>>({});
-  const [committedByProduct, setCommittedByProduct] = useState<Record<string, CommittedRow[]>>({});
 
   useEffect(() => {
     endpoints.products().then(setProducts).catch(() => {});
@@ -102,20 +98,16 @@ export default function NewSalePage() {
         const p = (l.productId && products.find((x) => x.id === l.productId)) || products.find((x) => x.name === l.name || x.fullName === l.name || x.nameBn === l.name);
         if (!p) { skipped.push(l.name); continue; }
         disc += Number(l.discount) || 0;
-        next.push({ productId: p.id, warehouseId: "", qty: String(l.qty), unitPrice: String(l.unitPrice) });
+        next.push({ productId: p.id, qty: String(l.qty), unitPrice: String(l.unitPrice) });
       }
-      if (next.length) {
-        setLines(next);
-        next.forEach((n) => endpoints.availability(n.productId).then((s) => setStockByProduct((m) => ({ ...m, [n.productId]: s }))).catch(() => {}));
-      }
+      if (next.length) setLines(next);
       if (disc > 0) setDiscount(String(disc));
       setDemo({ id: d.id, code: d.code, skipped: [...skipped, ...(cust ? [] : [t("Customer not found - pick one")])] });
     }).catch((e: any) => setMsg({ kind: "err", text: e.message }));
   }, [products, customers, salespeople, demoLoaded]);
 
-  const productById   = useMemo(() => Object.fromEntries(products.map((p) => [p.id, p])), [products]);
-  const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
   const supplierById  = useMemo(() => Object.fromEntries(suppliers.map((s) => [s.id, s])), [suppliers]);
+  const warehouseById = useMemo(() => Object.fromEntries(warehouses.map((w) => [w.id, w])), [warehouses]);
   const customerOpts: Option[] = useMemo(
     () => customers.map((c) => ({ value: c.id, label: `${dn(c)} (${t(c.type)})`, sublabel: c.mobile })),
     [customers, lang]);
@@ -152,45 +144,25 @@ export default function NewSalePage() {
   }
 
   async function selectProduct(i: number, productId: string) {
-    update(i, { productId, warehouseId: "" });
+    update(i, { productId });
     if (!productId) return;
     setPanelProductId(productId);
-    setPanelLineIndex(i);
-    endpoints.committed(productId)
-      .then((c) => setCommittedByProduct((m) => ({ ...m, [productId]: c })))
-      .catch(() => {});
     try {
       const s = await endpoints.availability(productId);
       setStockPanel(s);
-      setStockByProduct((m) => ({ ...m, [productId]: s }));
-      const stocked = s.filter((x) => x.qty > 0);
-      // unit price = FIFO cost from stock_layer (the only warehouse, or the first one until a warehouse is picked)
-      const first = stocked[0];
-      const patch: Partial<Line> = {};
-      if (stocked.length === 1) patch.warehouseId = first.warehouseId;
-      if (first?.unitCost != null) patch.unitPrice = String(first.unitCost);
-      update(i, patch);
+      // unit price defaults to the FIFO cost of whichever warehouse has it first — just a starting point
+      const first = s.filter((x) => x.qty > 0)[0];
+      if (first?.unitCost != null) update(i, { unitPrice: String(first.unitCost) });
     } catch { setStockPanel([]); }
-  }
-
-  // choosing a warehouse also sets the unit price to that warehouse's next FIFO layer cost
-  function pickWarehouse(i: number, warehouseId: string) {
-    const cost = stockByProduct[lines[i]?.productId]?.find((s) => s.warehouseId === warehouseId)?.unitCost;
-    update(i, cost != null ? { warehouseId, unitPrice: String(cost) } : { warehouseId });
-  }
-
-  function pickWarehouseFromPanel(warehouseId: string) {
-    if (panelLineIndex == null) return;
-    pickWarehouse(panelLineIndex, warehouseId);
   }
 
   function update(i: number, patch: Partial<Line>) {
     setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, ...patch } : l));
   }
-  const addLine    = () => setLines((ls) => [...ls, { productId: "", warehouseId: "", qty: "", unitPrice: "" }]);
+  const addLine    = () => setLines((ls) => [...ls, { productId: "", qty: "", unitPrice: "" }]);
   const removeLine = (i: number) => setLines((ls) => ls.filter((_, idx) => idx !== i));
 
-  // Enter in a line's qty / price / total / warehouse goes to the next line's product, adding the line
+  // Enter in a line's qty / price / total goes to the next line's product, adding the line
   // when this is the last one. The product search handles its own Enter (it is rendered outside the row).
   function lineEnter(e: KeyboardEvent<HTMLElement>, i: number) {
     const el = e.target as HTMLElement;
@@ -220,20 +192,6 @@ export default function NewSalePage() {
 
   const shopId = activeShopId || localShopId;
 
-  const pendingWarnings = useMemo(() => {
-    const wantByProduct: Record<string, number> = {};
-    for (const l of lines) if (l.productId && l.warehouseId) wantByProduct[l.productId] = (wantByProduct[l.productId] ?? 0) + takeOf(l);
-    return Object.entries(wantByProduct).flatMap(([pid, want]) => {
-      const waiting = committedByProduct[pid] ?? [];
-      if (!waiting.length || want <= 0) return [];
-      const onHand = (stockByProduct[pid] ?? []).reduce((s, x) => s + Number(x.qty), 0);
-      const committed = waiting.reduce((s, x) => s + Number(x.qtyPending), 0);
-      if (onHand - committed >= want) return [];
-      const p = productById[pid];
-      return [{ pid, name: (lang === "bn" && p?.nameBn) || p?.fullName || p?.name || pid, onHand, committed, want, waiting }];
-    });
-  }, [lines, committedByProduct, stockByProduct, productById, lang]);
-
   /** First thing missing, in form order: shop, customer, salesperson, then line by line product -> qty -> price, then discount authoriser. */
   const problem = useMemo((): Problem => {
     if (!shopId) return { key: "shop", text: t("Select a shop.") };
@@ -258,6 +216,8 @@ export default function NewSalePage() {
     const validLines = lines.filter((l) => l.productId && Number(l.qty) > 0);
     const sumGross = validLines.reduce((s, l) => s + Number(l.qty) * Number(l.unitPrice), 0);
     let assigned = 0;
+    // a sales order only — nothing is delivered here; warehouse, Take now and the resulting
+    // token/challan all happen later on Sales orders → Fulfill (full or partial, as the customer takes it)
     const allocations = validLines.map((l, i) => {
       const lineGross = Number(l.qty) * Number(l.unitPrice);
       const isLast = i === validLines.length - 1;
@@ -267,9 +227,8 @@ export default function NewSalePage() {
           : Math.round((totalDiscount * lineGross / sumGross) * 100) / 100
         : 0;
       if (!isLast) assigned += lineDisc;
-      return { productId: l.productId, warehouseId: l.warehouseId || null, qty: Number(l.qty),
-               unitPrice: Number(l.unitPrice), discountAmt: lineDisc,
-               deliverQty: l.warehouseId ? takeOf(l) : null };
+      return { productId: l.productId, warehouseId: null, qty: Number(l.qty),
+               unitPrice: Number(l.unitPrice), discountAmt: lineDisc, deliverQty: null };
     });
     // no price band on a new sales order: any price saves; the placeholder authoriser keeps the
     // backend's band / below-cost check from blocking and marks such lines in the audit column
@@ -285,14 +244,10 @@ export default function NewSalePage() {
         deliveryMobile:      deliveryMobile.trim() || null,
       });
       if (demo) { endpoints.linkDemoInvoice(demo.id, res.soId).catch(() => {}); setDemo(null); }
-      const margin = (res.totalValue - res.totalCost).toFixed(2);
-      loadStock();
-      setMsg({ kind: "ok", text: `${t("Sale")} ${res.soNo} ${t("created")} · ${res.challanIds.length} ${t("challan(s)")} · ${t("margin")} ${margin}` });
+      setMsg({ kind: "ok", text: `${t("Sale")} ${res.soNo} ${t("created")} — ${t("fulfill it from Sales orders to deliver")}` });
+      setLines([{ productId: "", qty: "", unitPrice: "" }]);
       setDiscount(""); setTransport(""); setDeliveryAddress(""); setDeliveryMobile("");
-      if (panelProductId) {
-        const s = await endpoints.availability(panelProductId);
-        setStockPanel(s);
-      }
+      setPanelProductId(""); setStockPanel([]);
     } catch (e: any) {
       setMsg({ kind: "err", text: e.message });
     } finally { setBusy(false); }
@@ -330,21 +285,13 @@ export default function NewSalePage() {
                 {stockPanel.length === 0 && (
                   <tr><td colSpan={2} className="muted text-xs px-3 py-2">{t("No stock")}</td></tr>
                 )}
-                {stockPanel.map((s, idx) => {
-                  const selected = panelLineIndex != null && lines[panelLineIndex]?.warehouseId === s.warehouseId;
-                  return (
-                    <tr key={s.warehouseId}
-                      onClick={() => s.qty > 0 && pickWarehouseFromPanel(s.warehouseId)}
-                      style={{
-                        background: selected ? "#d1fae5" : (idx % 2 === 0 ? "var(--surface)" : "var(--bg)"),
-                        cursor: s.qty > 0 ? "pointer" : "default",
-                      }}>
-                      <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId}</td>
-                      <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
-                          style={{ color: s.qty === 0 ? "#b4690e" : "var(--brand)" }}>{s.qty}</td>
-                    </tr>
-                  );
-                })}
+                {stockPanel.map((s, idx) => (
+                  <tr key={s.warehouseId} style={{ background: idx % 2 === 0 ? "var(--surface)" : "var(--bg)" }}>
+                    <td className="px-3 py-1.5 text-sm">{warehouseById[s.warehouseId] ? dn(warehouseById[s.warehouseId]) : s.warehouseId}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums font-medium text-sm"
+                        style={{ color: s.qty === 0 ? "#b4690e" : "var(--brand)" }}>{s.qty}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -356,7 +303,7 @@ export default function NewSalePage() {
 
       {demo && (
         <div className="note mb-4">
-          {t("From demo invoice")} <b className="font-mono">{demo.code}</b> - {t("check the lines, pick warehouses, then save the sale.")}
+          {t("From demo invoice")} <b className="font-mono">{demo.code}</b> - {t("check the lines, then save the order.")}
           {demo.skipped.length > 0 && <div className="mt-1" style={{ color: "#b4690e" }}>{t("Not in the product list, add by hand")}: {demo.skipped.join(", ")}</div>}
         </div>
       )}
@@ -407,16 +354,12 @@ export default function NewSalePage() {
                 <th className="text-right" style={{ width: 90 }}>{t("Qty")}</th>
                 <th className="text-right" style={{ width: 110 }}>{t("Unit price")}</th>
                 <th className="text-right" style={{ width: 120 }}>{t("Gross total")}</th>
-                <th style={{ width: 150 }}>{t("Warehouse")}</th>
                 <th style={{ width: 40 }}></th>
               </tr>
             </thead>
             <tbody>
               {lines.map((l, i) => {
                 const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
-                const lineStock = l.productId ? stockByProduct[l.productId] : undefined;
-                const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
-                const stockedWarehouses = lineStock ? warehouses.filter((w) => qtyByWarehouse[w.id] > 0) : warehouses;
                 return (
                   <tr key={i} data-line={i} onKeyDown={(e) => lineEnter(e, i)}>
                     <td className="align-top">
@@ -444,21 +387,6 @@ export default function NewSalePage() {
                         placeholder="0.00" />
                       <div className="h-4 mt-1" />
                     </td>
-                    <td className="align-top">
-                      <select className="inp" value={l.warehouseId} onChange={(e) => pickWarehouse(i, e.target.value)}>
-                        <option value="">{t("Select…")}</option>
-                        {stockedWarehouses.map((w) => (
-                          <option key={w.id} value={w.id}>
-                            {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="text-[11px] mt-1 h-4 leading-4" style={{ color: "var(--muted)" }}>
-                        {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
-                        {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
-                        {!l.warehouseId && l.productId && Number(l.qty) > 0 ? t("all pending (no warehouse)") : ""}
-                      </div>
-                    </td>
                     <td className="text-right align-top pt-2">
                       {lines.length > 1 && (
                         <button className="btn-icon btn-icon-del" title={t("Remove")} onClick={() => removeLine(i)}>
@@ -478,9 +406,6 @@ export default function NewSalePage() {
         <div className="md:hidden divide-y divide-[var(--border)]">
           {lines.map((l, i) => {
             const grossTotal = (Number(l.qty) * Number(l.unitPrice)) || 0;
-            const lineStock = l.productId ? stockByProduct[l.productId] : undefined;
-            const qtyByWarehouse = Object.fromEntries((lineStock ?? []).map((s) => [s.warehouseId, s.qty]));
-            const stockedWarehouses = lineStock ? warehouses.filter((w) => qtyByWarehouse[w.id] > 0) : warehouses;
             return (
               <div key={i} data-line={i} onKeyDown={(e) => lineEnter(e, i)} className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -512,22 +437,6 @@ export default function NewSalePage() {
                       value={grossTotal ? grossTotal.toFixed(2) : ""}
                       onChange={(e) => { const t = Number(e.target.value), q = Number(l.qty); if (q > 0) update(i, { unitPrice: String(t / q) }); }}
                       placeholder="0.00" />
-                  </div>
-                </div>
-                <div className="field">
-                  <label className="text-xs muted block mb-1">{t("Warehouse")}</label>
-                  <select className="inp" value={l.warehouseId} onChange={(e) => pickWarehouse(i, e.target.value)}>
-                    <option value="">{t("Select…")}</option>
-                    {stockedWarehouses.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {dn(w)}{qtyByWarehouse[w.id] != null ? ` (${qtyByWarehouse[w.id]})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
-                    {l.productId && lineStock && stockedWarehouses.length === 0 ? t("no stock") : ""}
-                    {l.warehouseId && qtyByWarehouse[l.warehouseId] != null ? `${t("on hand")}: ${qtyByWarehouse[l.warehouseId]}` : ""}
-                    {!l.warehouseId && l.productId && Number(l.qty) > 0 ? t("all pending (no warehouse)") : ""}
                   </div>
                 </div>
               </div>
@@ -582,21 +491,9 @@ export default function NewSalePage() {
           value={overrideBy} onChange={(e) => setOverrideBy(e.target.value)} />
       </div>
 
-      {pendingWarnings.length > 0 && (
-        <div className="mb-4 text-sm rounded-lg px-4 py-3" style={{ background: "#fdf3e1", color: "#7a4a06" }}>
-          {pendingWarnings.map((w) => (
-            <div key={w.pid} className="mb-1 last:mb-0">
-              ⚠ <b>{w.name}</b>: {t("on hand")} {w.onHand}, {t("already sold but not picked up")} {w.committed}
-              {" "}({t("waiting:")} {w.waiting.map((c) => `${c.customerName} ${Number(c.qtyPending)} (${c.soNo})`).join(", ")}).
-              {" "}{t("Taking")} {w.want} {t("now may leave them short. You can still sell, at your own risk.")}
-            </div>
-          ))}
-        </div>
-      )}
-
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <button className="btn w-full sm:w-auto shrink-0" onClick={submit} disabled={busy}>
-          {busy ? t("Creating…") : t("Create invoice & deliver")}
+          {busy ? t("Creating…") : t("Save order")}
         </button>
         <TopMessage msg={check.msg ?? msg} />
       </div>
